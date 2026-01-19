@@ -1,0 +1,1071 @@
+SCRIPT 1/13 — PRD final + arquitetura (MVP local Docker → produção AWS) com usuários (SYSTEM_ADMIN, TENANT_ADMIN, EMPLOYEE, INDIVIDUAL), React+Tailwind, EO pipeline, Signals e Copilot (LangGraph/HIL)
+
+OBJETIVO DO MVP
+1) Monitoramento semanal por satélite:
+   - situação do pasto/plantio (NDVI + anomalia + heterogeneidade)
+   - alertas (risco) e sinais (oportunidade)
+2) Estimativa de colheita (modo “index relative” no MVP)
+3) Multi-tenant robusto + dashboards:
+   - admin-ui (SYSTEM_ADMIN) em /admin/*
+   - app-ui (TENANT_ADMIN/EMPLOYEE/INDIVIDUAL) em /app/*
+4) IA em duas camadas:
+   A) IA analítica (determinística + ML leve) em Python no Worker (jobs)
+   B) IA agentic (LLM) com LangGraph/LangChain + Human-in-the-Loop (HIL) como Copilot no API (e/ou worker), com estados persistidos, aprovações e auditoria.
+
+USUÁRIOS / TENANCY
+- Identity: “quem é” (sub do IdP)
+- Tenant: “empresa” (COMPANY) ou “pessoal” (PERSONAL)
+- Membership: vínculo identity↔tenant com role (TENANT_ADMIN|OPERATOR|VIEWER)
+- SYSTEM_ADMIN: poderes globais fora do tenant (tabela separada)
+
+REGRA: INDIVIDUAL = tenant pessoal (PERSONAL) criado no onboarding. Usuário vira TENANT_ADMIN desse tenant por default.
+
+FRONTEND
+- admin-ui: Next.js (React 18) + Tailwind, basePath=/admin, output='export' (S3/CloudFront)
+- app-ui: Next.js (React 18) + Tailwind, basePath=/app, output='export'
+
+BACKEND
+- API (FastAPI):
+  - Auth OIDC + workspace switch (active_tenant)
+  - CRUD farms/AOIs/jobs, assets presigned, alerts/signals
+  - Tenant admin endpoints (memberships/settings/exports)
+  - System admin endpoints (tenants/quotas/feature flags/DLQ)
+  - Copilot endpoints (LangGraph/HIL) para explicar sinais, sugerir ações e exigir aprovação humana para ações sensíveis
+- Worker (Python):
+  - PROCESS_WEEK, ALERTS_WEEK, SIGNALS_WEEK, FORECAST_WEEK, BACKFILL
+  - Signals Engine: baseline/anomaly + change detection + score + recommended actions
+- TiTiler:
+  - /tiles/* para COGs
+
+ARMAZENAMENTO
+- PostGIS (RDS em prod)
+- S3 privado (assets)
+- SQS + DLQ (jobs)
+- Redis (cache/locks) recomendado
+
+NÃO-NEGOCIÁVEIS
+- tenant_id sempre derivado do token/session (nunca do body/query)
+- idempotência por job_key (UNIQUE tenant_id, job_key)
+- auditoria append-only (audit_log)
+- mobile-first: touch targets >=44×44, cards no mobile, filtros em drawer, bottom tabs
+- feature flags por tenant para rollout (signals/copilot)
+
+
+# SCRIPT 2/13 — docker-compose.yml (LOCAL) com api/worker/tiler + admin-ui/app-ui (Next+Tailwind) + PostGIS + LocalStack (S3/SQS) + Redis
+name: eo-mvp
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: eo
+      POSTGRES_USER: eo
+      POSTGRES_PASSWORD: eo
+    ports: ["5432:5432"]
+    volumes: ["dbdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eo -d eo"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    command: ["redis-server","--appendonly","yes"]
+    volumes: ["redisdata:/data"]
+
+  localstack:
+    image: localstack/localstack:latest
+    ports: ["4566:4566"]
+    environment:
+      - SERVICES=s3,sqs
+      - AWS_DEFAULT_REGION=sa-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - PERSISTENCE=1
+    volumes:
+      - localstackdata:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./infra/docker/localstack-init:/etc/localstack/init/ready.d
+
+  api:
+    build: { context: ./services/api }
+    env_file: ["./infra/docker/env/.env.local"]
+    depends_on:
+      db: { condition: service_healthy }
+      localstack: { condition: service_started }
+      redis: { condition: service_started }
+    ports: ["8000:8000"]
+    command: ["bash","-lc","uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+    restart: unless-stopped
+
+  worker:
+    build: { context: ./services/worker }
+    env_file: ["./infra/docker/env/.env.local"]
+    depends_on:
+      db: { condition: service_healthy }
+      localstack: { condition: service_started }
+      redis: { condition: service_started }
+    command: ["bash","-lc","python -m worker.main"]
+    restart: unless-stopped
+
+  tiler:
+    build: { context: ./services/tiler }
+    env_file: ["./infra/docker/env/.env.local"]
+    ports: ["8080:8080"]
+    command: ["bash","-lc","uvicorn tiler.main:app --host 0.0.0.0 --port 8080"]
+    restart: unless-stopped
+
+  admin_ui:
+    build: { context: ./services/admin-ui }
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://localhost:8000
+      - NEXT_PUBLIC_BASE_PATH=/admin
+    ports: ["3001:3000"]
+    command: ["bash","-lc","npm run dev -- -p 3000"]
+    restart: unless-stopped
+
+  app_ui:
+    build: { context: ./services/app-ui }
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://localhost:8000
+      - NEXT_PUBLIC_BASE_PATH=/app
+    ports: ["3002:3000"]
+    command: ["bash","-lc","npm run dev -- -p 3000"]
+    restart: unless-stopped
+
+volumes:
+  dbdata:
+  redisdata:
+  localstackdata:
+
+
+SCRIPT 3/13 — .env.local / .env.prod (AWS) com tenancy claims, session token (workspace switch), S3/SQS, pipeline, signals, copilot/HIL
+
+ARQUIVO: infra/docker/env/.env.local
+ENV=local
+LOG_LEVEL=INFO
+
+# Auth (dois “realms”)
+JWT_SECRET=dev-secret
+JWT_ISSUER=eo-local
+JWT_AUDIENCE=eo-app
+SYSTEM_ADMIN_ISSUER=eo-local-admin
+SYSTEM_ADMIN_AUDIENCE=eo-admin
+
+# Tenant claims (quando vier do IdP) — opcional; usamos principalmente session token interno
+TENANT_CLAIM_KEY=custom:tenantID
+ROLES_CLAIM_KEY=custom:roles
+
+# Session token interno p/ workspace switch (identity pode ter múltiplos memberships)
+SESSION_JWT_SECRET=dev-session-secret
+SESSION_JWT_ISSUER=eo-session
+SESSION_JWT_AUDIENCE=eo-app
+SESSION_TOKEN_TTL_MINUTES=120
+
+# DB/Redis
+DATABASE_URL=postgresql+psycopg://eo:eo@db:5432/eo
+REDIS_URL=redis://redis:6379/0
+
+# AWS localstack
+AWS_REGION=sa-east-1
+AWS_ENDPOINT_URL=http://localstack:4566
+AWS_ACCESS_KEY_ID=test
+AWS_SECRET_ACCESS_KEY=test
+S3_BUCKET=eo-derived-local
+S3_PRESIGN_EXPIRES_SECONDS=900
+S3_FORCE_PATH_STYLE=true
+
+SQS_QUEUE_NAME=eo-jobs
+SQS_DLQ_NAME=eo-jobs-dlq
+SQS_VISIBILITY_TIMEOUT_SECONDS=900
+SQS_MAX_RECEIVE_COUNT=3
+
+# Pipeline
+PIPELINE_VERSION=v1
+MAX_CLOUD_COVER=60
+MIN_VALID_PIXEL_RATIO=0.15
+
+# Signals
+SIGNALS_ENABLED=true
+SIGNALS_CHANGE_DETECTION=BFastLike
+SIGNALS_MIN_HISTORY_WEEKS=12
+SIGNALS_SCORE_THRESHOLD=0.65
+SIGNALS_PERSISTENCE_WEEKS=3
+SIGNALS_MODEL_VERSION=signals-v1
+
+# Copilot (LangGraph/LangChain HITL)
+COPILOT_ENABLED=true
+COPILOT_MODEL=gpt-5.2-thinking
+COPILOT_HITL_REQUIRED=true
+COPILOT_INTERRUPT_ON_TOOLS=["create_notification","trigger_webhook","create_work_order"]
+COPILOT_STATE_STORE=postgres   # postgres|redis
+COPILOT_MAX_STEPS=12
+
+# UI mobile-first
+UI_MIN_TOUCH_TARGET_PX=44
+
+---------------------------------------------------------
+ARQUIVO: infra/docker/env/.env.prod (AWS)
+ENV=prod
+LOG_LEVEL=INFO
+
+JWT_SECRET=<SecretsManager>
+JWT_ISSUER=<Cognito/OIDC>
+JWT_AUDIENCE=eo-app
+SYSTEM_ADMIN_ISSUER=<Cognito-admin>
+SYSTEM_ADMIN_AUDIENCE=eo-admin
+
+TENANT_CLAIM_KEY=custom:tenantID
+ROLES_CLAIM_KEY=custom:roles
+
+SESSION_JWT_SECRET=<SecretsManager>
+SESSION_JWT_ISSUER=eo-session
+SESSION_JWT_AUDIENCE=eo-app
+SESSION_TOKEN_TTL_MINUTES=120
+
+DATABASE_URL=<RDS>
+REDIS_URL=<ElastiCache>
+
+AWS_REGION=sa-east-1
+S3_BUCKET=eo-derived-prod
+S3_PRESIGN_EXPIRES_SECONDS=900
+SQS_QUEUE_URL=<SQS_URL>
+SQS_VISIBILITY_TIMEOUT_SECONDS=900
+SQS_MAX_RECEIVE_COUNT=3
+
+PIPELINE_VERSION=v1
+MAX_CLOUD_COVER=60
+MIN_VALID_PIXEL_RATIO=0.15
+
+SIGNALS_ENABLED=true
+SIGNALS_CHANGE_DETECTION=BFastLike
+SIGNALS_MIN_HISTORY_WEEKS=12
+SIGNALS_SCORE_THRESHOLD=0.65
+SIGNALS_PERSISTENCE_WEEKS=3
+SIGNALS_MODEL_VERSION=signals-v1
+
+COPILOT_ENABLED=true
+COPILOT_MODEL=gpt-5.2-thinking
+COPILOT_HITL_REQUIRED=true
+COPILOT_INTERRUPT_ON_TOOLS=["create_notification","trigger_webhook","create_work_order"]
+COPILOT_STATE_STORE=postgres
+COPILOT_MAX_STEPS=12
+
+UI_MIN_TOUCH_TARGET_PX=44
+
+
+# SCRIPT 4/13 — LocalStack init: S3 bucket + SQS queue + DLQ + redrive policy + visibility timeout
+set -euo pipefail
+
+awslocal s3 mb s3://eo-derived-local || true
+
+awslocal sqs create-queue --queue-name eo-jobs-dlq >/dev/null || true
+DLQ_URL=$(awslocal sqs get-queue-url --queue-name eo-jobs-dlq --query 'QueueUrl' --output text)
+DLQ_ARN=$(awslocal sqs get-queue-attributes --queue-url "$DLQ_URL" --attribute-names QueueArn --query 'Attributes.QueueArn' --output text)
+
+awslocal sqs create-queue --queue-name eo-jobs >/dev/null || true
+Q_URL=$(awslocal sqs get-queue-url --queue-name eo-jobs --query 'QueueUrl' --output text)
+
+awslocal sqs set-queue-attributes \
+  --queue-url "$Q_URL" \
+  --attributes "RedrivePolicy={\"deadLetterTargetArn\":\"$DLQ_ARN\",\"maxReceiveCount\":\"3\"}"
+
+awslocal sqs set-queue-attributes \
+  --queue-url "$Q_URL" \
+  --attributes "VisibilityTimeout=900"
+
+echo "[localstack-init] S3+SQS ready"
+
+
+-- SCRIPT 5/13 — MIGRATIONS completas (PostGIS + Identity/Membership + Domínio + Jobs + Alerts + Signals + Copilot/HIL + Outbox) + índices
+BEGIN;
+
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+-- ===========
+-- Identity / Tenancy
+-- ===========
+CREATE TABLE IF NOT EXISTS identities (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider text NOT NULL,                -- cognito|google|microsoft|local
+  subject text NOT NULL,                 -- sub do IdP
+  email text NOT NULL,
+  name text NOT NULL,
+  status text NOT NULL DEFAULT 'ACTIVE',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (provider, subject),
+  UNIQUE (email)
+);
+
+CREATE TABLE IF NOT EXISTS tenants (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  type text NOT NULL DEFAULT 'COMPANY',  -- COMPANY|PERSONAL
+  name text NOT NULL,
+  status text NOT NULL DEFAULT 'ACTIVE', -- ACTIVE|SUSPENDED
+  plan text NOT NULL DEFAULT 'BASIC',
+  quotas jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS tenants_type_status_idx ON tenants (type, status);
+
+CREATE TABLE IF NOT EXISTS memberships (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  identity_id uuid NOT NULL REFERENCES identities(id) ON DELETE CASCADE,
+  role text NOT NULL DEFAULT 'VIEWER',     -- TENANT_ADMIN|OPERATOR|VIEWER
+  status text NOT NULL DEFAULT 'ACTIVE',   -- ACTIVE|INVITED|SUSPENDED
+  invited_by_membership_id uuid NULL REFERENCES memberships(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, identity_id)
+);
+CREATE INDEX IF NOT EXISTS memberships_tenant_role_idx ON memberships (tenant_id, role);
+CREATE INDEX IF NOT EXISTS memberships_identity_idx ON memberships (identity_id);
+
+CREATE TABLE IF NOT EXISTS system_admins (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  identity_id uuid NOT NULL REFERENCES identities(id) ON DELETE CASCADE,
+  role text NOT NULL DEFAULT 'SYSTEM_ADMIN', -- SYSTEM_ADMIN|OPS|SUPPORT
+  status text NOT NULL DEFAULT 'ACTIVE',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (identity_id)
+);
+
+-- Audit log (append-only)
+CREATE TABLE IF NOT EXISTS audit_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NULL REFERENCES tenants(id) ON DELETE SET NULL,
+  actor_type text NOT NULL, -- IDENTITY|MEMBERSHIP|SYSTEM_ADMIN|WORKER
+  actor_id uuid NULL,
+  action text NOT NULL,
+  resource_type text NOT NULL,
+  resource_id uuid NULL,
+  diff_json jsonb NULL,
+  metadata_json jsonb NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS audit_time_idx ON audit_log (created_at DESC);
+CREATE INDEX IF NOT EXISTS audit_tenant_time_idx ON audit_log (tenant_id, created_at DESC);
+
+-- Feature flags
+CREATE TABLE IF NOT EXISTS feature_flags (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  key text NOT NULL UNIQUE,
+  description text NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS tenant_feature_flags (
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  feature_flag_id uuid NOT NULL REFERENCES feature_flags(id) ON DELETE CASCADE,
+  enabled boolean NOT NULL DEFAULT false,
+  config_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  updated_by_system_admin_id uuid NULL REFERENCES system_admins(id) ON DELETE SET NULL,
+  PRIMARY KEY (tenant_id, feature_flag_id)
+);
+
+-- Tenant settings
+CREATE TABLE IF NOT EXISTS tenant_settings (
+  tenant_id uuid PRIMARY KEY REFERENCES tenants(id) ON DELETE CASCADE,
+  max_cloud_cover int NOT NULL DEFAULT 60,
+  min_valid_pixel_ratio double precision NOT NULL DEFAULT 0.15,
+  alert_thresholds jsonb NOT NULL DEFAULT '{}'::jsonb,
+  notifications jsonb NOT NULL DEFAULT '{}'::jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  updated_by_membership_id uuid NULL REFERENCES memberships(id) ON DELETE SET NULL
+);
+
+-- ===========
+-- Domain
+-- ===========
+CREATE TABLE IF NOT EXISTS farms (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  timezone text NOT NULL DEFAULT 'America/Sao_Paulo',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS farms_tenant_idx ON farms (tenant_id);
+
+CREATE TABLE IF NOT EXISTS aois (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  farm_id uuid NOT NULL REFERENCES farms(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  use_type text NOT NULL, -- PASTURE|CROP
+  status text NOT NULL DEFAULT 'ACTIVE',
+  geom geometry(MultiPolygon, 4326) NOT NULL,
+  area_ha double precision NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS aois_geom_gist ON aois USING GIST (geom);
+CREATE INDEX IF NOT EXISTS aois_tenant_farm_idx ON aois (tenant_id, farm_id, status);
+
+CREATE TABLE IF NOT EXISTS aoi_versions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  aoi_id uuid NOT NULL REFERENCES aois(id) ON DELETE CASCADE,
+  geom geometry(MultiPolygon, 4326) NOT NULL,
+  area_ha double precision NOT NULL,
+  effective_date date NOT NULL DEFAULT CURRENT_DATE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS aoi_versions_aoi_time_idx ON aoi_versions (tenant_id, aoi_id, created_at DESC);
+
+-- ===========
+-- Jobs
+-- ===========
+CREATE TABLE IF NOT EXISTS jobs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  aoi_id uuid NULL REFERENCES aois(id) ON DELETE SET NULL,
+  job_type text NOT NULL, -- PROCESS_WEEK|ALERTS_WEEK|SIGNALS_WEEK|FORECAST_WEEK|BACKFILL
+  job_key text NOT NULL,
+  status text NOT NULL DEFAULT 'PENDING',
+  payload_json jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, job_key)
+);
+CREATE INDEX IF NOT EXISTS jobs_filter_idx ON jobs (tenant_id, status, job_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS jobs_aoi_time_idx ON jobs (tenant_id, aoi_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS job_runs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  job_id uuid NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  attempt int NOT NULL,
+  status text NOT NULL,
+  metrics_json jsonb NULL,
+  error_json jsonb NULL,
+  started_at timestamptz NOT NULL DEFAULT now(),
+  finished_at timestamptz NULL
+);
+CREATE INDEX IF NOT EXISTS job_runs_job_idx ON job_runs (tenant_id, job_id, attempt DESC);
+
+-- ===========
+-- Observations / Assets
+-- ===========
+CREATE TABLE IF NOT EXISTS observations_weekly (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  aoi_id uuid NOT NULL REFERENCES aois(id) ON DELETE CASCADE,
+  year int NOT NULL,
+  week int NOT NULL,
+  pipeline_version text NOT NULL,
+  status text NOT NULL, -- OK|NO_DATA
+  valid_pixel_ratio double precision NOT NULL,
+  ndvi_mean double precision NULL,
+  ndvi_p10 double precision NULL,
+  ndvi_p50 double precision NULL,
+  ndvi_p90 double precision NULL,
+  ndvi_std double precision NULL,
+  baseline double precision NULL,
+  anomaly double precision NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, aoi_id, year, week, pipeline_version)
+);
+CREATE INDEX IF NOT EXISTS obs_aoi_time_idx ON observations_weekly (tenant_id, aoi_id, year, week);
+
+CREATE TABLE IF NOT EXISTS derived_assets (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  aoi_id uuid NOT NULL REFERENCES aois(id) ON DELETE CASCADE,
+  year int NOT NULL,
+  week int NOT NULL,
+  pipeline_version text NOT NULL,
+  ndvi_s3_uri text NULL,
+  anomaly_s3_uri text NULL,
+  quicklook_s3_uri text NULL,
+  stac_item_id text NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, aoi_id, year, week, pipeline_version)
+);
+CREATE INDEX IF NOT EXISTS assets_aoi_time_idx ON derived_assets (tenant_id, aoi_id, year, week);
+
+-- ===========
+-- Alerts
+-- ===========
+CREATE TABLE IF NOT EXISTS alerts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  aoi_id uuid NOT NULL REFERENCES aois(id) ON DELETE CASCADE,
+  alert_type text NOT NULL,
+  status text NOT NULL DEFAULT 'OPEN',
+  severity text NOT NULL,
+  confidence text NOT NULL,
+  evidence_json jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS alerts_filter_idx ON alerts (tenant_id, status, alert_type, created_at DESC);
+
+-- ===========
+-- Yield
+-- ===========
+CREATE TABLE IF NOT EXISTS seasons (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  aoi_id uuid NOT NULL REFERENCES aois(id) ON DELETE CASCADE,
+  season_year int NOT NULL,
+  start_date date NOT NULL,
+  end_date date NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, aoi_id, season_year)
+);
+
+CREATE TABLE IF NOT EXISTS yield_forecasts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  aoi_id uuid NOT NULL REFERENCES aois(id) ON DELETE CASCADE,
+  season_year int NOT NULL,
+  model_version text NOT NULL,
+  pipeline_version text NOT NULL,
+  index_p10 double precision NOT NULL,
+  index_p50 double precision NOT NULL,
+  index_p90 double precision NOT NULL,
+  confidence text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS yield_aoi_time_idx ON yield_forecasts (tenant_id, aoi_id, season_year, created_at DESC);
+
+-- ===========
+-- Outbox / webhooks
+-- ===========
+CREATE TABLE IF NOT EXISTS tenant_webhooks (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  url text NOT NULL,
+  secret text NULL,
+  events jsonb NOT NULL DEFAULT '[]'::jsonb,
+  enabled boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS tenant_event_outbox (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  event_type text NOT NULL,
+  payload jsonb NOT NULL,
+  status text NOT NULL DEFAULT 'PENDING',
+  attempts int NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  next_retry_at timestamptz NULL
+);
+CREATE INDEX IF NOT EXISTS outbox_pending_idx ON tenant_event_outbox (tenant_id, status, created_at DESC);
+
+-- ===========
+-- Opportunity Signals + Feedback
+-- ===========
+CREATE TABLE IF NOT EXISTS opportunity_signals (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  aoi_id uuid NOT NULL REFERENCES aois(id) ON DELETE CASCADE,
+  year int NOT NULL,
+  week int NOT NULL,
+  pipeline_version text NOT NULL,
+  signal_type text NOT NULL,
+  status text NOT NULL DEFAULT 'OPEN', -- OPEN|ACK|RESOLVED|DISMISSED
+  severity text NOT NULL,
+  confidence text NOT NULL,
+  score double precision NOT NULL,
+  model_version text NOT NULL,
+  change_method text NOT NULL,
+  evidence_json jsonb NOT NULL,
+  features_json jsonb NOT NULL,
+  recommended_actions jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, aoi_id, year, week, pipeline_version, signal_type)
+);
+CREATE INDEX IF NOT EXISTS signals_filter_idx ON opportunity_signals (tenant_id, status, signal_type, created_at DESC);
+CREATE INDEX IF NOT EXISTS signals_aoi_time_idx ON opportunity_signals (tenant_id, aoi_id, year, week);
+
+CREATE TABLE IF NOT EXISTS signal_feedback (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  signal_id uuid NOT NULL REFERENCES opportunity_signals(id) ON DELETE CASCADE,
+  membership_id uuid NULL REFERENCES memberships(id) ON DELETE SET NULL,
+  label text NOT NULL,
+  root_cause text NULL,
+  note text NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS signal_feedback_idx ON signal_feedback (tenant_id, signal_id, created_at DESC);
+
+-- ===========
+-- Copilot (LangGraph/HIL) state + approvals
+-- ===========
+CREATE TABLE IF NOT EXISTS copilot_threads (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  aoi_id uuid NULL REFERENCES aois(id) ON DELETE SET NULL,
+  signal_id uuid NULL REFERENCES opportunity_signals(id) ON DELETE SET NULL,
+  created_by_membership_id uuid NULL REFERENCES memberships(id) ON DELETE SET NULL,
+  status text NOT NULL DEFAULT 'OPEN', -- OPEN|WAITING_HUMAN|CLOSED
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS copilot_threads_idx ON copilot_threads (tenant_id, created_at DESC);
+
+-- Checkpoints/persisted state (simplificado para MVP)
+CREATE TABLE IF NOT EXISTS copilot_checkpoints (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  thread_id uuid NOT NULL REFERENCES copilot_threads(id) ON DELETE CASCADE,
+  step int NOT NULL,
+  state_json jsonb NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (tenant_id, thread_id, step)
+);
+CREATE INDEX IF NOT EXISTS copilot_ckpt_thread_idx ON copilot_checkpoints (tenant_id, thread_id, step DESC);
+
+-- Aprovações (HIL)
+CREATE TABLE IF NOT EXISTS copilot_approvals (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  thread_id uuid NOT NULL REFERENCES copilot_threads(id) ON DELETE CASCADE,
+  requested_by_system boolean NOT NULL DEFAULT true,
+  tool_name text NOT NULL,             -- ex: create_notification, trigger_webhook
+  tool_payload jsonb NOT NULL,
+  decision text NOT NULL DEFAULT 'PENDING', -- PENDING|APPROVED|REJECTED
+  decided_by_membership_id uuid NULL REFERENCES memberships(id) ON DELETE SET NULL,
+  decision_note text NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  decided_at timestamptz NULL
+);
+CREATE INDEX IF NOT EXISTS copilot_approvals_idx ON copilot_approvals (tenant_id, decision, created_at DESC);
+
+COMMIT;
+
+
+SCRIPT 6/13 — Pydantic Schemas (com campos/validadores) incluindo Auth OIDC, Workspace Switch, Tenancy, Domínio, Jobs, Signals, Copilot/HIL
+
+ARQUIVO: services/api/app/schemas.py
+
+A) AUTH / WORKSPACES
+- OIDCLoginRequest:
+  - provider: Literal["cognito","google","microsoft","local"]
+  - id_token: str
+- IdentityView: id, email, name, status
+- WorkspaceView: tenant_id, tenant_type, tenant_name, membership_id, role, status
+- WorkspaceListResponse: items: list[WorkspaceView]
+- WorkspaceSwitchRequest: tenant_id: UUID
+- SessionTokenResponse: access_token, token_type="bearer", expires_in_seconds
+
+VALIDADORES
+- provider enum
+- email normalize
+- switch: identity precisa ter membership ACTIVE no tenant_id
+
+B) TENANT ADMIN
+- InviteMemberRequest: email, name, role (TENANT_ADMIN|OPERATOR|VIEWER)
+- MembershipView
+- MembershipRolePatch: role
+- MembershipStatusPatch: status (ACTIVE|SUSPENDED)
+REGRA: impedir rebaixar/remover o último TENANT_ADMIN do tenant.
+
+C) DOMÍNIO
+- FarmCreate/View
+- AOICreate (GeoJSON MultiPolygon, SRID 4326)
+- AOIView
+- BackfillRequest: from_date, to_date, cadence (weekly)
+VALIDADORES GeoJSON:
+- coordenadas válidas; anéis fechados; limite de pontos; (no DB, validar ST_IsValid)
+
+D) JOBS
+- JobView: id, job_type, status, created_at, updated_at
+- JobRunView
+
+E) ALERTS
+- AlertView
+
+F) SIGNALS
+- OpportunitySignalView:
+  id, aoi_id, year, week, signal_type, status, severity, confidence, score, model_version,
+  change_method, evidence_json, recommended_actions, created_at
+VALIDADORES:
+- week 1..53
+- score 0..1
+- recommended_actions: list[str] cada item <=120 chars
+- evidence_json deve conter window_weeks, baseline_ref, valid_pixel_ratio_summary e change_detection
+
+- SignalFeedbackCreate: label (TRUE_POSITIVE|FALSE_POSITIVE|NOT_SURE), root_cause?, note? (<=500)
+- SignalFeedbackView
+
+G) COPILOT/HIL
+- CopilotThreadCreate: aoi_id? signal_id?
+- CopilotThreadView
+- CopilotMessageCreate: text
+- CopilotStepView: step, output_text, suggested_actions[], requires_approval(bool)
+- CopilotApprovalDecision: decision(APPROVED|REJECTED), note?
+VALIDADORES:
+- tenant scoping: thread_id/signal_id sempre do tenant do token
+
+
+SCRIPT 7/13 — API Spec final (rotas completas) com /admin/* e /app/* + Copilot/HIL
+
+AUTH
+POST /v1/auth/oidc/login
+  - cria identity se necessário
+  - se INDIVIDUAL (sem membership): cria tenant PERSONAL + membership TENANT_ADMIN
+  - retorna IdentityView + workspaces
+POST /v1/auth/workspaces/switch
+  - emite session token com active_tenant_id + membership_id + role
+GET  /v1/me
+
+APP (tenant-scoped via session token)
+POST /v1/app/farms
+GET  /v1/app/farms
+POST /v1/app/aois
+GET  /v1/app/aois
+PATCH /v1/app/aois/{id}
+POST /v1/app/aois/{id}/backfill
+GET  /v1/app/jobs
+GET  /v1/app/jobs/{id}
+GET  /v1/app/aois/{id}/observations
+GET  /v1/app/aois/{id}/assets/{year}/{week}         -> presigned URLs
+GET  /v1/app/alerts
+POST /v1/app/alerts/{id}/ack|resolve|dismiss
+POST /v1/app/aois/{id}/seasons
+GET  /v1/app/aois/{id}/yield/latest
+
+Signals (APP)
+GET  /v1/app/signals?status=&type=&aoi_id=&from=&to=&limit=&offset=
+GET  /v1/app/signals/{signal_id}
+POST /v1/app/signals/{signal_id}/ack|resolve|dismiss
+POST /v1/app/signals/{signal_id}/feedback
+
+Tenant Admin (somente role TENANT_ADMIN)
+GET   /v1/app/admin/tenant/members
+POST  /v1/app/admin/tenant/members/invite
+PATCH /v1/app/admin/tenant/members/{membership_id}/role
+PATCH /v1/app/admin/tenant/members/{membership_id}/status
+GET   /v1/app/admin/tenant/settings
+PATCH /v1/app/admin/tenant/settings
+GET   /v1/app/admin/tenant/audit
+GET   /v1/app/admin/tenant/exports/*.csv|.geojson
+GET   /v1/app/admin/tenant/signals/metrics
+
+Copilot (APP) — LangGraph/HIL
+POST /v1/app/copilot/threads
+GET  /v1/app/copilot/threads/{thread_id}
+POST /v1/app/copilot/threads/{thread_id}/message
+  - executa LangGraph (até COPILOT_MAX_STEPS)
+  - pode retornar “interrupt” e criar copilot_approvals PENDING
+GET  /v1/app/copilot/threads/{thread_id}/approvals
+POST /v1/app/copilot/approvals/{approval_id}/decision  (APPROVED/REJECTED)
+  - retoma execução do graph a partir do checkpoint
+
+SYSTEM ADMIN
+GET  /v1/admin/tenants
+POST /v1/admin/tenants
+PATCH/v1/admin/tenants/{tenant_id}
+GET  /v1/admin/jobs
+POST /v1/admin/jobs/{job_id}/retry|cancel
+GET  /v1/admin/ops/health
+GET  /v1/admin/ops/queues
+GET  /v1/admin/dlq/messages
+POST /v1/admin/dlq/redrive
+GET  /v1/admin/feature-flags
+POST /v1/admin/feature-flags
+PUT  /v1/admin/tenants/{tenant_id}/feature-flags/{key}
+GET  /v1/admin/audit
+GET  /v1/admin/signals?tenant_id=&status=&type=&from=&to=
+GET  /v1/admin/copilot/approvals?tenant_id=&decision=PENDING
+
+ERROS
+{ "error": { "code": "...", "message": "...", "details": {...}, "request_id": "..." } }
+
+
+SCRIPT 8/13 — RBAC/ABAC final + políticas de Copilot/HIL (LangChain HITL + LangGraph interrupts) + auditoria
+
+TENANT CONTEXT
+- Sempre do session token: active_tenant_id + membership_id + role
+- Nunca aceitar tenant_id em payload
+
+RBAC (dentro do tenant)
+- TENANT_ADMIN: tudo + members/settings/exports
+- OPERATOR: operar aois/backfill + ack/resolve alerts/signals + iniciar copilot
+- VIEWER: somente leitura (incluindo visualizar copilot threads), sem decisões/aprovações
+
+SYSTEM ADMIN
+- Acesso exclusivo a /v1/admin/*
+
+COPILOT/HIL POLICIES
+- Ferramentas “sensíveis” (ex):
+  - create_notification (email/sms/push)
+  - trigger_webhook (integrar sistemas externos)
+  - create_work_order (ordem de serviço)
+- Se COPILOT_HITL_REQUIRED=true:
+  - aplicar LangChain HITL middleware para interromper tool calls sensíveis e criar copilot_approvals PENDING
+- LangGraph:
+  - uso de interrupt() para pausar execução e salvar estado (checkpoint) até decisão humana
+
+AUDITORIA OBRIGATÓRIA
+- invites/mudanças de role/status em memberships
+- mudanças em tenant_settings
+- ações em DLQ redrive/retry/cancel
+- ações em alerts/signals (ack/resolve/dismiss) + feedback
+- decisões HIL (approve/reject), incluindo payload e justificativa
+
+
+SCRIPT 9/13 — Engine de Jobs (SQS/DLQ) + idempotência + quotas + acoplamento pipeline -> alerts -> signals -> yield
+
+JOB TYPES
+- PROCESS_WEEK: gera observations_weekly + derived_assets (COGs) no S3
+- ALERTS_WEEK: gera alerts (risco)
+- SIGNALS_WEEK: gera opportunity_signals (oportunidade) + recommended actions
+- FORECAST_WEEK: gera yield_forecasts (index relative)
+- BACKFILL: orquestra múltiplas semanas e dispara PROCESS/ALERTS/SIGNALS/FORECAST em sequência
+
+IDEMPOTÊNCIA
+- job_key = sha256(tenant_id+aoi_id+year+week+job_type+pipeline_version)
+- UNIQUE (tenant_id, job_key)
+- worker deve ser “at least once safe”
+
+QUOTAS (tenant.quotas)
+- limitar:
+  - backfills por dia
+  - número de AOIs
+  - semanas máximas de backfill por request
+- tenant PERSONAL com quotas menores por default
+
+DLQ
+- maxReceiveCount=3
+- system admin redrive com audit_log e motivo
+
+OBSERVABILIDADE
+- métricas por job_run: duração, cloud cover, valid_pixel_ratio, bytes gerados, NO_DATA
+
+
+SCRIPT 10/13 — PROCESS_WEEK (EO pipeline) detalhado: STAC -> NDVI -> baseline/anomaly -> COG -> S3 -> DB -> tiles
+
+PASSOS DO WORKER
+1) Buscar cenas STAC por semana e AOI (intersects)
+2) Filtrar por nuvem (MAX_CLOUD_COVER) e mascarar nuvens/sombra quando disponível
+3) Compor mosaico semanal (mediana)
+4) Calcular NDVI (por pixel)
+5) Calcular estatísticas no AOI:
+   - valid_pixel_ratio
+   - mean, p10, p50, p90, std
+6) Se valid_pixel_ratio < tenant_settings.min_valid_pixel_ratio:
+   - observations_weekly.status=NO_DATA
+   - finalizar job NO_DATA
+7) Baseline (week-of-year) e Anomaly (observed - baseline)
+8) Exportar COGs (ndvi.tif, anomaly.tif) + quicklook.png
+9) Upload S3 (privado) com prefix:
+   s3://{bucket}/tenant={tenant_id}/aoi={aoi_id}/year={year}/week={week}/pipeline={v}/...
+10) Persistir observations_weekly e derived_assets
+11) Finalizar job DONE
+
+TILER
+- apontar /tiles/* para COGs no S3 (via URLs assinadas internas ou role IAM em prod)
+- UI consome tiles para mapas e quicklook para cards
+
+
+SCRIPT 11/13 — SIGNALS_WEEK (IA analítica em Python) + change detection + score híbrido + dedupe + outputs (signals) + feedback loop
+
+INPUTS
+- observations_weekly últimos N (>= SIGNALS_MIN_HISTORY_WEEKS)
+- tenant_settings (thresholds) + guardrails
+- qualidade: valid_pixel_ratio e NO_DATA rate
+- use_type: PASTURE|CROP
+
+FEATURES (exemplo mínimo)
+- slope_recent (p50)
+- drop_magnitude (vs baseline)
+- cumulative_anomaly (últimas k semanas)
+- recovery_lag (tempo sem voltar ao baseline)
+- heterogeneity = ndvi_std
+- stability = variança recente
+
+CHANGE DETECTION
+- BFastLike (MVP): detectar “break” via:
+  - comparar média janela A vs janela B (rolling)
+  - exigir persistência (SIGNALS_PERSISTENCE_WEEKS)
+  - produzir break_week + magnitude
+- fallback SimpleChangePoint se histórico curto
+
+SCORE
+- rule_score (heurístico determinístico) + change_score + ml_score
+- ml_score (MVP): logistic(β·features) com β fixos calibráveis por tenant
+- score final em 0..1; severity/confidence derivadas de score + qualidade
+
+SIGNAL TYPES (MVP)
+PASTURE:
+- PASTURE_FORAGE_RISK
+- PASTURE_LOCAL_DEGRADATION
+- PASTURE_RECOVERY_LAG
+CROP:
+- CROP_STRESS_EARLY
+- CROP_RECOVERY_LAG
+
+RECOMMENDED_ACTIONS (1 linha cada)
+- pasto: “avaliar lotação/rotação”, “considerar suplementação”, “inspecionar manchas”
+- crop: “verificar irrigação/estresse”, “inspecionar pragas/doenças”, “avaliar adubação”
+
+DEDUPE
+- unique key (tenant,aoi,year,week,pipeline,type) impede duplicata
+- se sinal semelhante já OPEN/ACK recente: atualizar evidence/features/score em vez de criar spam
+
+OUTPUTS
+- opportunity_signals (evidence_json + features_json + recommended_actions)
+- opcional: outbox event (webhook/notify) sujeito a HIL do Copilot (quando configurado)
+
+FEEDBACK LOOP
+- /v1/app/signals/{id}/feedback grava signal_feedback
+- usar feedback para métricas FP/TP por tenant e futura calibração
+
+
+SCRIPT 12/13 — COPILOT (LangGraph + LangChain HITL) no backend: design de módulo, persistência, interrupt/approval, e integração com signals
+
+OBJETIVO DO COPILOT
+- Transformar signal/alert em:
+  1) explicação curta (por quê)
+  2) checklist de inspeção de campo
+  3) “próxima melhor ação” (recomendações)
+  4) automações supervisionadas (notificar/webhook/OS) com HIL obrigatório
+
+ESTRUTURA DE CÓDIGO (API)
+services/api/app/copilot/
+  graph.py             # LangGraph definition
+  tools.py             # ferramentas (create_notification, trigger_webhook, create_work_order)
+  policies.py          # HITL policy (interrupt_on tools)
+  persistence.py       # salvar checkpoints em copilot_checkpoints
+  router.py            # endpoints /v1/app/copilot/*
+  prompts.py           # prompts curtos e padronizados (PT-BR)
+  serializers.py       # converter signal/obs para contexto
+
+LANGGRAPH (MVP)
+- Graph state inclui:
+  tenant_id, membership_id, aoi_id, signal_id, context_summary, proposed_actions[]
+- Node “SummarizeSignal”
+- Node “ProposeActions”
+- Node “CallTools” (apenas se permitido)
+- Em ferramentas sensíveis:
+  - disparar interrupt() e criar copilot_approvals PENDING
+  - salvar checkpoint (copilot_checkpoints)
+  - thread.status=WAITING_HUMAN
+
+LANGCHAIN HITL MIDDLEWARE
+- Interceptar tool calls sensíveis:
+  - se policy exigir aprovação -> interromper e aguardar decisão humana
+
+APROVAÇÃO (HIL)
+- TENANT_ADMIN (ou OPERATOR conforme política) decide:
+  APPROVED/REJECTED + note
+- Ao APPROVED:
+  - retomar graph a partir do checkpoint e executar tool
+- Ao REJECTED:
+  - registrar decisão e finalizar com alternativa “manual”
+
+ENDPOINTS
+- POST /v1/app/copilot/threads {aoi_id?, signal_id?}
+- POST /v1/app/copilot/threads/{id}/message {text}
+- GET  /v1/app/copilot/threads/{id}/approvals
+- POST /v1/app/copilot/approvals/{approval_id}/decision {decision, note?}
+
+AUDIT
+- Cada interrupt, approval e tool payload gera audit_log.
+
+
+SCRIPT 13/13 — FRONTENDS React+Tailwind (Next.js) + basePath (/admin, /app) + static export + AWS deploy (CloudFront+S3+OAC) + SPA refresh + rotas/UX mobile-first
+
+A) Next.js config (build-time) — admin-ui
+Arquivo: services/admin-ui/next.config.mjs
+---
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  basePath: "/admin",
+  output: "export",
+  trailingSlash: true,
+  images: { unoptimized: true },
+};
+export default nextConfig;
+---
+
+B) Next.js config — app-ui
+Arquivo: services/app-ui/next.config.mjs
+---
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  basePath: "/app",
+  output: "export",
+  trailingSlash: true,
+  images: { unoptimized: true },
+};
+export default nextConfig;
+---
+
+C) Tailwind setup (ambos)
+- tailwind.config.ts (content: app/src/components)
+- postcss.config.mjs (tailwindcss + autoprefixer)
+- app/globals.css com @tailwind base/components/utilities
+
+D) UI/Rotas (mobile-first)
+admin-ui (/admin/*)
+- /admin/tenants
+- /admin/jobs
+- /admin/dlq
+- /admin/feature-flags
+- /admin/signals
+- /admin/copilot-approvals (pendentes)
+- /admin/audit
+
+app-ui (/app/*)
+- /app/workspaces (workspace switcher)
+- /app/overview
+- /app/farms
+- /app/aois
+- /app/alerts
+- /app/signals
+- /app/signals/[id] (card + mapa + “Copilot” + HIL approvals)
+- /app/tenant-admin/* (somente TENANT_ADMIN):
+  - members, settings, exports, signals metrics
+
+UX mobile-first obrigatória (Tailwind classes)
+- touch targets: min-h-[44px] min-w-[44px]
+- listas: cards (rounded-2xl, shadow-sm)
+- navegação: bottom tabs fixo no mobile
+- filtros: drawer/bottom sheet
+- paginação server-side em jobs/alerts/signals/members
+
+E) Produção AWS (recomendada: SPA estático)
+CORE
+- ECS Fargate: api, worker, tiler
+- RDS Postgres + PostGIS
+- S3 privado assets
+- SQS + DLQ
+- Secrets Manager, CloudWatch
+
+UI
+- S3 privado:
+  - eo-admin-ui-prod (conteúdo /out do admin-ui)
+  - eo-app-ui-prod   (conteúdo /out do app-ui)
+- CloudFront com OAC para acessar S3 (buckets privados)
+- Behaviors:
+  /admin/* -> S3 admin-ui
+  /app/*   -> S3 app-ui
+  /v1/*    -> ALB (api)
+  /tiles/* -> ALB (tiler)
+
+SPA refresh fix (CloudFront custom error responses)
+- 403 -> /index.html (200)
+- 404 -> /index.html (200)
+
+F) Alternativa SSR (se necessário)
+- admin-ui-ssr e app-ui-ssr em ECS atrás do ALB com path routing:
+  /admin/*, /app/*, /v1/*, /tiles/*
+- (Opcional) CloudFront na frente do ALB
+
+CHECKLIST FINAL
+- basePath correto (/admin, /app)
+- output export funcionando (gera /out)
+- images.unoptimized=true (evita erro de export)
+- CloudFront behaviors e SPA refresh fix aplicados
+- Copilot/HIL UI acessível em /app/signals/[id]
+

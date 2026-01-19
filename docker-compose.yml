@@ -1,0 +1,134 @@
+name: vivacampo
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: vivacampo
+      POSTGRES_USER: vivacampo
+      POSTGRES_PASSWORD: vivacampo
+    ports: ["5432:5432"]
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+      - ./infra/migrations/sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vivacampo -d vivacampo"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes: ["redisdata:/data"]
+
+  localstack:
+    image: localstack/localstack:latest
+    ports: ["4566:4566"]
+    environment:
+      - SERVICES=s3,sqs
+      - AWS_DEFAULT_REGION=sa-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - PERSISTENCE=1
+    volumes:
+      - localstackdata:/var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./infra/docker/localstack-init:/etc/localstack/init/ready.d
+
+  api:
+    build: { context: ./services/api }
+    env_file: ["./infra/docker/env/.env.local"]
+    depends_on:
+      db: { condition: service_healthy }
+      localstack: { condition: service_started }
+      redis: { condition: service_started }
+    ports: ["8000:8000"]
+    volumes:
+      - ./services/api:/app
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+        "--reload",
+      ]
+    restart: unless-stopped
+
+  worker:
+    build: { context: ./services/worker }
+    env_file: ["./infra/docker/env/.env.local"]
+    depends_on:
+      db: { condition: service_healthy }
+      localstack: { condition: service_started }
+      redis: { condition: service_started }
+    volumes:
+      - ./services/worker:/app
+    environment:
+      - GDAL_HTTP_MAX_RETRY=5
+      - GDAL_HTTP_RETRY_DELAY=1
+      - GDAL_HTTP_RETRY_CODES=409,429,500,502,503,504
+    command: ["python", "-m", "worker.main"]
+    restart: unless-stopped
+
+  tiler:
+    build: { context: ./services/tiler }
+    env_file: ["./infra/docker/env/.env.local"]
+    ports: ["8080:8080"]
+    volumes:
+      - ./services/tiler:/app
+    command:
+      [
+        "uvicorn",
+        "tiler.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8080",
+        "--reload",
+      ]
+    restart: unless-stopped
+
+  admin_ui:
+    build:
+      context: ./services/admin-ui
+      target: deps
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://localhost:8000
+      - NEXT_PUBLIC_BASE_PATH=/admin
+    ports: ["3001:3000"]
+    volumes:
+      - ./services/admin-ui:/app
+      - /app/node_modules
+      - /app/.next
+    command: ["npm", "run", "dev"]
+    restart: unless-stopped
+
+  app_ui:
+    build:
+      context: ./services/app-ui
+      args:
+        NEXT_PUBLIC_API_BASE: /app/api
+        NEXT_PUBLIC_BASE_PATH: /app
+        NEXT_PUBLIC_ENABLE_MOCK_AUTH: "true"
+      target: deps
+    environment:
+      - NEXT_PUBLIC_API_BASE=/app/api
+      - NEXT_PUBLIC_BASE_PATH=/app
+      - NEXT_PUBLIC_ENABLE_MOCK_AUTH=true
+    ports: ["3002:3000"]
+    volumes:
+      - ./services/app-ui:/app
+      - /app/node_modules
+      - /app/.next
+    command: ["npm", "run", "dev"]
+    restart: unless-stopped
+
+volumes:
+  dbdata:
+  redisdata:
+  localstackdata:

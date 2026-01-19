@@ -1,0 +1,6 @@
+titiler.core>=0.15.0
+titiler.extensions>=0.15.0
+rio-tiler>=6.2.0
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+boto3>=1.34.25

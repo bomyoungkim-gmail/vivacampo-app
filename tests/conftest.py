@@ -1,0 +1,215 @@
+import os
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+import uuid
+
+import httpx
+import pytest
+from jose import jwt
+
+
+ROOT = Path(__file__).resolve().parents[1]
+ENV_PATH = ROOT / "infra" / "docker" / "env" / ".env.local"
+
+
+def _load_env_file(path: Path) -> dict[str, str]:
+    env = {}
+    if not path.exists():
+        return env
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):]
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        value = value.strip().strip('"').strip("'")
+        env[key.strip()] = value
+    return env
+
+
+_ENV = _load_env_file(ENV_PATH)
+
+
+def _ensure_env() -> None:
+    for key, value in _ENV.items():
+        os.environ.setdefault(key, value)
+
+
+_ensure_env()
+
+
+api_path = ROOT / "services" / "api"
+if str(api_path) not in sys.path:
+    sys.path.insert(0, str(api_path))
+
+
+@pytest.fixture(scope="session", autouse=True)
+def ensure_db_schema() -> None:
+    _ensure_env()
+    from sqlalchemy import text
+    from app import database
+    from app.infrastructure import models  # noqa: F401
+
+    database.Base.metadata.create_all(bind=database.engine)
+    with database.engine.begin() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS pgcrypto"))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS tenant_settings (
+                tenant_id uuid PRIMARY KEY,
+                tier text NOT NULL DEFAULT 'PERSONAL',
+                min_valid_pixel_ratio double precision NOT NULL DEFAULT 0.15,
+                alert_thresholds_json text NULL
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                tenant_id text NOT NULL,
+                actor_membership_id text NULL,
+                action text NOT NULL,
+                resource_type text NOT NULL,
+                resource_id text NULL,
+                changes_json text NULL,
+                metadata_json text NULL,
+                created_at timestamptz NOT NULL DEFAULT now()
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS ai_assistant_threads (
+                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                tenant_id uuid NOT NULL,
+                aoi_id uuid NULL,
+                signal_id uuid NULL,
+                created_by_membership_id uuid NOT NULL,
+                provider text NOT NULL,
+                model text NOT NULL,
+                status text NOT NULL,
+                created_at timestamptz NOT NULL DEFAULT now()
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS ai_assistant_checkpoints (
+                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                tenant_id uuid NOT NULL,
+                thread_id uuid NOT NULL,
+                step int NOT NULL,
+                state_json text NOT NULL,
+                created_at timestamptz NOT NULL DEFAULT now()
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS ai_assistant_approvals (
+                id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+                tenant_id uuid NOT NULL,
+                thread_id uuid NOT NULL,
+                tool_name text NOT NULL,
+                tool_payload text NOT NULL,
+                decision text NOT NULL DEFAULT 'PENDING',
+                created_at timestamptz NOT NULL DEFAULT now()
+            )
+        """))
+
+
+def _build_oidc_token() -> str:
+    payload = {
+        "sub": "local-test-user",
+        "email": "test.user@example.com",
+        "name": "Test User",
+    }
+    secret = os.environ["JWT_SECRET"]
+    return jwt.encode(payload, secret, algorithm="HS256")
+
+
+@pytest.fixture(scope="session")
+def oidc_id_token() -> str:
+    return _build_oidc_token()
+
+
+async def _get_session_token() -> str:
+    id_token = _build_oidc_token()
+    async with httpx.AsyncClient() as client:
+        login = await client.post(
+            "http://localhost:8000/v1/auth/oidc/login",
+            json={"provider": "local", "id_token": id_token},
+        )
+        login.raise_for_status()
+        workspaces = login.json().get("workspaces", [])
+        if not workspaces:
+            raise RuntimeError("OIDC login returned no workspaces")
+        tenant_id = workspaces[0]["tenant_id"]
+        switch = await client.post(
+            "http://localhost:8000/v1/auth/workspaces/switch",
+            json={"tenant_id": tenant_id},
+        )
+        switch.raise_for_status()
+        return switch.json()["access_token"]
+
+
+@pytest.fixture(scope="session")
+async def session_token() -> str:
+    return await _get_session_token()
+
+
+@pytest.fixture
+async def auth_headers(session_token: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {session_token}",
+        "Content-Type": "application/json",
+    }
+
+
+def _ensure_system_admin(identity_id: uuid.UUID) -> None:
+    from app.database import SessionLocal
+    from app.infrastructure.models import Identity, SystemAdmin
+
+    session = SessionLocal()
+    try:
+        identity = session.query(Identity).filter(Identity.id == identity_id).first()
+        if not identity:
+            identity = Identity(
+                id=identity_id,
+                provider="local",
+                subject="system-admin",
+                email="system-admin@example.com",
+                name="System Admin",
+                status="ACTIVE",
+            )
+            session.add(identity)
+
+        system_admin = session.query(SystemAdmin).filter(
+            SystemAdmin.identity_id == identity_id
+        ).first()
+        if not system_admin:
+            system_admin = SystemAdmin(
+                identity_id=identity_id,
+                role="SYSTEM_ADMIN",
+                status="ACTIVE",
+            )
+            session.add(system_admin)
+
+        session.commit()
+    finally:
+        session.close()
+
+
+@pytest.fixture(scope="session")
+def system_admin_headers() -> dict[str, str]:
+    _ensure_env()
+    identity_id = uuid.UUID("00000000-0000-0000-0000-000000000099")
+    _ensure_system_admin(identity_id)
+
+    payload = {
+        "sub": str(identity_id),
+        "iss": os.environ["SYSTEM_ADMIN_ISSUER"],
+        "aud": os.environ["SYSTEM_ADMIN_AUDIENCE"],
+        "exp": datetime.now(timezone.utc) + timedelta(hours=1),
+    }
+    token = jwt.encode(payload, os.environ["JWT_SECRET"], algorithm="HS256")
+    return {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }

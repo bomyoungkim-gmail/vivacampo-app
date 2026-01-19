@@ -1,0 +1,56 @@
+# Git
+.git
+.gitignore
+.dockerignore
+
+# IDE
+.vscode
+.idea
+
+# Dependencies & Build
+node_modules
+__pycache__
+*.pyc
+*.pyo
+venv
+.venv
+env
+.next
+dist
+build
+coverage
+htmlcov
+.pytest_cache
+
+# Configuration
+.env
+.env.local
+.env.*.local
+docker-compose.yml
+docker-compose.override.yml
+
+# Documentation & Misc
+README.md
+SETUP.md
+*.md
+*.txt
+BoasPraticas.txt
+
+# Scripts & Temporary Files
+*.log
+*.sh
+*.ps1
+test-cors-auth.py
+debug_stac_search.py
+check_queue.py
+manual_dispatch.py
+trigger_sqs.py
+verify_api.py
+mock_data.sql
+trigger_backfill.sql
+playwright.config.ts
+
+# Project Specific
+.gemini
+tests
+infra

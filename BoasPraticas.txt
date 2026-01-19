@@ -1,0 +1,165 @@
+================================================================================
+FRONTEND
+================================================================================
+SCRIPT (ANTIGRAVITY) — CODE REVIEW + PADRÕES (FRONTEND)
+
+- Objetivo
+  - Fazer code review do FRONTEND e padronizar arquitetura e regras para começar do zero.
+  - Entregar: diagnóstico, lista priorizada de refactors, regras de separação de camadas, e checklist CI.
+
+- Escopo (Frontend)
+  - Código React 18 + TypeScript
+  - Integração com API via fetch/axios/tRPC (conforme existir)
+  - Estado (React Query / Zustand / Redux) conforme existir
+  - Tailwind (se houver) e padrões de UI
+
+- Regras obrigatórias (arquitetura e boundaries)
+  - UI (componentes) NÃO deve conter regra de negócio; apenas renderização e composição.
+  - Regra de negócio deve ficar em “domain”/“use-cases” do frontend (lógica pura, sem dependência de React).
+  - Hooks devem ser separados por tipo:
+    - hooks/ui: comportamento de UI (toggle, debounce, scroll, etc)
+    - hooks/data: acesso a dados (queries/mutations)
+    - hooks/domain: orquestração de casos de uso no client (quando aplicável)
+  - Adapter/API client isolado:
+    - services/api (client HTTP, interceptors, auth refresh, retry, etc.)
+    - nenhuma feature deve “espalhar” fetch/axios direto em componentes
+  - Shared/Utils:
+    - helpers puros sem side effects em lib/utils
+    - evitar “utils” gigante; preferir módulos pequenos e coesos
+  - Import boundaries:
+    - components (UI) pode importar hooks e types, mas não “domain rules” diretamente (usar hooks/domain ou use-cases)
+    - features não importam arquivos internos de outras features; apenas entrypoints públicos
+    - proibir imports relativos profundos cross-feature (ex.: ../../outraFeature/algumArquivoInterno)
+
+- Checklist de qualidade (code review)
+  - Tipagem:
+    - eliminar any, casts e tipos fracos onde for core
+    - criar tipos discriminados para estados (loading/success/error)
+    - garantir validação de payloads (zod/valibot) em bordas (API responses) quando necessário
+  - Performance:
+    - checar re-render desnecessário, memoização indevida, keys instáveis
+    - lazy loading / code splitting em rotas e telas pesadas
+  - Acessibilidade:
+    - navegação por teclado, foco, aria-labels em componentes críticos
+  - Consistência:
+    - naming (camelCase), organização por responsabilidade, padrões de export
+  - Segurança:
+    - sanitização de inputs quando renderizar HTML
+    - tratar tokens/auth somente em camada de API client; não duplicar lógica
+
+- Dependências circulares (frontend)
+  - Rodar análise de ciclos e classificar severidade
+  - Quebrar ciclos via:
+    - extrair tipos para camada shared/types
+    - criar entrypoints públicos por feature
+    - mover lógica reutilizada para lib/ ou domain/ puro
+
+- Refatoração (priorização)
+  - P0 (bloqueia evolução): ciclos, acoplamento cross-feature, duplicação de chamadas à API
+  - P1 (qualidade): mover regra de negócio para use-cases/domain, reduzir componentes “god”
+  - P2 (higiene): padronizar imports, exports, naming, e organizar testes
+
+- Testes (frontend)
+  - Unit: funções puras (domain/use-cases)
+  - Component: componentes críticos (render + interação)
+  - E2E: fluxos principais (login, criação/edição, etc.) se aplicável
+
+- Entregáveis (o que você deve gerar)
+  - Relatório de achados com severidade (P0/P1/P2) e arquivos afetados
+  - Lista de regras (do/don’t) para a base do frontend
+  - Plano de refactor incremental em PRs pequenos (cada PR com escopo mínimo)
+  - Proposta de padrões de lint/typecheck/test para CI
+
+
+================================================================================
+BACKEND
+================================================================================
+SCRIPT (ANTIGRAVITY) — CODE REVIEW + PADRÕES (SERVIÇO / BACKEND COMO SUBPASTA)
+
+- Objetivo
+  - Fazer code review do SERVIÇO, padronizar arquitetura e regras para começar do zero.
+  - Entregar: diagnóstico, guidelines de camadas, checklist de segurança/erros/observabilidade, e plano de refatoração.
+
+- Escopo (Serviço)
+  - api/” como subpasta do serviço
+  - Node.js + TypeScript
+  - PostgreSQL + ORM (ex.: Prisma) e migrations
+  - Auth (JWT/session), RBAC/ABAC se aplicável
+  - Workers/filas (se existirem), integrações externas (email, storage, etc.)
+
+- Regras obrigatórias (camadas e responsabilidades)
+  - Presentation (HTTP):
+    - controllers/handlers finos: validação, auth, mapping, chamar use-case
+    - nunca colocar regra de negócio em controller
+  - Application (use-cases):
+    - orquestração do fluxo, transações, chamadas a repositórios e serviços
+    - entrada/saída via DTOs claros
+  - Domain:
+    - entidades, value objects, políticas e invariantes (puro, sem framework)
+    - erros de domínio explícitos
+  - Infrastructure:
+    - ORM/DB, cache, providers externos, filas, storage
+    - implementar “ports” (interfaces) definidas por application/domain
+  - Mappers:
+    - conversão persistence <-> domain <-> DTO (snake_case <-> camelCase quando aplicável)
+    - mappers não são middleware; são camada de transformação
+
+- Import boundaries (regra de ouro)
+  - presentation -> application -> domain
+  - infrastructure -> domain/application (implementa dependências)
+  - domain NÃO importa infrastructure e NÃO importa framework web
+  - proibido “pular camada” (controller chamando ORM direto)
+
+- Dependências circulares (backend)
+  - Rodar detecção de ciclos (workspace e dentro de backend)
+  - Quebrar ciclos por:
+    - extrair contratos (interfaces) para camada application/domain
+    - mover tipos compartilhados para shared
+    - criar adapters explícitos em infrastructure
+
+- Dados e consistência (PostgreSQL + ORM)
+  - Padronizar:
+    - migrations versionadas e revisadas
+    - seeds idempotentes para dev/test
+    - transações no nível de use-case quando necessário
+  - Validar:
+    - constraints no banco (unique, foreign keys, check) quando relevante
+    - evitar confiar apenas em validação do app
+
+- Validação e segurança
+  - Validar todos inputs na borda (schema zod/valibot/class-validator, conforme stack)
+  - Sanitizar/normalizar dados críticos (emails, ids, strings)
+  - Auth centralizado (middleware/guard), autorização em use-cases quando regra de negócio
+  - Rate limit e proteção contra abuso (quando aplicável)
+  - Nunca logar secrets/tokens/PII sensível
+
+- Erros, logging e observabilidade
+  - AppError padrão com:
+    - code, message, httpStatus, details, cause
+  - Handler global de erro (mapeia erros de domínio -> HTTP)
+  - Logs estruturados com requestId/correlationId
+  - Métricas mínimas: latência por rota, taxa de erro, filas (se houver)
+
+- Testes (backend)
+  - Unit:
+    - domain (invariantes, policies)
+    - application (use-cases com fakes/mocks)
+  - Integration:
+    - repositories com DB real via docker
+    - rotas principais (contract tests)
+  - Smoke:
+    - healthcheck e dependências (DB, cache, fila)
+
+- Refatoração (priorização)
+  - P0:
+    - ciclos, controllers gordos, ORM usado em qualquer lugar, erro sem padrão
+  - P1:
+    - extrair use-cases, padronizar mappers, padronizar validação e DTOs
+  - P2:
+    - reorganizar testes, docs, scripts de manutenção
+
+- Entregáveis (o que você deve gerar)
+  - Relatório de achados com severidade (P0/P1/P2) e arquivos afetados
+  - Regras de camadas + import boundaries (do/don’t)
+  - Plano incremental em PRs pequenos (cada PR com escopo mínimo)
+  - Checklist de CI (lint, typecheck, test, circular deps, migrations check)

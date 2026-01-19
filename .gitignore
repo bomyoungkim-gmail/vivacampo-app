@@ -1,0 +1,61 @@
+# System
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node / Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.next/
+dist/
+build/
+coverage/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Python / Backend
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+.pytest_cache/
+.coverage
+htmlcov/
+*.spec
+
+# Docker
+docker-compose.override.yml
+
+# Logs & Temporary Files
+*.log
+logs/
+worker_debug.log
+worker_diagnosis.log
+worker_error_analysis.log
+browser_recordings/
+tmp/
+debug_output/
+
+# Project Specific
+.gemini/
+.antigravity/
+test-cors-auth.py
+debug_stac_search.py
+check_queue.py
+manual_dispatch.py
+trigger_sqs.py
+verify_api.py
