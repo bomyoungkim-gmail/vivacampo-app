@@ -27,6 +27,21 @@ interface MapComponentProps {
     anomalyS3Url?: string | null
     falseColorS3Url?: string | null
     trueColorS3Url?: string | null
+
+    // New Indices
+    ndreS3Url?: string | null
+    reciS3Url?: string | null
+    gndviS3Url?: string | null
+    eviS3Url?: string | null
+    msiS3Url?: string | null
+    nbrS3Url?: string | null
+    bsiS3Url?: string | null
+    ariS3Url?: string | null
+    criS3Url?: string | null
+
+    // Radar
+    rviS3Url?: string | null
+    ratioS3Url?: string | null
     showAOIs?: boolean
     processingAois?: Set<string>
     signals?: any[]

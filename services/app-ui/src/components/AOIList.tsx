@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { AOI, Signal } from '@/lib/types'
-import { Search, Filter, AlertTriangle } from 'lucide-react'
+import { Search, Filter, AlertTriangle, Pencil, Trash2 } from 'lucide-react'
 
 interface AOIListProps {
     aois: AOI[]
@@ -11,6 +11,8 @@ interface AOIListProps {
     processingAois: Set<string>
     signals?: Signal[]
     onAddAOI: () => void
+    onEdit?: (aoi: AOI) => void
+    onDelete?: (aoi: AOI) => void
 }
 
 export default function AOIList({
@@ -19,10 +21,12 @@ export default function AOIList({
     onSelect,
     processingAois,
     signals = [],
-    onAddAOI
+    onAddAOI,
+    onEdit,
+    onDelete
 }: AOIListProps) {
     const [searchTerm, setSearchTerm] = useState('')
-    const [filterType, setFilterType] = useState<'ALL' | 'PASTURE' | 'CROP'>('ALL')
+    const [filterType, setFilterType] = useState<'ALL' | 'PASTURE' | 'CROP' | 'TIMBER'>('ALL')
 
     // Filter Logic
     const filteredAOIs = useMemo(() => {
@@ -84,6 +88,12 @@ export default function AOIList({
                     >
                         Lavoura
                     </button>
+                    <button
+                        onClick={() => setFilterType('TIMBER')}
+                        className={`px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${filterType === 'TIMBER' ? 'bg-[#8B4513] text-white' : 'bg-[#f4e4bc] text-[#5c2e0e] hover:bg-[#e3d0a3]'}`}
+                    >
+                        Madeira
+                    </button>
                     {/* Add Alert filter later if needed */}
                 </div>
             </div>
@@ -125,9 +135,11 @@ export default function AOIList({
 
                                 <div className="flex items-center justify-between mt-2">
                                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide
-                                        ${aoi.use_type === 'CROP' ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}
+                                        ${aoi.use_type === 'CROP' ? 'bg-orange-50 text-orange-600'
+                                            : aoi.use_type === 'TIMBER' ? 'bg-[#f4e4bc] text-[#8B4513]'
+                                                : 'bg-green-50 text-green-600'}
                                     `}>
-                                        {aoi.use_type === 'PASTURE' ? 'Pastagem' : 'Lavoura'}
+                                        {aoi.use_type === 'PASTURE' ? 'Pastagem' : aoi.use_type === 'TIMBER' ? 'Madeira' : 'Lavoura'}
                                     </span>
 
                                     <div className="flex items-center gap-2">
@@ -148,11 +160,39 @@ export default function AOIList({
                                         <div className="h-full bg-green-500 w-[70%] opacity-20"></div> {/* Dummy visualization */}
                                     </div>
                                 )}
+
+                                {/* Action Buttons (Hover Only) */}
+                                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-md shadow-sm border border-gray-200 dark:border-gray-700 p-0.5">
+                                    {onEdit && (
+                                        <div
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                onEdit(aoi)
+                                            }}
+                                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                            title="Editar geometria"
+                                        >
+                                            <Pencil size={14} />
+                                        </div>
+                                    )}
+                                    {onDelete && (
+                                        <div
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                onDelete(aoi)
+                                            }}
+                                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                            title="Excluir talhão"
+                                        >
+                                            <Trash2 size={14} />
+                                        </div>
+                                    )}
+                                </div>
                             </button>
                         )
                     })
                 )}
-            </div>
-        </div>
+            </div >
+        </div >
     )
 }

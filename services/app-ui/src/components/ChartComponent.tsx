@@ -9,11 +9,12 @@ interface ChartComponentProps {
     data: { date: string; value: number }[]
     title: string
     color?: string
+    domain?: [number, number] | ['auto', 'auto']
 }
 
 type TimeRange = '7D' | '30D' | '90D' | 'SAFRA'
 
-export default function ChartComponent({ data, title, color = '#10b981' }: ChartComponentProps) {
+export default function ChartComponent({ data, title, color = '#10b981', domain = [0, 1] }: ChartComponentProps) {
     const [timeRange, setTimeRange] = useState<TimeRange>('30D')
     const [mounted, setMounted] = useState(false)
 
@@ -113,7 +114,7 @@ export default function ChartComponent({ data, title, color = '#10b981' }: Chart
                                 minTickGap={30}
                             />
                             <YAxis
-                                domain={[0, 1]} // Fixed for indices
+                                domain={domain}
                                 tick={{ fontSize: 10, fill: '#9ca3af' }}
                                 stroke="#e5e7eb"
                                 tickFormatter={(val) => val.toFixed(1)}

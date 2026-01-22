@@ -23,6 +23,7 @@ def list_signals(
     status: Optional[str] = None,
     signal_type: Optional[str] = None,
     aoi_id: Optional[UUID] = None,
+    farm_id: Optional[UUID] = None,
     cursor: Optional[str] = None,  # Base64 encoded: {id}:{created_at}
     limit: int = 20,
     membership: CurrentMembership = Depends(get_current_membership),
@@ -33,7 +34,8 @@ def list_signals(
     List opportunity signals for the current tenant.
     Uses cursor-based pagination for scalability.
     """
-    conditions = ["tenant_id = :tenant_id"]
+    # Start with base condition on tenant
+    conditions = ["s.tenant_id = :tenant_id"]
     params = {
         "tenant_id": str(membership.tenant_id),
         "limit": min(limit, 100)
@@ -44,7 +46,8 @@ def list_signals(
         try:
             decoded = base64.b64decode(cursor).decode()
             cursor_id, cursor_created = decoded.split(":")
-            conditions.append("(created_at, id) < (:cursor_created, :cursor_id)")
+            # Use tuple comparison for cursor pagination
+            conditions.append("(s.created_at, s.id) < (:cursor_created, :cursor_id)")
             params["cursor_created"] = cursor_created
             params["cursor_id"] = cursor_id
         except Exception as e:
@@ -52,27 +55,31 @@ def list_signals(
             raise HTTPException(status_code=400, detail="Invalid cursor")
     
     if status:
-        conditions.append("status = :status")
+        conditions.append("s.status = :status")
         params["status"] = status
     
     if signal_type:
-        conditions.append("signal_type = :signal_type")
+        conditions.append("s.signal_type = :signal_type")
         params["signal_type"] = signal_type
     
     if aoi_id:
-        conditions.append("aoi_id = :aoi_id")
+        conditions.append("s.aoi_id = :aoi_id")
         params["aoi_id"] = str(aoi_id)
+
+    if farm_id:
+        conditions.append("a.farm_id = :farm_id")
+        params["farm_id"] = str(farm_id)
     
     sql = text(f"""
-        SELECT id, aoi_id, year, week, signal_type, status, severity, 
-               confidence, score, model_version, change_method, 
-               evidence_json, recommended_actions, created_at
-        FROM opportunity_signals
+        SELECT s.id, s.aoi_id, a.name as aoi_name, s.year, s.week, s.signal_type, s.status, s.severity, 
+               s.confidence, s.score, s.model_version, s.change_method, 
+               s.evidence_json, s.recommended_actions, s.created_at
+        FROM opportunity_signals s
+        JOIN aois a ON s.aoi_id = a.id
         WHERE {' AND '.join(conditions)}
-        ORDER BY created_at DESC, id DESC
+        ORDER BY s.created_at DESC, s.id DESC
         LIMIT :limit + 1
     """)
-    
     
     result = db.execute(sql, params)
     
@@ -87,6 +94,7 @@ def list_signals(
         signals.append(OpportunitySignalView(
             id=row.id,
             aoi_id=row.aoi_id,
+            aoi_name=row.aoi_name,
             year=row.year,
             week=row.week,
             signal_type=row.signal_type,
@@ -124,37 +132,58 @@ def get_signal(
     """
     Get a specific signal by ID.
     """
-    from uuid import UUID
+    # Use raw SQL to get AOI name efficiently
+    sql = text("""
+        SELECT s.id, s.aoi_id, a.name as aoi_name, s.year, s.week, s.signal_type, s.status, s.severity, 
+               s.confidence, s.score, s.model_version, s.change_method, 
+               s.evidence_json, s.recommended_actions, s.created_at
+        FROM opportunity_signals s
+        JOIN aois a ON s.aoi_id = a.id
+        WHERE s.id = :signal_id AND s.tenant_id = :tenant_id
+    """)
     
-    signal_repo = SignalRepository(db)
-    signal = signal_repo.get_by_id(
-        signal_id=UUID(signal_id),
-        tenant_id=membership.tenant_id
-    )
+    result = db.execute(sql, {
+        "signal_id": signal_id,
+        "tenant_id": str(membership.tenant_id)
+    }).first()
     
-    if not signal:
+    if not result:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Signal not found"
         )
-    
-    return OpportunitySignalView.from_orm(signal)
+        
+    return OpportunitySignalView(
+        id=result.id,
+        aoi_id=result.aoi_id,
+        aoi_name=result.aoi_name,
+        year=result.year,
+        week=result.week,
+        signal_type=result.signal_type,
+        status=result.status,
+        severity=result.severity,
+        confidence=result.confidence,
+        score=result.score,
+        model_version=result.model_version,
+        change_method=result.change_method,
+        evidence_json=json.loads(result.evidence_json) if isinstance(result.evidence_json, str) else (result.evidence_json or {}),
+        recommended_actions=json.loads(result.recommended_actions) if isinstance(result.recommended_actions, str) else (result.recommended_actions or []),
+        created_at=result.created_at
+    )
 
 
 @router.post("/signals/{signal_id}/ack", status_code=status.HTTP_200_OK)
 def acknowledge_signal(
-    signal_id: str,
+    signal_id: UUID, # Changed type hint from str to UUID
     membership: CurrentMembership = Depends(get_current_membership),
     db: Session = Depends(get_db)
 ):
     """
     Acknowledge a signal (change status to ACK).
     """
-    from uuid import UUID
-    
     signal_repo = SignalRepository(db)
     signal = signal_repo.get_by_id(
-        signal_id=UUID(signal_id),
+        signal_id=signal_id, # Removed redundant UUID() constructor call
         tenant_id=membership.tenant_id
     )
     

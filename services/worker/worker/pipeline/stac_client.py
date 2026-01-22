@@ -1,5 +1,5 @@
 """
-Real STAC client for fetching satellite imagery.
+Real STAC client for fetching satellite imagery and weather data.
 Integrates with Microsoft Planetary Computer and other STAC catalogs.
 """
 from typing import List, Dict, Any, Optional
@@ -11,6 +11,9 @@ import rasterio
 from rasterio.mask import mask
 import numpy as np
 import asyncio
+import requests
+import aiohttp
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 
 logger = structlog.get_logger()
@@ -18,8 +21,8 @@ logger = structlog.get_logger()
 
 class STACClient:
     """
-    STAC client for fetching Sentinel-2 imagery.
-    Uses Microsoft Planetary Computer by default.
+    STAC client for fetching Sentinel-2 & Sentinel-1 imagery.
+    Also fetches Weather data from Open-Meteo.
     """
     
     def __init__(self, catalog_url: str = "https://planetarycomputer.microsoft.com/api/stac/v1"):
@@ -64,14 +67,17 @@ class STACClient:
         try:
             client = self._get_client()
             
+            # Simple query for Sentinel-2 cloud cover
+            query = {}
+            if "sentinel-2-l2a" in collections:
+                query["eo:cloud_cover"] = {"lt": max_cloud_cover}
+
             # Search STAC catalog
             search = client.search(
                 collections=collections,
                 intersects=aoi_geom,
                 datetime=f"{start_date.isoformat()}/{end_date.isoformat()}",
-                query={
-                    "eo:cloud_cover": {"lt": max_cloud_cover}
-                },
+                query=query,
                 max_items=100
             )
             
@@ -80,7 +86,8 @@ class STACClient:
             logger.info("stac_search_completed",
                        scenes_found=len(items),
                        start_date=str(start_date),
-                       end_date=str(end_date))
+                       end_date=str(end_date),
+                       collections=collections)
             
             # Convert to simplified metadata
             scenes = []
@@ -96,6 +103,8 @@ class STACClient:
                         "blue": item.assets.get("B02").href if "B02" in item.assets else None,
                         "nir": item.assets.get("B08").href if "B08" in item.assets else None,
                         "swir": item.assets.get("B11").href if "B11" in item.assets else None,
+                        "swir2": item.assets.get("B12").href if "B12" in item.assets else None,
+                        "rededge": item.assets.get("B05").href if "B05" in item.assets else None,
                         "scl": item.assets.get("SCL").href if "SCL" in item.assets else None,
                     }
                 elif "copernicus-dem" in collection_id:
@@ -104,7 +113,7 @@ class STACClient:
                      }
 
                 elif "sentinel-1" in collection_id:
-                    # Sentinel-1 RTC/GRD usually has 'vv' and 'vh'
+                    # Sentinel-1 RTC usually has 'vv' and 'vh'
                     assets = {
                         "vv": item.assets.get("vv").href if "vv" in item.assets else None,
                         "vh": item.assets.get("vh").href if "vh" in item.assets else None,
@@ -125,6 +134,43 @@ class STACClient:
         except Exception as e:
             logger.error("stac_search_failed", exc_info=e)
             raise
+
+    async def fetch_weather_history(self, lat: float, lon: float, start_date: str, end_date: str) -> List[Dict]:
+        """
+        Fetch historical weather from Open-Meteo (ERA5 based).
+        """
+        url = "https://archive-api.open-meteo.com/v1/archive"
+        params = {
+            "latitude": lat,
+            "longitude": lon,
+            "start_date": start_date,
+            "end_date": end_date,
+            "daily": ["temperature_2m_max", "temperature_2m_min", "precipitation_sum", "et0_fao_evapotranspiration"],
+            "timezone": "America/Sao_Paulo"
+        }
+        
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, params=params) as resp:
+                if resp.status != 200:
+                    logger.error("open_meteo_failed", status=resp.status, text=await resp.text())
+                    return []
+                
+                data = await resp.json()
+                daily = data.get("daily", {})
+                
+                # Reshape to list of dicts
+                results = []
+                dates = daily.get("time", [])
+                for i, d in enumerate(dates):
+                    results.append({
+                        "date": d,
+                        "temp_max": daily["temperature_2m_max"][i],
+                        "temp_min": daily["temperature_2m_min"][i],
+                        "precip_sum": daily["precipitation_sum"][i],
+                        "et0_fao": daily["et0_fao_evapotranspiration"][i]
+                    })
+                return results
+
     
     def _download_asset(self, href: str) -> str:
         """
@@ -201,7 +247,7 @@ class STACClient:
                 # Reproject AOI to match Raster CRS (crucial for Sentinel-2 UTM)
                 from rasterio.warp import transform_geom
                 
-                # Assuming aoi_geom is EPSG:4326 (GeoJSON standard)
+                # Again, assume EPSG:4326 for aoi_geom
                 aoi_projected = transform_geom("EPSG:4326", src.crs, aoi_geom)
                 
                 geom = [shape(aoi_projected)]
@@ -302,13 +348,10 @@ class STACClient:
         - 3: Cloud Shadows
         - 4: Vegetation
         """
-    async def mask_clouds(self, data_array: np.ndarray, scl_array: np.ndarray) -> np.ndarray:
         try:
-            logger.error("DEBUG_MASK_CLOUDS_ENTRY", data_shape=data_array.shape, scl_shape=scl_array.shape)
-            
             # SCL bands are 20m, others 10m.
             if data_array.shape[-2:] != scl_array.shape[-2:]:
-                logger.error("DEBUG_SHAPE_MISMATCH", data_shape=data_array.shape, scl_shape=scl_array.shape)
+                # logger.error("DEBUG_SHAPE_MISMATCH", data_shape=data_array.shape, scl_shape=scl_array.shape)
                 
                 target_h, target_w = data_array.shape[-2:]
                 scl_h, scl_w = scl_array.shape[-2:]
@@ -326,10 +369,9 @@ class STACClient:
                 x_indices = np.clip(x_indices, 0, scl_w - 1)
 
                 scl_array = scl_array[y_indices[:, None], x_indices]
-                logger.error("DEBUG_RESIZED_SCL", new_shape=scl_array.shape)
+                # logger.error("DEBUG_RESIZED_SCL", new_shape=scl_array.shape)
             
             if data_array.shape[-2:] != scl_array.shape[-2:]:
-                 logger.error("CRITICAL_SHAPE_MISMATCH_AFTER_RESIZE", data_shape=data_array.shape, scl_shape=scl_array.shape)
                  raise ValueError(f"Shape mismatch after resize: Data {data_array.shape} vs SCL {scl_array.shape}")
 
             invalid_pixels = np.isin(scl_array, [0, 1, 3, 8, 9, 10])

@@ -69,6 +69,7 @@ class FarmView(BaseModel):
     tenant_id: UUID
     name: str
     timezone: str
+    aoi_count: int = 0
     created_at: datetime
     
     class Config:
@@ -82,7 +83,7 @@ class FarmView(BaseModel):
 class AOICreate(BaseModel):
     farm_id: UUID
     name: str = Field(..., min_length=1, max_length=100)
-    use_type: Literal["PASTURE", "CROP"]
+    use_type: Literal["PASTURE", "CROP", "TIMBER"]
     geom: dict  # GeoJSON MultiPolygon
     
     @validator('name')
@@ -118,6 +119,7 @@ class AOIView(BaseModel):
 class OpportunitySignalView(BaseModel):
     id: UUID
     aoi_id: UUID
+    aoi_name: Optional[str] = None
     year: int = Field(..., ge=2000, le=2100)
     week: int = Field(..., ge=1, le=53)
     signal_type: str
@@ -160,7 +162,7 @@ class SignalFeedbackCreate(BaseModel):
 class AOICreate(BaseModel):
     farm_id: UUID
     name: str = Field(..., min_length=1, max_length=100)
-    use_type: Literal["PASTURE", "CROP"]
+    use_type: Literal["PASTURE", "CROP", "TIMBER"]
     geometry: str  # WKT from frontend
     
     @validator('name')
@@ -185,7 +187,7 @@ class AOIView(BaseModel):
 
 class AOIPatch(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
-    use_type: Optional[Literal["PASTURE", "CROP"]] = None
+    use_type: Optional[Literal["PASTURE", "CROP", "TIMBER"]] = None
     status: Optional[Literal["ACTIVE", "ARCHIVED"]] = None
     geometry: Optional[str] = None  # WKT or GeoJSON string
 

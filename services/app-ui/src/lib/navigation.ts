@@ -17,6 +17,7 @@ export const routes = {
     farms: '/farms',
     signals: '/signals',
     aiAssistant: '/ai-assistant',
+    vision: '/vision',
 } as const
 
 /**

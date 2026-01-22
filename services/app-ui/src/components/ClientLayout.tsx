@@ -24,6 +24,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
         { href: routes.dashboard, label: 'Dashboard' },
         { href: routes.farms, label: 'Fazendas' },
         { href: routes.signals, label: 'Sinais' },
+        { href: routes.vision, label: 'Visão IA' },
         { href: routes.aiAssistant, label: 'AI Assistant' },
     ]
 
@@ -65,11 +66,10 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
                                 <Link
                                     key={item.href}
                                     href={item.href}
-                                    className={`border-b-2 whitespace-nowrap px-1 py-4 text-sm font-medium transition-colors ${
-                                        isActive
+                                    className={`border-b-2 whitespace-nowrap px-1 py-4 text-sm font-medium transition-colors ${isActive
                                             ? 'border-green-600 text-green-600 dark:text-green-400'
                                             : 'border-transparent text-gray-500 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600 hover:text-gray-700 dark:hover:text-gray-200'
-                                    }`}
+                                        }`}
                                 >
                                     {item.label}
                                 </Link>

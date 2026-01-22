@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from typing import List, Optional
 from uuid import UUID
 from app.infrastructure.models import Identity, Tenant, Membership, Farm, AOI, OpportunitySignal
@@ -88,15 +89,47 @@ class FarmRepository:
         self.db = db
     
     def get_by_id(self, farm_id: UUID, tenant_id: UUID) -> Optional[Farm]:
-        return self.db.query(Farm).filter(
+        # Query farm with active AOI count
+        result = self.db.query(
+            Farm,
+            func.count(AOI.id).label('aoi_count')
+        ).outerjoin(
+            AOI, 
+            (AOI.farm_id == Farm.id) & (AOI.status == 'ACTIVE')
+        ).filter(
             Farm.id == farm_id,
             Farm.tenant_id == tenant_id
+        ).group_by(
+            Farm.id
         ).first()
+
+        if result:
+            farm, count = result
+            farm.aoi_count = count
+            return farm
+        return None
     
     def list_by_tenant(self, tenant_id: UUID) -> List[Farm]:
-        return self.db.query(Farm).filter(
+        # Query farm with active AOI count
+        result = self.db.query(
+            Farm,
+            func.count(AOI.id).label('aoi_count')
+        ).outerjoin(
+            AOI, 
+            (AOI.farm_id == Farm.id) & (AOI.status == 'ACTIVE')
+        ).filter(
             Farm.tenant_id == tenant_id
+        ).group_by(
+            Farm.id
         ).order_by(Farm.created_at.desc()).all()
+        
+        # Merge count into Farm object for Pydantic
+        farms = []
+        for farm, count in result:
+            farm.aoi_count = count
+            farms.append(farm)
+            
+        return farms
     
     def create(self, tenant_id: UUID, name: str, timezone: str) -> Farm:
         farm = Farm(

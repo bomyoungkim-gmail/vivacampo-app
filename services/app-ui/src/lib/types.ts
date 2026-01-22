@@ -50,7 +50,7 @@ export interface FarmListResponse {
 // AOI (Area of Interest) Types
 // =============================================================================
 
-export type AOIUseType = 'PASTURE' | 'CROP' | 'FOREST' | 'WATER' | 'OTHER'
+export type AOIUseType = 'PASTURE' | 'CROP' | 'FOREST' | 'TIMBER' | 'WATER' | 'OTHER'
 
 export interface AOI {
     id: string
@@ -93,12 +93,15 @@ export interface Signal {
     id: string
     aoi_id: string
     aoi_name: string
-    signal_type: SignalType
+    signal_type: string
     status: SignalStatus
     score: number
-    detected_at: string  // ISO 8601 format
+    severity: 'LOW' | 'MEDIUM' | 'HIGH'
+    confidence: 'LOW' | 'MEDIUM' | 'HIGH'
+    evidence_json?: Record<string, any>
+    recommended_actions?: string[]
+    detected_at: string
     metadata?: Record<string, any>
-    recommended_action?: string
     acknowledged_at?: string
     acknowledged_by?: string
     resolved_at?: string
@@ -267,6 +270,17 @@ export interface DerivedAssets {
     false_color_s3_uri?: string | null
     true_color_s3_uri?: string | null
 
+    // Advanced Indices URIs
+    ndre_s3_uri?: string | null
+    reci_s3_uri?: string | null
+    gndvi_s3_uri?: string | null
+    evi_s3_uri?: string | null
+    msi_s3_uri?: string | null
+    nbr_s3_uri?: string | null
+    bsi_s3_uri?: string | null
+    ari_s3_uri?: string | null
+    cri_s3_uri?: string | null
+
     // Statistics
     ndvi_mean?: number
     ndvi_min?: number
@@ -289,6 +303,38 @@ export interface DerivedAssets {
     savi_std?: number
 
     anomaly_mean?: number
+
+    // Advanced Indices Stats
+    ndre_mean?: number
+    reci_mean?: number
+    gndvi_mean?: number
+    evi_mean?: number
+    msi_mean?: number
+    nbr_mean?: number
+    bsi_mean?: number
+    ari_mean?: number
+    cri_mean?: number
+}
+
+export interface RadarAssets {
+    year: number
+    week: number
+    rvi_s3_uri?: string | null
+    ratio_s3_uri?: string | null
+    vv_s3_uri?: string | null
+    vh_s3_uri?: string | null
+    rvi_mean?: number
+    rvi_std?: number
+    ratio_mean?: number
+    ratio_std?: number
+}
+
+export interface WeatherData {
+    date: string
+    temp_max: number
+    temp_min: number
+    precip_sum: number
+    et0_fao: number
 }
 
 // =============================================================================

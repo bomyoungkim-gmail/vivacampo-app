@@ -146,6 +146,7 @@ export const APP_CONFIG = {
             PASTURE: '#10b981',  // Green
             CROP: '#f59e0b',      // Orange
             FOREST: '#059669',    // Dark green
+            TIMBER: '#8B4513',    // Saddle Brown
             WATER: '#3b82f6',     // Blue
         },
         SIGNAL_TYPES: {

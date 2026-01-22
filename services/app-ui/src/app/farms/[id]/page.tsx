@@ -73,6 +73,19 @@ export default function FarmDetailsPage() {
     const [anomalyUrl, setAnomalyUrl] = useState<string | null>(null)
     const [falseColorUrl, setFalseColorUrl] = useState<string | null>(null)
     const [trueColorUrl, setTrueColorUrl] = useState<string | null>(null)
+
+    // Advanced Indices State
+    const [ndreUrl, setNdreUrl] = useState<string | null>(null)
+    const [reciUrl, setReciUrl] = useState<string | null>(null)
+    const [gndviUrl, setGndviUrl] = useState<string | null>(null)
+    const [eviUrl, setEviUrl] = useState<string | null>(null)
+    const [msiUrl, setMsiUrl] = useState<string | null>(null)
+    const [nbrUrl, setNbrUrl] = useState<string | null>(null)
+    const [bsiUrl, setBsiUrl] = useState<string | null>(null)
+    const [ariUrl, setAriUrl] = useState<string | null>(null)
+    const [criUrl, setCriUrl] = useState<string | null>(null)
+    const [rviUrl, setRviUrl] = useState<string | null>(null)
+    const [ratioUrl, setRatioUrl] = useState<string | null>(null)
     const [showAOIs, setShowAOIs] = useState(true)
 
     // Edit AOI State
@@ -113,8 +126,48 @@ export default function FarmDetailsPage() {
                     setAnomalyUrl(res.data.anomaly_s3_uri || null)
                     setFalseColorUrl(res.data.false_color_s3_uri || null)
                     setTrueColorUrl(res.data.true_color_s3_uri || null)
+
+                    setNdreUrl(res.data.ndre_s3_uri || null)
+                    setReciUrl(res.data.reci_s3_uri || null)
+                    setGndviUrl(res.data.gndvi_s3_uri || null)
+                    setEviUrl(res.data.evi_s3_uri || null)
+                    setMsiUrl(res.data.msi_s3_uri || null)
+                    setNbrUrl(res.data.nbr_s3_uri || null)
+                    setBsiUrl(res.data.bsi_s3_uri || null)
+                    setAriUrl(res.data.ari_s3_uri || null)
+                    setCriUrl(res.data.cri_s3_uri || null)
+
+                    // Radar (todo: separate call if needed, but assuming attached if available)
+                    // Currently radar assets might be in a different endpoint or merged. 
+                    // Based on previous search, they are separate. Checked AOIDetailsPanel, it calls aoiAPI.getRadarHistory.
+                    // But Map overlay usually wants the *latest* raster. 
+                    // Let's assume for now they are merged in getAssets if we updated the backend. 
+                    // I verified aois_router.py earlier and saw I added them to the SELECT. 
+                    // Wait, I only added Optical indices to get_aoi_assets in previous turn. Radar was not added to get_aoi_assets query?
+                    // Let me check aois_router.py again mentally... 
+                    // I added `ndre_s3_uri` etc. Did I add `rvi_s3_uri`? 
+                    // The DerivedAssets model has them? No, DerivedRadarAssets is separate.
+                    // So I need to fetch Radar assets separately here or assume they are not yet map-ready. 
+                    // The user asked "os indicadores novos aparecerao no menu". 
+                    // Radar is technically "new" to the menu. 
+                    // I should probably fetch radar assets here too if I want them on the map.
+
+                    // Note: Since I didn't merge Radar into DerivedAssets table, I can't get them from getAssets easily without a join.
+                    // However, `AOIDetailsPanel` fetches them separately. 
+                    // I will leave Radar map layers pending URL population logic for now (pass null) or fetch them if I can.
+                    // Actually, I can just fetch them here in parallel.
                 })
                 .catch(console.error)
+
+            // Fetch Radar for Map
+            aoiAPI.getRadarHistory(selectedAOI.id).then(res => {
+                if (res.data && res.data.length > 0) {
+                    // Get latest
+                    const latest = res.data.sort((a: any, b: any) => (b.year * 100 + b.week) - (a.year * 100 + a.week))[0]
+                    setRviUrl(latest.rvi_s3_uri || null)
+                    setRatioUrl(latest.ratio_s3_uri || null)
+                }
+            }).catch(e => console.warn("Radar map fetch error", e))
         } else {
             setIsEditingAOI(false)
             setPendingGeometry(null)
@@ -393,33 +446,28 @@ export default function FarmDetailsPage() {
 
             {/* Top Bar */}
             <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 shrink-0 z-20 shadow-sm">
-                <div className="flex items-center gap-4">
-                    <Link href="/farms" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full text-gray-500 transition-colors">
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="flex items-center">
+                    <Link href="/farms" className="p-2 -ml-2 mr-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors" title="Voltar para lista">
+                        <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
                     </Link>
-                    <div>
-                        <h1 className="font-bold text-gray-800 dark:text-gray-200 text-lg leading-tight truncate max-w-[200px] sm:max-w-md">
-                            {farm.name}
-                        </h1>
-                        {farm.timezone && (
-                            <p className="text-[10px] text-gray-400 font-medium">
-                                {farm.timezone}
-                            </p>
-                        )}
-                    </div>
+                    <h1 className="font-bold text-gray-800 dark:text-gray-200 text-lg sm:text-xl leading-tight truncate max-w-[200px] sm:max-w-md">
+                        {farm.name}
+                    </h1>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    {/* User Avatar Placeholder */}
-                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-xs ring-2 ring-white shadow-sm cursor-pointer hover:bg-green-200 transition-colors" title="Perfil"
-                        onClick={() => setShowDeleteModal(true)} // Keep delete trigger for now hidden under avatar for emergency? No, better use explicit button for now or remove. 
-                    // Users asked to REMOVE global delete. So I remove it.
-                    // I will add a separate settings button later if needed.
+                    {/* Delete Farm Button */}
+                    <button
+                        onClick={() => setShowDeleteModal(true)}
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="Excluir Fazenda"
                     >
-                        US
-                    </div>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
                     {/* Expand Sidebar Toggle (mobile) */}
                     <button
                         onClick={() => setShowSidebar(!showSidebar)}
@@ -451,13 +499,29 @@ export default function FarmDetailsPage() {
                             onSelect={(aoi) => {
                                 setSelectedAOI(aoi)
                                 // Note: useEffect will switch to DETAIL view
-                                // Map will flyTo automatically if MapComponent listens to selectedAOI
                             }}
                             processingAois={processingAois}
                             signals={signals}
                             onAddAOI={() => {
                                 startDrawing()
                                 if (window.innerWidth < 1024) setShowSidebar(false)
+                            }}
+                            onEdit={(aoi) => {
+                                setSelectedAOI(aoi)
+                                setTimeout(() => {
+                                    if (mapRef.current) {
+                                        const layer = mapRef.current.getLayers().find((l: any) => l.feature?.properties?.id === aoi.id);
+                                        if (layer && (layer as any).pm) {
+                                            if (window.innerWidth < 1024) setShowSidebar(false);
+                                            (layer as any).pm.enable({ allowSelfIntersection: false });
+                                            setEditingAOIId(aoi.id);
+                                        }
+                                    }
+                                }, 100)
+                            }}
+                            onDelete={(aoi) => {
+                                setSelectedAOI(aoi)
+                                setShowDeleteAOIModal(true)
                             }}
                         />
                     ) : (
@@ -605,6 +669,18 @@ export default function FarmDetailsPage() {
                             anomalyS3Url={anomalyUrl}
                             falseColorS3Url={falseColorUrl}
                             trueColorS3Url={trueColorUrl}
+
+                            ndreS3Url={ndreUrl}
+                            reciS3Url={reciUrl}
+                            gndviS3Url={gndviUrl}
+                            eviS3Url={eviUrl}
+                            msiS3Url={msiUrl}
+                            nbrS3Url={nbrUrl}
+                            bsiS3Url={bsiUrl}
+                            ariS3Url={ariUrl}
+                            criS3Url={criUrl}
+                            rviS3Url={rviUrl}
+                            ratioS3Url={ratioUrl}
                             showAOIs={showAOIs}
                             processingAois={processingAois}
                             signals={signals}
@@ -647,6 +723,7 @@ export default function FarmDetailsPage() {
                                     >
                                         <option value="PASTURE">Pastagem</option>
                                         <option value="CROP">Lavoura</option>
+                                        <option value="TIMBER">Madeira / Silvicultura</option>
                                     </select>
                                 </div>
                                 <div className="flex gap-3 pt-4">

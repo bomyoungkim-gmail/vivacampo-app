@@ -20,6 +20,8 @@ import type {
     AIApproval,
     AIApprovalDecisionRequest,
     DerivedAssets,
+    RadarAssets,
+    WeatherData,
 } from './types'
 
 const api = axios.create({
@@ -113,6 +115,12 @@ export const aoiAPI = {
 
     listByFarm: (farmId: string): Promise<AxiosResponse<AOI[]>> =>
         api.get('/v1/app/aois', { params: { farm_id: farmId } }),
+
+    getRadarHistory: (id: string, year?: number): Promise<AxiosResponse<RadarAssets[]>> =>
+        api.get(`/v1/app/aois/${id}/radar/history`, { params: { year } }),
+
+    getWeatherHistory: (id: string, start?: string, end?: string): Promise<AxiosResponse<WeatherData[]>> =>
+        api.get(`/v1/app/aois/${id}/weather/history`, { params: { start_date: start, end_date: end } }),
 }
 
 // =============================================================================

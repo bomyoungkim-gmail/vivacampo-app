@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index
+from sqlalchemy import Column, String, Integer, Float, Boolean, DateTime, Text, ForeignKey, UniqueConstraint, Index, Date
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 from geoalchemy2 import Geometry
@@ -187,4 +187,110 @@ class CopilotApproval(Base):
     
     __table_args__ = (
         Index('copilot_approvals_idx', 'tenant_id', 'decision', 'created_at'),
+    )
+
+class DerivedRadarAssets(Base):
+    __tablename__ = "derived_radar_assets"
+    
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), primary_key=True, nullable=False)
+    aoi_id = Column(UUID(as_uuid=True), ForeignKey('aois.id', ondelete='CASCADE'), primary_key=True, nullable=False)
+    year = Column(Integer, primary_key=True, nullable=False)
+    week = Column(Integer, primary_key=True, nullable=False)
+    pipeline_version = Column(String, primary_key=True, nullable=False)
+    
+    rvi_s3_uri = Column(String, nullable=True)
+    ratio_s3_uri = Column(String, nullable=True)
+    vh_s3_uri = Column(String, nullable=True)
+    vv_s3_uri = Column(String, nullable=True)
+    
+    # New Indices URIs
+    ndre_s3_uri = Column(String, nullable=True)
+    reci_s3_uri = Column(String, nullable=True)
+    gndvi_s3_uri = Column(String, nullable=True)
+    evi_s3_uri = Column(String, nullable=True)
+    msi_s3_uri = Column(String, nullable=True)
+    nbr_s3_uri = Column(String, nullable=True)
+    bsi_s3_uri = Column(String, nullable=True)
+    ari_s3_uri = Column(String, nullable=True)
+    cri_s3_uri = Column(String, nullable=True)
+    
+    # New Indices URIs
+    ndre_s3_uri = Column(String, nullable=True)
+    reci_s3_uri = Column(String, nullable=True)
+    gndvi_s3_uri = Column(String, nullable=True)
+    evi_s3_uri = Column(String, nullable=True)
+    msi_s3_uri = Column(String, nullable=True)
+    nbr_s3_uri = Column(String, nullable=True)
+    bsi_s3_uri = Column(String, nullable=True)
+    ari_s3_uri = Column(String, nullable=True)
+    cri_s3_uri = Column(String, nullable=True)
+    
+    rvi_mean = Column(Float, nullable=True)
+    rvi_std = Column(Float, nullable=True)
+    ratio_mean = Column(Float, nullable=True)
+    ratio_std = Column(Float, nullable=True)
+    
+    # New Indices Stats
+    ndre_mean = Column(Float, nullable=True)
+    ndre_std = Column(Float, nullable=True)
+    reci_mean = Column(Float, nullable=True)
+    reci_std = Column(Float, nullable=True)
+    gndvi_mean = Column(Float, nullable=True)
+    gndvi_std = Column(Float, nullable=True)
+    evi_mean = Column(Float, nullable=True)
+    evi_std = Column(Float, nullable=True)
+    msi_mean = Column(Float, nullable=True)
+    msi_std = Column(Float, nullable=True)
+    nbr_mean = Column(Float, nullable=True)
+    nbr_std = Column(Float, nullable=True)
+    bsi_mean = Column(Float, nullable=True)
+    bsi_std = Column(Float, nullable=True)
+    ari_mean = Column(Float, nullable=True)
+    ari_std = Column(Float, nullable=True)
+    cri_mean = Column(Float, nullable=True)
+    cri_std = Column(Float, nullable=True)
+    
+    # New Indices Stats
+    ndre_mean = Column(Float, nullable=True)
+    ndre_std = Column(Float, nullable=True)
+    reci_mean = Column(Float, nullable=True)
+    reci_std = Column(Float, nullable=True)
+    gndvi_mean = Column(Float, nullable=True)
+    gndvi_std = Column(Float, nullable=True)
+    evi_mean = Column(Float, nullable=True)
+    evi_std = Column(Float, nullable=True)
+    msi_mean = Column(Float, nullable=True)
+    msi_std = Column(Float, nullable=True)
+    nbr_mean = Column(Float, nullable=True)
+    nbr_std = Column(Float, nullable=True)
+    bsi_mean = Column(Float, nullable=True)
+    bsi_std = Column(Float, nullable=True)
+    ari_mean = Column(Float, nullable=True)
+    ari_std = Column(Float, nullable=True)
+    cri_mean = Column(Float, nullable=True)
+    cri_std = Column(Float, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    
+    __table_args__ = (
+        Index('radar_aoi_time_idx', 'tenant_id', 'aoi_id', 'year', 'week'),
+    )
+
+class DerivedWeatherDaily(Base):
+    __tablename__ = "derived_weather_daily"
+    
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), primary_key=True, nullable=False)
+    aoi_id = Column(UUID(as_uuid=True), ForeignKey('aois.id', ondelete='CASCADE'), primary_key=True, nullable=False)
+    date = Column(Date, primary_key=True, nullable=False)
+    
+    temp_max = Column(Float, nullable=True)
+    temp_min = Column(Float, nullable=True)
+    precip_sum = Column(Float, nullable=True)
+    et0_fao = Column(Float, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    
+    __table_args__ = (
+        Index('weather_aoi_time_idx', 'tenant_id', 'aoi_id', 'date'),
     )

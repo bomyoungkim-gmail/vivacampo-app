@@ -339,6 +339,21 @@ interface MapProps {
     anomalyS3Url?: string | null
     falseColorS3Url?: string | null
     trueColorS3Url?: string | null
+
+    // New Indices
+    ndreS3Url?: string | null
+    reciS3Url?: string | null
+    gndviS3Url?: string | null
+    eviS3Url?: string | null
+    msiS3Url?: string | null
+    nbrS3Url?: string | null
+    bsiS3Url?: string | null
+    ariS3Url?: string | null
+    criS3Url?: string | null
+
+    // Radar
+    rviS3Url?: string | null
+    ratioS3Url?: string | null
     showAOIs?: boolean
     isEditing?: boolean
     onAOIUpdate?: (aoiId: string, newGeometry: any) => void
@@ -423,6 +438,10 @@ export default function MapLeaflet({
     anomalyS3Url,
     falseColorS3Url,
     trueColorS3Url,
+
+    ndreS3Url, reciS3Url, gndviS3Url, eviS3Url,
+    msiS3Url, nbrS3Url, bsiS3Url, ariS3Url, criS3Url,
+    rviS3Url, ratioS3Url,
     showAOIs: initialShowAOIs = true,
     isEditing = false,
     onAOIUpdate,
@@ -479,7 +498,19 @@ export default function MapLeaflet({
         savi: !!saviS3Url,
         anomaly: !!anomalyS3Url,
         falseColor: !!falseColorS3Url,
-        trueColor: !!trueColorS3Url
+        trueColor: !!trueColorS3Url,
+
+        ndre: !!ndreS3Url,
+        reci: !!reciS3Url,
+        gndvi: !!gndviS3Url,
+        evi: !!eviS3Url,
+        msi: !!msiS3Url,
+        nbr: !!nbrS3Url,
+        bsi: !!bsiS3Url,
+        ari: !!ariS3Url,
+        cri: !!criS3Url,
+        rvi: !!rviS3Url,
+        ratio: !!ratioS3Url
     }
 
     return (
@@ -513,6 +544,13 @@ export default function MapLeaflet({
                         url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                         attribution="Tiles &copy; Esri"
                         maxNativeZoom={18}
+                        maxZoom={19}
+                    />
+                ) : activeBaseLayer === 'topo' ? (
+                    <TileLayer
+                        url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+                        attribution='Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'
+                        maxNativeZoom={17}
                         maxZoom={19}
                     />
                 ) : (
@@ -634,6 +672,8 @@ export default function MapLeaflet({
                     setOverlayOpacity={setOverlayOpacity}
                     showAlerts={showAlerts}
                     setShowAlerts={setShowAlerts}
+                    showAOIs={showAOIs}
+                    setShowAOIs={setShowAOIs}
                     availableLayers={availableLayers}
                     aois={aois}
                 />

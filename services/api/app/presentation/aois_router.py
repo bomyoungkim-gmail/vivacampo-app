@@ -446,11 +446,22 @@ async def get_aoi_assets(
     sql = text("""
         SELECT ndvi_s3_uri, anomaly_s3_uri, quicklook_s3_uri, 
                ndwi_s3_uri, ndmi_s3_uri, savi_s3_uri, false_color_s3_uri, true_color_s3_uri,
+               
+               ndre_s3_uri, reci_s3_uri, gndvi_s3_uri, evi_s3_uri,
+               msi_s3_uri, nbr_s3_uri, bsi_s3_uri, ari_s3_uri, cri_s3_uri,
+
                ndvi_mean, ndvi_min, ndvi_max, ndvi_std,
                ndwi_mean, ndwi_min, ndwi_max, ndwi_std,
                ndmi_mean, ndmi_min, ndmi_max, ndmi_std,
                savi_mean, savi_min, savi_max, savi_std,
                anomaly_mean, anomaly_std,
+               
+               ndre_mean, ndre_std, reci_mean, reci_std,
+               gndvi_mean, gndvi_std, evi_mean, evi_std,
+               msi_mean, msi_std, nbr_mean, nbr_std,
+               bsi_mean, bsi_std, ari_mean, ari_std,
+               cri_mean, cri_std,
+
                year, week
         FROM derived_assets
         WHERE tenant_id = :tenant_id AND aoi_id = :aoi_id
@@ -487,7 +498,10 @@ async def get_aoi_history(
             ndwi_mean, ndwi_min, ndwi_max, ndwi_std,
             ndmi_mean, ndmi_min, ndmi_max, ndmi_std,
             savi_mean, savi_min, savi_max, savi_std,
-            anomaly_mean
+            anomaly_mean,
+            
+            ndre_mean, reci_mean, gndvi_mean, evi_mean,
+            msi_mean, nbr_mean, bsi_mean, ari_mean, cri_mean
         FROM derived_assets
         WHERE tenant_id = :tenant_id AND aoi_id = :aoi_id
         ORDER BY year DESC, week DESC
