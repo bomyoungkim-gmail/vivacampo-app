@@ -2,25 +2,100 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 142.1 76.2% 36.3%;
+    --primary-foreground: 355.7 100% 97.3%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 142.1 76.2% 36.3%;
+    --radius: 0.5rem;
+
+    /* Chart colors - agricultural/satellite palette */
+    --chart-1: 142 76% 36%;   /* Green - vegetation */
+    --chart-2: 221 83% 53%;   /* Blue - water */
+    --chart-3: 38 92% 50%;    /* Orange - warning/stress */
+    --chart-4: 262 83% 58%;   /* Purple - anomalies */
+    --chart-5: 0 84% 60%;     /* Red - critical */
+
+    /* Sidebar - VivaCampo green theme */
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 142.1 76.2% 36.3%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 142 76% 95%;
+    --sidebar-accent-foreground: 142.1 76.2% 26%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 142.1 76.2% 36.3%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 142.1 70.6% 45.3%;
+    --primary-foreground: 144.9 80.4% 10%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 142.1 76.2% 36.3%;
+
+    /* Dark chart colors - optimized for satellite imagery contrast */
+    --chart-1: 142 70% 50%;   /* Bright green - NDVI */
+    --chart-2: 199 89% 48%;   /* Cyan - water/NDWI */
+    --chart-3: 38 100% 55%;   /* Amber - stress indices */
+    --chart-4: 280 87% 65%;   /* Violet - anomalies */
+    --chart-5: 0 90% 65%;     /* Bright red - alerts */
+
+    /* Dark sidebar - immersive for map viewing */
+    --sidebar-background: 224 71% 4%;
+    --sidebar-foreground: 213 31% 91%;
+    --sidebar-primary: 142.1 70.6% 45.3%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 216 34% 17%;
+    --sidebar-accent-foreground: 213 31% 91%;
+    --sidebar-border: 216 34% 17%;
+    --sidebar-ring: 142.1 70.6% 45.3%;
   }
 }
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))) rgb(var(--background-start-rgb));
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  input,
+  textarea,
+  select {
+    @apply bg-background text-foreground border-input;
+  }
 }
 
 @layer utilities {
@@ -42,18 +117,18 @@ body {
   }
 }
 
-@layer base {
-
-  input,
-  textarea,
-  select {
-    @apply bg-white text-gray-900 border-gray-300;
-  }
-}
-
-/* Touch targets */
+/* Touch targets for mobile */
 button,
 a {
   min-height: 44px;
   min-width: 44px;
+}
+
+/* Satellite imagery overlay optimizations */
+.satellite-overlay {
+  mix-blend-mode: normal;
+}
+
+.dark .satellite-overlay {
+  filter: brightness(1.1) contrast(1.05);
 }

@@ -17,7 +17,13 @@
       "Bash(findstr:*)",
       "Bash(wc -l \"c:\\\\projects\\\\vivacampo-app\\\\services\\\\app-ui\\\\src\\\\app\"/**/*.tsx)",
       "Bash(docker ps:*)",
-      "Bash(docker restart:*)"
+      "Bash(docker restart:*)",
+      "Bash(npx uipro-cli:*)",
+      "Bash(uipro-cli list:*)",
+      "Bash(npm install:*)",
+      "Bash(npx shadcn@latest add button card dialog sheet skeleton badge separator --yes)",
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

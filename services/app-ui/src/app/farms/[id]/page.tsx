@@ -14,6 +14,9 @@ import AOIList from '@/components/AOIList'
 import MobileNav from '@/components/MobileNav'
 import { EmptyAOIs } from '@/components/EmptyState'
 import * as turf from '@turf/turf'
+import { PanelLeftClose, PanelLeft, Maximize2, Minimize2, Map, BarChart3 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 
 // Skeleton for farm details loading
 function FarmDetailsSkeleton() {
@@ -59,6 +62,10 @@ export default function FarmDetailsPage() {
     // Mobile sidebar state
     const [showSidebar, setShowSidebar] = useState(false)
     const [viewMode, setViewMode] = useState<'LIST' | 'DETAIL'>('LIST')
+
+    // Split-view panel state
+    const [panelSize, setPanelSize] = useState<'normal' | 'expanded' | 'collapsed'>('normal')
+    const [focusMode, setFocusMode] = useState<'map' | 'data' | 'split'>('split')
 
     // Drawing State
     const [isDrawing, setIsDrawing] = useState(false)
@@ -445,53 +452,127 @@ export default function FarmDetailsPage() {
             <ErrorToast error={error} onClose={clearError} />
 
             {/* Top Bar */}
-            <header className="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between px-4 shrink-0 z-20 shadow-sm">
+            <header className="h-14 bg-card border-b border-border flex items-center justify-between px-4 shrink-0 z-20">
                 <div className="flex items-center">
-                    <Link href="/farms" className="p-2 -ml-2 mr-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors" title="Voltar para lista">
+                    <Link href="/farms" className="p-2 -ml-2 mr-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-colors" title="Voltar para lista">
                         <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
                     </Link>
-                    <h1 className="font-bold text-gray-800 dark:text-gray-200 text-lg sm:text-xl leading-tight truncate max-w-[200px] sm:max-w-md">
+                    <h1 className="font-bold text-foreground text-lg sm:text-xl leading-tight truncate max-w-[200px] sm:max-w-md">
                         {farm.name}
                     </h1>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                    {/* Panel Collapse Toggle (Desktop) */}
+                    <TooltipProvider>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setPanelSize(panelSize === 'collapsed' ? 'normal' : 'collapsed')}
+                                    className="hidden lg:flex h-9 w-9 p-0"
+                                >
+                                    {panelSize === 'collapsed' ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>{panelSize === 'collapsed' ? 'Mostrar' : 'Ocultar'} Painel</TooltipContent>
+                        </Tooltip>
+                    </TooltipProvider>
+
                     {/* Delete Farm Button */}
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setShowDeleteModal(true)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                         title="Excluir Fazenda"
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
-                    </button>
+                    </Button>
                     {/* Expand Sidebar Toggle (mobile) */}
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setShowSidebar(!showSidebar)}
-                        className="lg:hidden p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+                        className="lg:hidden h-9 w-9 p-0"
                     >
-                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
-                    </button>
+                    </Button>
                 </div>
             </header>
 
-            {/* Main Content */}
+            {/* Main Content - Split View */}
             <div className="flex-1 flex overflow-hidden relative">
 
-                {/* Sidebar */}
+                {/* Data Panel - Expansível */}
                 <aside
                     className={`
-                        absolute z-30 top-0 bottom-0 left-0 bg-white dark:bg-gray-800 shadow-xl border-r border-gray-200 dark:border-gray-700 transition-transform duration-300 ease-in-out
+                        absolute z-30 top-0 bottom-0 left-0 bg-background border-r border-border transition-all duration-300 ease-in-out
                         ${showSidebar ? 'translate-x-0' : '-translate-x-full'}
-                        lg:relative lg:translate-x-0 
-                        w-full sm:w-96 shrink-0 flex flex-col
+                        lg:relative lg:translate-x-0
+                        ${panelSize === 'collapsed' ? 'lg:w-0 lg:overflow-hidden lg:border-0' : ''}
+                        ${panelSize === 'normal' ? 'w-full sm:w-[480px]' : ''}
+                        ${panelSize === 'expanded' ? 'w-full sm:w-[600px] lg:w-[50vw]' : ''}
+                        ${focusMode === 'data' ? 'lg:w-[70vw]' : ''}
+                        ${focusMode === 'map' ? 'lg:w-[320px]' : ''}
+                        shrink-0 flex flex-col shadow-xl lg:shadow-none
                     `}
                 >
+                    {/* Panel Controls */}
+                    <div className="hidden lg:flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
+                        <div className="flex items-center gap-1">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant={focusMode === 'data' ? 'default' : 'ghost'}
+                                            size="sm"
+                                            onClick={() => setFocusMode(focusMode === 'data' ? 'split' : 'data')}
+                                            className="h-8 w-8 p-0"
+                                        >
+                                            <BarChart3 className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Foco em Dados</TooltipContent>
+                                </Tooltip>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant={focusMode === 'map' ? 'default' : 'ghost'}
+                                            size="sm"
+                                            onClick={() => setFocusMode(focusMode === 'map' ? 'split' : 'map')}
+                                            className="h-8 w-8 p-0"
+                                        >
+                                            <Map className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Foco no Mapa</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        </div>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setPanelSize(panelSize === 'expanded' ? 'normal' : 'expanded')}
+                                        className="h-8 w-8 p-0"
+                                    >
+                                        {panelSize === 'expanded' ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>{panelSize === 'expanded' ? 'Reduzir' : 'Expandir'} Painel</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    </div>
                     {viewMode === 'LIST' ? (
                         <AOIList
                             aois={aois}
@@ -583,19 +664,38 @@ export default function FarmDetailsPage() {
                 </aside>
 
                 {/* Map Area */}
-                <main className="flex-1 relative bg-gray-100 dark:bg-gray-900 w-full overflow-hidden">
+                <main className={`flex-1 relative bg-muted w-full overflow-hidden transition-all duration-300 ${focusMode === 'data' ? 'lg:w-[30vw]' : ''}`}>
+
+                    {/* Panel Toggle (Desktop - when collapsed) */}
+                    {panelSize === 'collapsed' && (
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => setPanelSize('normal')}
+                                        className="hidden lg:flex absolute top-4 left-4 z-[1000] shadow-lg"
+                                    >
+                                        <PanelLeft className="h-4 w-4 mr-2" />
+                                        Dados
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Abrir Painel de Dados</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                    )}
 
                     {/* Map Interaction Overlay (Mobile Toggle) */}
                     {!showSidebar && !isDrawing && (
-                        <button
+                        <Button
                             onClick={() => setShowSidebar(true)}
-                            className="lg:hidden absolute top-4 left-4 z-[1000] bg-white dark:bg-gray-800 shadow-lg rounded-lg px-4 py-2 flex items-center gap-2 text-sm font-bold text-gray-700 dark:text-gray-300 ring-1 ring-black/5"
+                            variant="secondary"
+                            className="lg:hidden absolute top-4 left-4 z-[1000] shadow-lg"
                         >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                            </svg>
+                            <PanelLeft className="h-4 w-4 mr-2" />
                             Talhões ({aois.length})
-                        </button>
+                        </Button>
                     )}
 
                     {/* Drawing Controls */}

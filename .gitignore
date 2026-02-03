@@ -59,3 +59,9 @@ check_queue.py
 manual_dispatch.py
 trigger_sqs.py
 verify_api.py
+
+# vscode
+.agent/
+.claude/
+.codex/
+.continue/

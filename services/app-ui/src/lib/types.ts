@@ -86,19 +86,20 @@ export interface AOIBackfillRequest {
 // Signal Types
 // =============================================================================
 
-export type SignalType = 'CHANGE_DETECTED' | 'ANOMALY' | 'ALERT'
+export type SignalType = 'CHANGE_DETECTED' | 'ANOMALY' | 'ALERT' | 'PASTURE_FORAGE_RISK' | 'CROP_STRESS' | 'PEST_OUTBREAK'
 export type SignalStatus = 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED'
 
 export interface Signal {
     id: string
     aoi_id: string
     aoi_name: string
-    signal_type: string
+    signal_type: SignalType
     status: SignalStatus
     score: number
     severity: 'LOW' | 'MEDIUM' | 'HIGH'
     confidence: 'LOW' | 'MEDIUM' | 'HIGH'
     evidence_json?: Record<string, any>
+    recommended_action?: string
     recommended_actions?: string[]
     detected_at: string
     metadata?: Record<string, any>

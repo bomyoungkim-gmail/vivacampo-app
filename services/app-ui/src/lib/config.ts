@@ -153,6 +153,9 @@ export const APP_CONFIG = {
             CHANGE_DETECTED: 'bg-blue-100 text-blue-800',
             ANOMALY: 'bg-yellow-100 text-yellow-800',
             ALERT: 'bg-red-100 text-red-800',
+            PASTURE_FORAGE_RISK: 'bg-orange-100 text-orange-800',
+            CROP_STRESS: 'bg-amber-100 text-amber-800',
+            PEST_OUTBREAK: 'bg-red-100 text-red-800',
         },
         SIGNAL_STATUS: {
             ACTIVE: 'bg-yellow-100 text-yellow-800',
