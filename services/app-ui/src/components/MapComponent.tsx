@@ -20,28 +20,28 @@ interface MapComponentProps {
     isDrawing?: boolean
     drawingPoints?: [number, number][]
     setDrawingPoints?: (points: [number, number][]) => void
-    ndviS3Url?: string | null
-    ndwiS3Url?: string | null
-    ndmiS3Url?: string | null
-    saviS3Url?: string | null
-    anomalyS3Url?: string | null
-    falseColorS3Url?: string | null
-    trueColorS3Url?: string | null
+    ndviTileUrl?: string | null
+    ndwiTileUrl?: string | null
+    ndmiTileUrl?: string | null
+    saviTileUrl?: string | null
+    anomalyTileUrl?: string | null
+    falseColorTileUrl?: string | null
+    trueColorTileUrl?: string | null
 
     // New Indices
-    ndreS3Url?: string | null
-    reciS3Url?: string | null
-    gndviS3Url?: string | null
-    eviS3Url?: string | null
-    msiS3Url?: string | null
-    nbrS3Url?: string | null
-    bsiS3Url?: string | null
-    ariS3Url?: string | null
-    criS3Url?: string | null
+    ndreTileUrl?: string | null
+    reciTileUrl?: string | null
+    gndviTileUrl?: string | null
+    eviTileUrl?: string | null
+    msiTileUrl?: string | null
+    nbrTileUrl?: string | null
+    bsiTileUrl?: string | null
+    ariTileUrl?: string | null
+    criTileUrl?: string | null
 
     // Radar
-    rviS3Url?: string | null
-    ratioS3Url?: string | null
+    rviTileUrl?: string | null
+    ratioTileUrl?: string | null
     showAOIs?: boolean
     processingAois?: Set<string>
     signals?: any[]

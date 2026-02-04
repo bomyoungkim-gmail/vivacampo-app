@@ -60,8 +60,13 @@ manual_dispatch.py
 trigger_sqs.py
 verify_api.py
 
-# vscode
+# AI
+ai/
+.github/
 .agent/
 .claude/
 .codex/
 .continue/
+.claude.md
+.codex.md
+.llm.md

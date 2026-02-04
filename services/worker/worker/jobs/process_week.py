@@ -1,6 +1,6 @@
 import structlog
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from worker.config import settings
 from worker.shared.aws_clients import S3Client
 import tempfile
@@ -170,9 +170,49 @@ def export_multiband_cog(data: np.ndarray, output_path: str, profile: dict):
 
 
 def process_week_handler(job_id: str, payload: dict, db: Session):
-    """PROCESS_WEEK job handler (Real Implementation)"""
+    """
+    PROCESS_WEEK job handler.
+
+    With ADR-0007 (Dynamic Tiling), this handler has two modes:
+    1. use_dynamic_tiling=True (default): Delegates to CALCULATE_STATS job
+       - No COGs generated per-AOI
+       - Stats calculated via TiTiler from MosaicJSON
+       - 99.9% storage reduction
+
+    2. use_dynamic_tiling=False (legacy): Full COG pipeline
+       - Downloads bands, calculates indices, uploads COGs to S3
+       - Used for rollback or specific use cases
+    """
     import asyncio
-    logger.info("process_week_start_real", job_id=job_id)
+
+    logger.info("process_week_start", job_id=job_id, use_dynamic_tiling=settings.use_dynamic_tiling)
+    update_job_status(job_id, "RUNNING", db)
+
+    # ADR-0007: Dynamic Tiling Mode
+    if settings.use_dynamic_tiling:
+        try:
+            # Delegate to CALCULATE_STATS which uses TiTiler + MosaicJSON
+            from worker.jobs.calculate_stats import calculate_stats_handler
+
+            logger.info(
+                "process_week_dynamic_tiling_mode",
+                job_id=job_id,
+                message="Delegating to CALCULATE_STATS (no COG generation)"
+            )
+
+            # Call calculate_stats directly
+            result = calculate_stats_handler(job_id, payload, db)
+
+            logger.info("process_week_dynamic_tiling_complete", job_id=job_id, result=result)
+            return result
+
+        except Exception as e:
+            logger.error("process_week_dynamic_tiling_failed", job_id=job_id, error=str(e), exc_info=True)
+            update_job_status(job_id, "FAILED", db, error=str(e))
+            raise
+
+    # Legacy Mode: Full COG pipeline
+    logger.info("process_week_legacy_mode", job_id=job_id, message="Using legacy COG pipeline")
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -218,19 +258,23 @@ async def process_week_async(job_id: str, payload: dict, db: Session):
     
     # --- WEATHER FETCHING (Independent) ---
     try:
-        bounds = rasterio.features.bounds(aoi_geom)
-        centroid_lon = (bounds[0] + bounds[2]) / 2
-        centroid_lat = (bounds[1] + bounds[3]) / 2
-        
-        weather_data = await client.fetch_weather_history(
-            centroid_lat, centroid_lon, 
-            start_date.strftime("%Y-%m-%d"), 
-            end_date.strftime("%Y-%m-%d")
-        )
-        
-        if weather_data:
-            save_weather_data(tenant_id, aoi_id, weather_data, db)
-            logger.info("weather_data_saved", days=len(weather_data))
+        if start_date.date() > date.today():
+            logger.info("weather_fetch_skipped_future_window", start_date=str(start_date), end_date=str(end_date))
+        else:
+            bounds = rasterio.features.bounds(aoi_geom)
+            centroid_lon = (bounds[0] + bounds[2]) / 2
+            centroid_lat = (bounds[1] + bounds[3]) / 2
+
+            clamped_end = min(end_date.date(), date.today())
+            weather_data = await client.fetch_weather_history(
+                centroid_lat, centroid_lon,
+                start_date.strftime("%Y-%m-%d"),
+                clamped_end.strftime("%Y-%m-%d")
+            )
+
+            if weather_data:
+                save_weather_data(tenant_id, aoi_id, weather_data, db)
+                logger.info("weather_data_saved", days=len(weather_data))
     except Exception as e:
         logger.error("weather_fetch_failed", exc_info=e)
         # Non-blocking, continue
@@ -626,11 +670,11 @@ def update_job_status(job_id: str, status: str, db: Session, metrics: dict = Non
     
     sql = text("""
         UPDATE jobs 
-        SET status = :status, updated_at = now()
+        SET status = :status, error_message = :error_message, updated_at = now()
         WHERE id = :job_id
     """)
     
-    db.execute(sql, {"job_id": job_id, "status": status})
+    db.execute(sql, {"job_id": job_id, "status": status, "error_message": error})
     db.commit()
     
     logger.info("job_status_updated", job_id=job_id, status=status)

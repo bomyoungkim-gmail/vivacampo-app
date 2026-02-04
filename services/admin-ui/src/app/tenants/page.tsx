@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
+import { Loader2 } from 'lucide-react'
+import ThemeToggle from '@/components/ThemeToggle'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'
 
-export default function TenantsPage() {
+export default function AdminTenantsPage() {
     const router = useRouter()
     const [tenants, setTenants] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
@@ -14,7 +16,7 @@ export default function TenantsPage() {
     useEffect(() => {
         const token = localStorage.getItem('admin_token')
         if (!token) {
-            router.push('/admin/login')
+            router.push('/login')
             return
         }
 
@@ -35,51 +37,95 @@ export default function TenantsPage() {
         }
     }
 
+    const getStatusColor = (status: string) => {
+        return status === 'ACTIVE'
+            ? 'bg-primary/10 text-primary dark:bg-primary/20'
+            : 'bg-destructive/10 text-destructive dark:bg-destructive/20'
+    }
+
     return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="bg-white shadow">
-                <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-                    <h1 className="text-2xl font-bold text-gray-900">Tenant Management</h1>
+        <div className="min-h-screen bg-background">
+            <header className="border-b border-border bg-card shadow-sm">
+                <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 flex items-center justify-between">
+                    <h1 className="text-2xl font-bold text-foreground">Tenants</h1>
+                    <ThemeToggle />
                 </div>
             </header>
 
             <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 {loading ? (
-                    <div className="text-center py-12">
-                        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+                    <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
                     </div>
                 ) : (
-                    <div className="rounded-lg bg-white shadow overflow-hidden">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tier</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {tenants.map((tenant) => (
-                                    <tr key={tenant.id}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{tenant.name}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tenant.type}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{tenant.tier}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${tenant.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                                                }`}>
-                                                {tenant.status}
+                    <>
+                        {/* Mobile: Cards */}
+                        <div className="block md:hidden space-y-4">
+                            {tenants.map((tenant) => (
+                                <div key={tenant.id} className="rounded-lg bg-card p-4 shadow border border-border">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <div>
+                                            <h3 className="font-semibold text-foreground">{tenant.name}</h3>
+                                            <p className="text-xs text-muted-foreground mt-1">{tenant.type}</p>
+                                        </div>
+                                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusColor(tenant.status)}`}>
+                                            {tenant.status}
+                                        </span>
+                                    </div>
+                                    <div className="space-y-1 text-sm">
+                                        <div>
+                                            <span className="font-medium text-foreground">Tier:</span>{' '}
+                                            <span className="text-muted-foreground">{tenant.tier}</span>
+                                        </div>
+                                        <div>
+                                            <span className="font-medium text-foreground">Created:</span>{' '}
+                                            <span className="text-muted-foreground">
+                                                {new Date(tenant.created_at).toLocaleDateString('pt-BR')}
                                             </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {new Date(tenant.created_at).toLocaleDateString('pt-BR')}
-                                        </td>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Desktop: Table */}
+                        <div className="hidden md:block rounded-lg bg-card shadow border border-border overflow-hidden">
+                            <table className="min-w-full divide-y divide-border">
+                                <thead className="bg-muted/50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Name</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tier</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Created</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-border">
+                                    {tenants.map((tenant) => (
+                                        <tr key={tenant.id} className="table-row-interactive">
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+                                                {tenant.name}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                                                {tenant.type}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                                                {tenant.tier}
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getStatusColor(tenant.status)}`}>
+                                                    {tenant.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                                                {new Date(tenant.created_at).toLocaleDateString('pt-BR')}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
                 )}
             </main>
         </div>

@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
+import { Loader2 } from 'lucide-react'
+import ThemeToggle from '@/components/ThemeToggle'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'
 
@@ -15,7 +17,7 @@ export default function AdminAuditPage() {
     useEffect(() => {
         const token = localStorage.getItem('admin_token')
         if (!token) {
-            router.push('/admin/login')
+            router.push('/login')
             return
         }
 
@@ -39,41 +41,42 @@ export default function AdminAuditPage() {
 
     const getActionColor = (action: string) => {
         switch (action) {
-            case 'CREATE': return 'bg-green-100 text-green-800'
-            case 'UPDATE': return 'bg-blue-100 text-blue-800'
-            case 'DELETE': return 'bg-red-100 text-red-800'
-            default: return 'bg-gray-100 text-gray-800'
+            case 'CREATE': return 'bg-primary/10 text-primary dark:bg-primary/20'
+            case 'UPDATE': return 'bg-chart-2/10 text-chart-2 dark:bg-chart-2/20'
+            case 'DELETE': return 'bg-destructive/10 text-destructive dark:bg-destructive/20'
+            default: return 'bg-muted text-muted-foreground'
         }
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="bg-white shadow">
-                <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-                    <h1 className="text-2xl font-bold text-gray-900">Global Audit Log</h1>
+        <div className="min-h-screen bg-background">
+            <header className="border-b border-border bg-card shadow-sm">
+                <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8 flex items-center justify-between">
+                    <h1 className="text-2xl font-bold text-foreground">Global Audit Log</h1>
+                    <ThemeToggle />
                 </div>
             </header>
 
             <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
                 {/* Filters */}
-                <div className="mb-6 rounded-lg bg-white p-4 shadow">
-                    <div className="grid grid-cols-2 gap-4">
+                <div className="mb-6 rounded-lg bg-card p-4 shadow border border-border">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Tenant ID</label>
+                            <label className="block text-sm font-medium text-foreground mb-2">Tenant ID</label>
                             <input
                                 type="text"
                                 value={filter.tenant_id}
                                 onChange={(e) => setFilter({ ...filter, tenant_id: e.target.value })}
-                                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2"
+                                className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-foreground min-h-touch focus:outline-none focus:ring-2 focus:ring-ring"
                                 placeholder="Filter by tenant..."
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Action</label>
+                            <label className="block text-sm font-medium text-foreground mb-2">Action</label>
                             <select
                                 value={filter.action}
                                 onChange={(e) => setFilter({ ...filter, action: e.target.value })}
-                                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2"
+                                className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-foreground min-h-touch focus:outline-none focus:ring-2 focus:ring-ring"
                             >
                                 <option value="">All Actions</option>
                                 <option value="CREATE">CREATE</option>
@@ -84,52 +87,93 @@ export default function AdminAuditPage() {
                     </div>
                     <button
                         onClick={loadAuditLogs}
-                        className="mt-4 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                        className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors min-h-touch min-w-touch"
                     >
                         Apply Filters
                     </button>
                 </div>
 
-                {/* Audit Log Table */}
+                {/* Audit Log - Mobile Cards / Desktop Table */}
                 {loading ? (
-                    <div className="text-center py-12">
-                        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
+                    <div className="flex items-center justify-center py-12">
+                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
                     </div>
                 ) : (
-                    <div className="rounded-lg bg-white shadow overflow-hidden">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Timestamp</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Resource</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actor</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {auditLogs.map((log) => (
-                                    <tr key={log.id}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <>
+                        {/* Mobile: Cards */}
+                        <div className="block md:hidden space-y-4">
+                            {auditLogs.map((log) => (
+                                <div key={log.id} className="rounded-lg bg-card p-4 shadow border border-border">
+                                    <div className="flex justify-between items-start mb-3">
+                                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getActionColor(log.action)}`}>
+                                            {log.action}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground">
                                             {new Date(log.created_at).toLocaleString('pt-BR')}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{log.tenant_id.substring(0, 8)}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getActionColor(log.action)}`}>
-                                                {log.action}
+                                        </span>
+                                    </div>
+                                    <div className="space-y-2 text-sm">
+                                        <div>
+                                            <span className="font-medium text-foreground">Tenant:</span>{' '}
+                                            <span className="text-muted-foreground">{log.tenant_id.substring(0, 8)}</span>
+                                        </div>
+                                        <div>
+                                            <span className="font-medium text-foreground">Resource:</span>{' '}
+                                            <span className="text-muted-foreground">
+                                                {log.resource_type}: {log.resource_id?.substring(0, 8)}
                                             </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                            {log.resource_type}: {log.resource_id?.substring(0, 8)}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {log.actor_membership_id?.substring(0, 8) || 'System'}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                        </div>
+                                        <div>
+                                            <span className="font-medium text-foreground">Actor:</span>{' '}
+                                            <span className="text-muted-foreground">
+                                                {log.actor_membership_id?.substring(0, 8) || 'System'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Desktop: Table */}
+                        <div className="hidden md:block rounded-lg bg-card shadow border border-border overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-border">
+                                    <thead className="bg-muted/50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Timestamp</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tenant</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Action</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Resource</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actor</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border">
+                                        {auditLogs.map((log) => (
+                                            <tr key={log.id} className="table-row-interactive">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                                                    {new Date(log.created_at).toLocaleString('pt-BR')}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                                                    {log.tenant_id.substring(0, 8)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getActionColor(log.action)}`}>
+                                                        {log.action}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
+                                                    {log.resource_type}: {log.resource_id?.substring(0, 8)}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                                                    {log.actor_membership_id?.substring(0, 8) || 'System'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </>
                 )}
             </main>
         </div>

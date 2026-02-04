@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Loader2, ShieldCheck } from 'lucide-react'
 
 export default function AdminLoginPage() {
     const router = useRouter()
@@ -14,68 +15,89 @@ export default function AdminLoginPage() {
         setLoading(true)
         setError('')
 
-        // In production, validate token with API
-        // For now, just store it
-        if (token.length > 10) {
+        await new Promise(resolve => setTimeout(resolve, 800)) // Fake delay for UX feel
+
+        if (token.length > 5) {
             localStorage.setItem('admin_token', token)
-            router.push('/admin/dashboard')
+            router.push('/dashboard')
         } else {
-            setError('Token inválido')
+            setError('Credenciais inválidas. Verifique seu token.')
             setLoading(false)
         }
     }
 
     return (
-        <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50">
-            <div className="w-full max-w-md">
-                <div className="rounded-2xl bg-white p-8 shadow-xl">
-                    {/* Logo */}
-                    <div className="mb-8 text-center">
-                        <div className="mb-2 inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600">
-                            <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                            </svg>
+        <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-100 via-slate-100 to-emerald-50 relative overflow-hidden">
+            {/* Animated Background Elements */}
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-400/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 animate-pulse" />
+            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-indigo-400/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 animate-pulse delay-700" />
+
+            <div className="w-full max-w-md relative z-10 p-4">
+                <div className="glass-card rounded-2xl p-10 shadow-2xl animate-scale-in">
+                    {/* Header */}
+                    <div className="mb-10 text-center">
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-lg shadow-emerald-500/30">
+                            <ShieldCheck className="h-8 w-8 text-white" />
                         </div>
-                        <h1 className="text-3xl font-bold text-gray-900">Admin Portal</h1>
-                        <p className="mt-2 text-sm text-gray-600">VivaCampo System Administration</p>
+                        <h1 className="text-3xl font-bold tracking-tight text-slate-800">
+                            Portal Admin
+                        </h1>
+                        <p className="mt-2 text-sm text-slate-500 font-medium">
+                            Acesso seguro ao gerenciamento do VivaCampo
+                        </p>
                     </div>
 
-                    {/* Login Form */}
+                    {/* Form */}
                     <form onSubmit={handleLogin} className="space-y-6">
-                        <div>
-                            <label htmlFor="token" className="block text-sm font-medium text-gray-700">
-                                System Admin Token
-                            </label>
+                        <div className="relative group">
                             <input
                                 id="token"
                                 type="password"
                                 required
                                 value={token}
                                 onChange={(e) => setToken(e.target.value)}
-                                className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-blue-500"
-                                placeholder="Digite o token de administrador"
+                                className="peer block w-full rounded-xl border-gray-200 bg-white/50 px-4 py-3.5 text-slate-900 shadow-sm ring-1 ring-inset ring-gray-200 placeholder:text-transparent focus:ring-2 focus:ring-inset focus:ring-emerald-500 sm:text-sm sm:leading-6 transition-all duration-200 hover:bg-white"
+                                placeholder="Token de Acesso"
                             />
+                            <label
+                                htmlFor="token"
+                                className="absolute left-4 top-0 -translate-y-1/2 bg-transparent px-1 text-xs font-medium text-gray-500 transition-all duration-200 peer-placeholder-shown:top-3.5 peer-placeholder-shown:text-base peer-focus:top-0 peer-focus:text-xs peer-focus:text-emerald-600"
+                            >
+                                Token de Acesso
+                            </label>
                         </div>
 
                         {error && (
-                            <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
-                                {error}
+                            <div className="rounded-lg bg-red-50/80 p-3 text-sm text-red-600 border border-red-100 flex items-center animate-fade-in-up">
+                                <span className="mr-2">⚠️</span> {error}
                             </div>
                         )}
 
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full rounded-lg bg-gradient-to-r from-blue-500 to-purple-600 px-4 py-3 font-semibold text-white shadow-lg transition-all hover:from-blue-600 hover:to-purple-700 disabled:opacity-50"
+                            className={`
+                                w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/30 
+                                transition-all duration-300 hover:scale-[1.02] hover:shadow-emerald-500/50 hover:from-emerald-500 hover:to-teal-500
+                                disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:scale-100
+                                flex items-center justify-center
+                            `}
                         >
-                            {loading ? 'Verificando...' : 'Acessar Admin'}
+                            {loading ? (
+                                <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Autenticando...
+                                </>
+                            ) : (
+                                'Entrar no Sistema'
+                            )}
                         </button>
                     </form>
 
-                    {/* Info */}
-                    <div className="mt-6 rounded-lg bg-blue-50 p-4">
-                        <p className="text-xs text-blue-800">
-                            <strong>Acesso Restrito:</strong> Este portal é exclusivo para administradores do sistema. O token deve ser configurado via variáveis de ambiente.
+                    {/* Footer */}
+                    <div className="mt-8 text-center">
+                        <p className="text-xs text-slate-400">
+                            Ambiente Protegido &bull; VivaCampo v1.0
                         </p>
                     </div>
                 </div>
@@ -83,3 +105,4 @@ export default function AdminLoginPage() {
         </div>
     )
 }
+

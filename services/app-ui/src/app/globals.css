@@ -26,11 +26,16 @@
     --radius: 0.5rem;
 
     /* Chart colors - agricultural/satellite palette */
-    --chart-1: 142 76% 36%;   /* Green - vegetation */
-    --chart-2: 221 83% 53%;   /* Blue - water */
-    --chart-3: 38 92% 50%;    /* Orange - warning/stress */
-    --chart-4: 262 83% 58%;   /* Purple - anomalies */
-    --chart-5: 0 84% 60%;     /* Red - critical */
+    --chart-1: 142 76% 36%;
+    /* Green - vegetation */
+    --chart-2: 221 83% 53%;
+    /* Blue - water */
+    --chart-3: 38 92% 50%;
+    /* Orange - warning/stress */
+    --chart-4: 262 83% 58%;
+    /* Purple - anomalies */
+    --chart-5: 0 84% 60%;
+    /* Red - critical */
 
     /* Sidebar - VivaCampo green theme */
     --sidebar-background: 0 0% 98%;
@@ -55,7 +60,7 @@
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted-foreground: 215 20.2% 70%;
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
@@ -65,11 +70,16 @@
     --ring: 142.1 76.2% 36.3%;
 
     /* Dark chart colors - optimized for satellite imagery contrast */
-    --chart-1: 142 70% 50%;   /* Bright green - NDVI */
-    --chart-2: 199 89% 48%;   /* Cyan - water/NDWI */
-    --chart-3: 38 100% 55%;   /* Amber - stress indices */
-    --chart-4: 280 87% 65%;   /* Violet - anomalies */
-    --chart-5: 0 90% 65%;     /* Bright red - alerts */
+    --chart-1: 142 70% 50%;
+    /* Bright green - NDVI */
+    --chart-2: 199 89% 48%;
+    /* Cyan - water/NDWI */
+    --chart-3: 38 100% 55%;
+    /* Amber - stress indices */
+    --chart-4: 280 87% 65%;
+    /* Violet - anomalies */
+    --chart-5: 0 90% 65%;
+    /* Bright red - alerts */
 
     /* Dark sidebar - immersive for map viewing */
     --sidebar-background: 224 71% 4%;
@@ -87,6 +97,7 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }

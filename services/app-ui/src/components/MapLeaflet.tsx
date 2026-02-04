@@ -332,28 +332,28 @@ interface MapProps {
     drawingPoints?: [number, number][]
     setDrawingPoints?: (points: [number, number][]) => void
     timezone?: string
-    ndviS3Url?: string | null
-    ndwiS3Url?: string | null
-    ndmiS3Url?: string | null
-    saviS3Url?: string | null
-    anomalyS3Url?: string | null
-    falseColorS3Url?: string | null
-    trueColorS3Url?: string | null
+    ndviTileUrl?: string | null
+    ndwiTileUrl?: string | null
+    ndmiTileUrl?: string | null
+    saviTileUrl?: string | null
+    anomalyTileUrl?: string | null
+    falseColorTileUrl?: string | null
+    trueColorTileUrl?: string | null
 
     // New Indices
-    ndreS3Url?: string | null
-    reciS3Url?: string | null
-    gndviS3Url?: string | null
-    eviS3Url?: string | null
-    msiS3Url?: string | null
-    nbrS3Url?: string | null
-    bsiS3Url?: string | null
-    ariS3Url?: string | null
-    criS3Url?: string | null
+    ndreTileUrl?: string | null
+    reciTileUrl?: string | null
+    gndviTileUrl?: string | null
+    eviTileUrl?: string | null
+    msiTileUrl?: string | null
+    nbrTileUrl?: string | null
+    bsiTileUrl?: string | null
+    ariTileUrl?: string | null
+    criTileUrl?: string | null
 
     // Radar
-    rviS3Url?: string | null
-    ratioS3Url?: string | null
+    rviTileUrl?: string | null
+    ratioTileUrl?: string | null
     showAOIs?: boolean
     isEditing?: boolean
     onAOIUpdate?: (aoiId: string, newGeometry: any) => void
@@ -431,17 +431,17 @@ export default function MapLeaflet({
     isDrawing = false,
     drawingPoints = [],
     setDrawingPoints,
-    ndviS3Url,
-    ndwiS3Url,
-    ndmiS3Url,
-    saviS3Url,
-    anomalyS3Url,
-    falseColorS3Url,
-    trueColorS3Url,
+    ndviTileUrl,
+    ndwiTileUrl,
+    ndmiTileUrl,
+    saviTileUrl,
+    anomalyTileUrl,
+    falseColorTileUrl,
+    trueColorTileUrl,
 
-    ndreS3Url, reciS3Url, gndviS3Url, eviS3Url,
-    msiS3Url, nbrS3Url, bsiS3Url, ariS3Url, criS3Url,
-    rviS3Url, ratioS3Url,
+    ndreTileUrl, reciTileUrl, gndviTileUrl, eviTileUrl,
+    msiTileUrl, nbrTileUrl, bsiTileUrl, ariTileUrl, criTileUrl,
+    rviTileUrl, ratioTileUrl,
     showAOIs: initialShowAOIs = true,
     isEditing = false,
     onAOIUpdate,
@@ -460,12 +460,12 @@ export default function MapLeaflet({
     // Sync prop changes to activeOverlay if needed (e.g. if User selects a new week, maybe auto-select NDVI?)
     // For now, we prefer manual control unless it's the first load
     useEffect(() => {
-        if (ndviS3Url && !activeOverlay) {
+        if (ndviTileUrl && !activeOverlay) {
             // Optional: Auto-select NDVI if nothing selected? 
             // setOverlayOpacity(0.7)
             // setActiveOverlay('ndvi') 
         }
-    }, [ndviS3Url])
+    }, [ndviTileUrl])
 
     // Sync external showAOIs prop to internal state
     useEffect(() => {
@@ -492,25 +492,25 @@ export default function MapLeaflet({
 
     // Construct Available Layers Object
     const availableLayers = {
-        ndvi: !!ndviS3Url,
-        ndwi: !!ndwiS3Url,
-        ndmi: !!ndmiS3Url,
-        savi: !!saviS3Url,
-        anomaly: !!anomalyS3Url,
-        falseColor: !!falseColorS3Url,
-        trueColor: !!trueColorS3Url,
+        ndvi: !!ndviTileUrl,
+        ndwi: !!ndwiTileUrl,
+        ndmi: !!ndmiTileUrl,
+        savi: !!saviTileUrl,
+        anomaly: !!anomalyTileUrl,
+        falseColor: !!falseColorTileUrl,
+        trueColor: !!trueColorTileUrl,
 
-        ndre: !!ndreS3Url,
-        reci: !!reciS3Url,
-        gndvi: !!gndviS3Url,
-        evi: !!eviS3Url,
-        msi: !!msiS3Url,
-        nbr: !!nbrS3Url,
-        bsi: !!bsiS3Url,
-        ari: !!ariS3Url,
-        cri: !!criS3Url,
-        rvi: !!rviS3Url,
-        ratio: !!ratioS3Url
+        ndre: !!ndreTileUrl,
+        reci: !!reciTileUrl,
+        gndvi: !!gndviTileUrl,
+        evi: !!eviTileUrl,
+        msi: !!msiTileUrl,
+        nbr: !!nbrTileUrl,
+        bsi: !!bsiTileUrl,
+        ari: !!ariTileUrl,
+        cri: !!criTileUrl,
+        rvi: !!rviTileUrl,
+        ratio: !!ratioTileUrl
     }
 
     return (
@@ -573,49 +573,49 @@ export default function MapLeaflet({
 
                 {/* 3. Overlays (Z-Index handled by order) */}
 
-                {activeOverlay === 'ndvi' && ndviS3Url && (
+                {activeOverlay === 'ndvi' && ndviTileUrl && (
                     <TileLayer
-                        url={`${APP_CONFIG.API_BASE_URL.replace(':8000', ':8080')}/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(ndviS3Url)}&rescale=-1,1&colormap_name=rdylgn`}
+                        url={`${APP_CONFIG.API_BASE_URL.replace(':8000', ':8080')}/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(ndviTileUrl)}&rescale=-1,1&colormap_name=rdylgn`}
                         maxNativeZoom={14}
                         maxZoom={20}
                         opacity={overlayOpacity}
                     />
                 )}
-                {activeOverlay === 'ndwi' && ndwiS3Url && (
+                {activeOverlay === 'ndwi' && ndwiTileUrl && (
                     <TileLayer
-                        url={`${APP_CONFIG.API_BASE_URL.replace(':8000', ':8080')}/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(ndwiS3Url)}&rescale=-1,1&colormap_name=blues`}
+                        url={`${APP_CONFIG.API_BASE_URL.replace(':8000', ':8080')}/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(ndwiTileUrl)}&rescale=-1,1&colormap_name=blues`}
                         maxNativeZoom={14}
                         maxZoom={20}
                         opacity={overlayOpacity}
                     />
                 )}
-                {activeOverlay === 'savi' && saviS3Url && (
+                {activeOverlay === 'savi' && saviTileUrl && (
                     <TileLayer
-                        url={`${APP_CONFIG.API_BASE_URL.replace(':8000', ':8080')}/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(saviS3Url)}&rescale=-1,1&colormap_name=greens`}
+                        url={`${APP_CONFIG.API_BASE_URL.replace(':8000', ':8080')}/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(saviTileUrl)}&rescale=-1,1&colormap_name=greens`}
                         maxNativeZoom={14}
                         maxZoom={20}
                         opacity={overlayOpacity}
                     />
                 )}
-                {activeOverlay === 'anomaly' && anomalyS3Url && (
+                {activeOverlay === 'anomaly' && anomalyTileUrl && (
                     <TileLayer
-                        url={`${APP_CONFIG.API_BASE_URL.replace(':8000', ':8080')}/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(anomalyS3Url)}&rescale=-0.5,0.5&colormap_name=rdbu`}
+                        url={`${APP_CONFIG.API_BASE_URL.replace(':8000', ':8080')}/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(anomalyTileUrl)}&rescale=-0.5,0.5&colormap_name=rdbu`}
                         maxNativeZoom={14}
                         maxZoom={20}
                         opacity={overlayOpacity}
                     />
                 )}
-                {activeOverlay === 'falseColor' && falseColorS3Url && (
+                {activeOverlay === 'falseColor' && falseColorTileUrl && (
                     <TileLayer
-                        url={`${APP_CONFIG.API_BASE_URL.replace(':8000', ':8080')}/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(falseColorS3Url)}&rescale=0,1`}
+                        url={`${APP_CONFIG.API_BASE_URL.replace(':8000', ':8080')}/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(falseColorTileUrl)}&rescale=0,1`}
                         maxNativeZoom={14}
                         maxZoom={20}
                         opacity={overlayOpacity}
                     />
                 )}
-                {activeOverlay === 'trueColor' && trueColorS3Url && (
+                {activeOverlay === 'trueColor' && trueColorTileUrl && (
                     <TileLayer
-                        url={`${APP_CONFIG.API_BASE_URL.replace(':8000', ':8080')}/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(trueColorS3Url)}&rescale=0,1`}
+                        url={`${APP_CONFIG.API_BASE_URL.replace(':8000', ':8080')}/cog/tiles/{z}/{x}/{y}?url=${encodeURIComponent(trueColorTileUrl)}&rescale=0,1`}
                         maxNativeZoom={14}
                         maxZoom={20}
                         opacity={overlayOpacity}

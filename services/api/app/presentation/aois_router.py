@@ -9,6 +9,7 @@ from app.auth.dependencies import get_current_membership, CurrentMembership, req
 from app.schemas import AOICreate, AOIView, AOIPatch, BackfillRequest
 from app.domain.quotas import check_aoi_quota, check_backfill_quota, QuotaExceededError
 from app.domain.audit import get_audit_logger
+from app.infrastructure.s3_client import presign_row_s3_fields
 import structlog
 import hashlib
 
@@ -72,6 +73,12 @@ async def create_aoi(
         resource_id=str(row.id),
         metadata={"name": aoi_data.name, "use_type": aoi_data.use_type, "area_ha": row.area_ha}
     )
+
+    # Trigger initial backfill for last 8 weeks on creation
+    try:
+        _create_backfill_job(str(membership.tenant_id), str(row.id), 56, db)
+    except Exception as e:
+        logger.error("auto_backfill_on_create_failed", aoi_id=str(row.id), exc_info=e)
     
     return AOIView(
         id=row.id,
@@ -208,7 +215,7 @@ def _create_backfill_job(tenant_id: str, aoi_id: str, days: int, db: Session):
     job_id = result.fetchone()[0]
     
     # Send to SQS
-    from app.infra.sqs_client import get_sqs_client
+    from app.infrastructure.sqs_client import get_sqs_client
     sqs = get_sqs_client()
     
     # Ensure correct format for worker
@@ -218,10 +225,7 @@ def _create_backfill_job(tenant_id: str, aoi_id: str, days: int, db: Session):
         "payload": payload
     }
     
-    sqs.send_message(
-        queue_name=settings.jobs_queue_name,
-        message_body=json.dumps(message_body)
-    )
+    sqs.send_message(settings.sqs_queue_name, json.dumps(message_body))
 
 
 @router.patch("/aois/{aoi_id}", response_model=AOIView)
@@ -406,7 +410,7 @@ async def request_backfill(
     )
     
     # Send to SQS
-    from app.infra.sqs_client import get_sqs_client
+    from app.infrastructure.sqs_client import get_sqs_client
     sqs = get_sqs_client()
     
     message_body = {
@@ -421,10 +425,7 @@ async def request_backfill(
         }
     }
     
-    sqs.send_message(
-        queue_name=settings.jobs_queue_name,
-        message_body=json.dumps(message_body)
-    )
+    sqs.send_message(settings.sqs_queue_name, json.dumps(message_body))
     
     return {
         "job_id": job_id,
@@ -476,9 +477,28 @@ async def get_aoi_assets(
     
     if not result:
         return {}
-    
-    # Return dictionary with all columns
-    return dict(result._mapping)
+
+    assets = dict(result._mapping)
+    s3_fields = [
+        "ndvi_s3_uri",
+        "anomaly_s3_uri",
+        "quicklook_s3_uri",
+        "ndwi_s3_uri",
+        "ndmi_s3_uri",
+        "savi_s3_uri",
+        "false_color_s3_uri",
+        "true_color_s3_uri",
+        "ndre_s3_uri",
+        "reci_s3_uri",
+        "gndvi_s3_uri",
+        "evi_s3_uri",
+        "msi_s3_uri",
+        "nbr_s3_uri",
+        "bsi_s3_uri",
+        "ari_s3_uri",
+        "cri_s3_uri",
+    ]
+    return presign_row_s3_fields(assets, s3_fields)
 
 
 @router.get("/aois/{aoi_id}/history", response_model=List[dict])

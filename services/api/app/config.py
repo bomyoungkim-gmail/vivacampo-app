@@ -1,5 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Literal
+from urllib.parse import urlparse, urlunparse
+from pydantic import model_validator
 
 
 class Settings(BaseSettings):
@@ -27,6 +29,8 @@ class Settings(BaseSettings):
     
     # Database
     database_url: str
+    database_host_override: str | None = None
+    database_port_override: int | None = None
     redis_url: str
     
     # AWS
@@ -66,8 +70,41 @@ class Settings(BaseSettings):
     ai_assistant_state_store: Literal["postgres", "redis"] = "postgres"
     ai_assistant_max_steps: int = 12
     
+    # TiTiler
+    tiler_url: str = "http://tiler:8080"
+    api_base_url: str = "http://localhost:8000"
+
+    # CDN (Cloudflare)
+    cdn_enabled: bool = False  # Enable in production
+    cdn_tiles_url: str | None = None  # e.g., https://tiles.vivacampo.com.br
+    cdn_cache_ttl: int = 604800  # 7 days in seconds
+
     # UI
     ui_min_touch_target_px: int = 44
+
+    @model_validator(mode="after")
+    def apply_database_overrides(self) -> "Settings":
+        if not (self.database_host_override or self.database_port_override):
+            return self
+
+        parsed = urlparse(self.database_url)
+        host = self.database_host_override or parsed.hostname
+        port = self.database_port_override or parsed.port
+        userinfo = ""
+        if parsed.username:
+            userinfo = parsed.username
+            if parsed.password:
+                userinfo = f"{userinfo}:{parsed.password}"
+
+        netloc = host or ""
+        if port:
+            netloc = f"{netloc}:{port}"
+        if userinfo:
+            netloc = f"{userinfo}@{netloc}"
+
+        new_url = urlunparse(parsed._replace(netloc=netloc))
+        object.__setattr__(self, "database_url", new_url)
+        return self
 
 
 settings = Settings()

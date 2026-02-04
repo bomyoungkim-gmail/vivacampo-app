@@ -26,10 +26,19 @@ class Settings(BaseSettings):
     sqs_visibility_timeout_seconds: int = 900
     sqs_max_receive_count: int = 3
     
+    # TiTiler
+    tiler_url: str = "http://tiler:8080"
+    api_url: str = "http://api:8000"
+
     # Pipeline
     pipeline_version: str = "v1"
     max_cloud_cover: int = 100
     min_valid_pixel_ratio: float = 0.01
+
+    # Dynamic Tiling (ADR-0007)
+    # When enabled, skips per-AOI COG generation and uses MosaicJSON + TiTiler instead
+    use_dynamic_tiling: bool = True  # Default to new architecture
+    dynamic_tiling_stats_only: bool = True  # Only calculate stats, no COG upload
     
     # Signals
     signals_enabled: bool = True

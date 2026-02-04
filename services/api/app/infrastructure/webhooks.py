@@ -8,7 +8,7 @@ import structlog
 import httpx
 from typing import Dict, Any
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = structlog.get_logger()
 
@@ -40,14 +40,19 @@ async def execute_webhook(
     
     for webhook in webhooks:
         # Check if webhook is subscribed to this event type
-        subscribed_events = json.loads(webhook.events) if webhook.events else []
+        if webhook.events is None:
+            subscribed_events = []
+        elif isinstance(webhook.events, (list, tuple)):
+            subscribed_events = list(webhook.events)
+        else:
+            subscribed_events = json.loads(webhook.events)
         if event_type not in subscribed_events:
             continue
         
         # Create outbox entry
         sql = text("""
             INSERT INTO tenant_event_outbox
-            (tenant_id, webhook_id, event_type, payload_json, status)
+            (tenant_id, webhook_id, event_type, payload, status)
             VALUES (:tenant_id, :webhook_id, :event_type, :payload, 'PENDING')
             RETURNING id
         """)
@@ -110,7 +115,7 @@ async def send_webhook_async(
                 url,
                 json={
                     "event_type": event_type,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "data": payload
                 },
                 headers={
@@ -171,7 +176,7 @@ async def process_outbox_worker(db: Session):
     """
     # Get pending entries
     sql = text("""
-        SELECT id, tenant_id, webhook_id, event_type, payload_json
+        SELECT id, tenant_id, webhook_id, event_type, payload
         FROM tenant_event_outbox
         WHERE status = 'PENDING'
           AND retry_count < 3
@@ -212,6 +217,6 @@ async def process_outbox_worker(db: Session):
             url=webhook.url,
             secret=webhook.secret,
             event_type=entry.event_type,
-            payload=json.loads(entry.payload_json),
+            payload=json.loads(entry.payload),
             db=db
         )

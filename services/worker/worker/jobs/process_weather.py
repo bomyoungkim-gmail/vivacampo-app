@@ -101,14 +101,13 @@ async def fetch_open_meteo_history(lat: float, lon: float, start_date: str, end_
     return response.json()
 
 def update_job_status(job_id: str, status: str, db: Session, error: str = None):
-    sql = text("UPDATE jobs SET status = :status, error_message = :err, updated_at = now() WHERE id = :job_id")
-    db.execute(sql, {"job_id": job_id, "status": status, "err": error})
+    sql = text("UPDATE jobs SET status = :status, error_message = :error_message, updated_at = now() WHERE id = :job_id")
+    db.execute(sql, {"job_id": job_id, "status": status, "error_message": error})
     db.commit()
 
 async def process_weather_history_async(job_id: str, payload: dict, db: Session):
     from worker.shared.utils import get_aoi_geometry
-    from shapely import wkt
-    import shapely.geometry
+    from shapely.geometry import shape
     
     tenant_id = payload.get('tenant_id')
     aoi_id = payload.get('aoi_id')
@@ -128,11 +127,11 @@ async def process_weather_history_async(job_id: str, payload: dict, db: Session)
     end_str = end_date.isoformat()
     
     # Get Centroid
-    geom_wkt = get_aoi_geometry(aoi_id, db)
-    if not geom_wkt:
+    geom_geojson = get_aoi_geometry(aoi_id, db)
+    if not geom_geojson:
         raise ValueError("AOI Geometry not found")
-        
-    polygon = wkt.loads(geom_wkt)
+
+    polygon = shape(geom_geojson)
     centroid = polygon.centroid
     lat, lon = centroid.y, centroid.x
     
@@ -170,6 +169,7 @@ async def process_weather_history_async(job_id: str, payload: dict, db: Session)
 
 def process_weather_history_handler(job_id: str, payload: dict, db: Session):
     logger.info("process_weather_history_start", job_id=job_id)
+    update_job_status(job_id, "RUNNING", db)
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)

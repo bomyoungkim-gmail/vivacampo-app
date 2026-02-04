@@ -126,23 +126,23 @@ export default function FarmDetailsPage() {
 
             aoiAPI.getAssets(selectedAOI.id)
                 .then(res => {
-                    setNdviUrl(res.data.ndvi_s3_uri || null)
-                    setNdwiUrl(res.data.ndwi_s3_uri || null)
-                    setNdmiUrl(res.data.ndmi_s3_uri || null)
-                    setSaviUrl(res.data.savi_s3_uri || null)
-                    setAnomalyUrl(res.data.anomaly_s3_uri || null)
-                    setFalseColorUrl(res.data.false_color_s3_uri || null)
-                    setTrueColorUrl(res.data.true_color_s3_uri || null)
+                    setNdviUrl(res.data.ndvi_tile_url || null)
+                    setNdwiUrl(res.data.ndwi_tile_url || null)
+                    setNdmiUrl(res.data.ndmi_tile_url || null)
+                    setSaviUrl(res.data.savi_tile_url || null)
+                    setAnomalyUrl(res.data.anomaly_tile_url || null)
+                    setFalseColorUrl(res.data.false_color_tile_url || null)
+                    setTrueColorUrl(res.data.true_color_tile_url || null)
 
-                    setNdreUrl(res.data.ndre_s3_uri || null)
-                    setReciUrl(res.data.reci_s3_uri || null)
-                    setGndviUrl(res.data.gndvi_s3_uri || null)
-                    setEviUrl(res.data.evi_s3_uri || null)
-                    setMsiUrl(res.data.msi_s3_uri || null)
-                    setNbrUrl(res.data.nbr_s3_uri || null)
-                    setBsiUrl(res.data.bsi_s3_uri || null)
-                    setAriUrl(res.data.ari_s3_uri || null)
-                    setCriUrl(res.data.cri_s3_uri || null)
+                    setNdreUrl(res.data.ndre_tile_url || null)
+                    setReciUrl(res.data.reci_tile_url || null)
+                    setGndviUrl(res.data.gndvi_tile_url || null)
+                    setEviUrl(res.data.evi_tile_url || null)
+                    setMsiUrl(res.data.msi_tile_url || null)
+                    setNbrUrl(res.data.nbr_tile_url || null)
+                    setBsiUrl(res.data.bsi_tile_url || null)
+                    setAriUrl(res.data.ari_tile_url || null)
+                    setCriUrl(res.data.cri_tile_url || null)
 
                     // Radar (todo: separate call if needed, but assuming attached if available)
                     // Currently radar assets might be in a different endpoint or merged. 
@@ -152,7 +152,7 @@ export default function FarmDetailsPage() {
                     // I verified aois_router.py earlier and saw I added them to the SELECT. 
                     // Wait, I only added Optical indices to get_aoi_assets in previous turn. Radar was not added to get_aoi_assets query?
                     // Let me check aois_router.py again mentally... 
-                    // I added `ndre_s3_uri` etc. Did I add `rvi_s3_uri`? 
+                    // I added `ndre_tile_url` etc. Did I add `rvi_tile_url`?
                     // The DerivedAssets model has them? No, DerivedRadarAssets is separate.
                     // So I need to fetch Radar assets separately here or assume they are not yet map-ready. 
                     // The user asked "os indicadores novos aparecerao no menu". 
@@ -171,8 +171,8 @@ export default function FarmDetailsPage() {
                 if (res.data && res.data.length > 0) {
                     // Get latest
                     const latest = res.data.sort((a: any, b: any) => (b.year * 100 + b.week) - (a.year * 100 + a.week))[0]
-                    setRviUrl(latest.rvi_s3_uri || null)
-                    setRatioUrl(latest.ratio_s3_uri || null)
+                    setRviUrl(latest.rvi_tile_url || null)
+                    setRatioUrl(latest.ratio_tile_url || null)
                 }
             }).catch(e => console.warn("Radar map fetch error", e))
         } else {
@@ -518,11 +518,11 @@ export default function FarmDetailsPage() {
                         ${showSidebar ? 'translate-x-0' : '-translate-x-full'}
                         lg:relative lg:translate-x-0
                         ${panelSize === 'collapsed' ? 'lg:w-0 lg:overflow-hidden lg:border-0' : ''}
-                        ${panelSize === 'normal' ? 'w-full sm:w-[480px]' : ''}
-                        ${panelSize === 'expanded' ? 'w-full sm:w-[600px] lg:w-[50vw]' : ''}
-                        ${focusMode === 'data' ? 'lg:w-[70vw]' : ''}
-                        ${focusMode === 'map' ? 'lg:w-[320px]' : ''}
-                        shrink-0 flex flex-col shadow-xl lg:shadow-none
+                        ${panelSize === 'normal' ? 'w-full sm:w-[560px] 2xl:w-[600px]' : ''}
+                        ${panelSize === 'expanded' ? 'w-full sm:w-[640px] lg:w-[50vw]' : ''}
+                        ${focusMode === 'data' ? 'lg:!w-[70vw]' : ''}
+                        ${focusMode === 'map' ? 'lg:!w-[420px]' : ''}
+                        shrink-0 flex flex-col shadow-2xl lg:shadow-none dark:lg:border-r-gray-800
                     `}
                 >
                     {/* Panel Controls */}
@@ -762,25 +762,25 @@ export default function FarmDetailsPage() {
                             isDrawing={isDrawing}
                             drawingPoints={drawingPoints}
                             setDrawingPoints={setDrawingPoints}
-                            ndviS3Url={ndviUrl}
-                            ndwiS3Url={ndwiUrl}
-                            ndmiS3Url={ndmiUrl}
-                            saviS3Url={saviUrl}
-                            anomalyS3Url={anomalyUrl}
-                            falseColorS3Url={falseColorUrl}
-                            trueColorS3Url={trueColorUrl}
+                            ndviTileUrl={ndviUrl}
+                            ndwiTileUrl={ndwiUrl}
+                            ndmiTileUrl={ndmiUrl}
+                            saviTileUrl={saviUrl}
+                            anomalyTileUrl={anomalyUrl}
+                            falseColorTileUrl={falseColorUrl}
+                            trueColorTileUrl={trueColorUrl}
 
-                            ndreS3Url={ndreUrl}
-                            reciS3Url={reciUrl}
-                            gndviS3Url={gndviUrl}
-                            eviS3Url={eviUrl}
-                            msiS3Url={msiUrl}
-                            nbrS3Url={nbrUrl}
-                            bsiS3Url={bsiUrl}
-                            ariS3Url={ariUrl}
-                            criS3Url={criUrl}
-                            rviS3Url={rviUrl}
-                            ratioS3Url={ratioUrl}
+                            ndreTileUrl={ndreUrl}
+                            reciTileUrl={reciUrl}
+                            gndviTileUrl={gndviUrl}
+                            eviTileUrl={eviUrl}
+                            msiTileUrl={msiUrl}
+                            nbrTileUrl={nbrUrl}
+                            bsiTileUrl={bsiUrl}
+                            ariTileUrl={ariUrl}
+                            criTileUrl={criUrl}
+                            rviTileUrl={rviUrl}
+                            ratioTileUrl={ratioUrl}
                             showAOIs={showAOIs}
                             processingAois={processingAois}
                             signals={signals}
