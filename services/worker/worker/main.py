@@ -21,6 +21,7 @@ from worker.jobs.process_weather import process_weather_history_handler as proce
 from worker.jobs.create_mosaic import create_mosaic_handler
 from worker.jobs.calculate_stats import calculate_stats_handler, calculate_stats_sync_handler
 from worker.jobs.warm_cache import warm_cache_handler, warm_cache_sync_handler
+from worker.jobs.detect_harvest import detect_harvest_handler
 
 logger = structlog.get_logger()
 
@@ -43,6 +44,7 @@ JOB_HANDLERS = {
     "CREATE_MOSAIC": create_mosaic_handler,
     "CALCULATE_STATS": calculate_stats_handler,
     "WARM_CACHE": warm_cache_handler,
+    "DETECT_HARVEST": detect_harvest_handler,
 }
 
 

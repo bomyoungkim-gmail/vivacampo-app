@@ -78,6 +78,14 @@ VEGETATION_INDICES = {
         "colormap": "viridis",
         "bands": ["B05", "B08"],
     },
+    "srre": {
+        "expression": "B08/B05",
+        "name": "Simple Ratio Red Edge",
+        "description": "Nitrogen absorption indicator (R² > 0.8 for corn/rice)",
+        "rescale": "0.5,8",
+        "colormap": "rdylgn",
+        "bands": ["B05", "B08"],
+    },
     "gndvi": {
         "expression": "(B08-B03)/(B08+B03)",
         "name": "Green Normalized Difference Vegetation Index",

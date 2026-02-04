@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { MapContainer, TileLayer, Polygon, Popup, Marker, Polyline, useMapEvents, useMap, ZoomControl } from 'react-leaflet'
 import L from 'leaflet'
+import { Radio } from 'lucide-react'
 import { APP_CONFIG } from '@/lib/config'
 import type { AOI } from '@/lib/types'
 import 'leaflet/dist/leaflet.css'
@@ -523,6 +524,12 @@ export default function MapLeaflet({
             {isDrawing && (
                 <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] bg-white px-4 py-2 rounded-full shadow-lg border-2 border-green-500 font-semibold text-green-700 animate-pulse text-sm whitespace-nowrap">
                     ✏️ Clique no mapa para marcar os pontos
+                </div>
+            )}
+            {activeOverlay === 'rvi' && (
+                <div className="absolute bottom-4 left-4 z-[1000] rounded-full border bg-background/80 px-3 py-1.5 text-xs font-medium shadow">
+                    <Radio className="mr-1 inline h-3 w-3" />
+                    Modo Radar / Estimativa
                 </div>
             )}
 

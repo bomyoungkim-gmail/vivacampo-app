@@ -40,6 +40,11 @@ Keep it short (1–2 pages). Update it weekly or after major changes.
 - ✅ 14 satellite indices (NDVI, NDRE, NDWI, NDMI, EVI, SAVI, etc)
 - ✅ Radar monitoring (Sentinel-1 RVI, all-weather)
 - ✅ Weather integration (Open-Meteo, localized per AOI)
+- ✅ Nitrogen status API + SRRE zone map
+- ✅ Correlation API (vigor x climate) + insights
+- ✅ Analysis tab with correlation chart
+- ✅ Year-over-year comparison + productivity score card
+- ✅ Radar fallback tooltip + radar mode badge
 - ✅ AI Copilot (anomaly detection, recommended actions)
 - ✅ Authentication (OIDC + Mock for dev)
 
@@ -47,12 +52,12 @@ Keep it short (1–2 pages). Update it weekly or after major changes.
 - ✅ TiTiler security (presigned URLs; raw S3 URIs not exposed)
 - ✅ Integration tests for Worker jobs and external integrations (stubbed)
 - ✅ Dynamic Tiling with MosaicJSON (ADR-0007) - multi-band vegetation indices working
-- ⚠️ Cloudflare CDN setup for tile caching
+- ⚠️ Cloudflare CDN setup for tile caching (workers ready; pending credentials)
 - ⚠️ Data migration to dynamic tiling (legacy COG cleanup)
 - ⚠️ GIS integration documentation (QGIS/ArcGIS)
 - ⚠️ Validation after volume run (Admin UI Jobs, missing-weeks reprocess, error visibility)
 - ⚠️ Request ID propagation across services
-- ⚠️ Production deployment (staging + CI/CD)
+- ⚠️ Production deployment (staging + CI/CD workflows ready; pending credentials)
 - ⚠️ Alert delivery (email/SMS/push notifications)
 
 ## Core Domain

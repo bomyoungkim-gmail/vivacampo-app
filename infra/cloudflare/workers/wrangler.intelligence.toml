@@ -1,0 +1,24 @@
+# Cloudflare Worker Configuration
+# VivaCampo Intelligence Cache Worker
+#
+# Deploy with: wrangler publish --config wrangler.intelligence.toml
+
+name = "vivacampo-intelligence-cache"
+main = "intelligence-cache.js"
+compatibility_date = "2024-01-01"
+
+workers_dev = true
+
+[vars]
+
+[env.development]
+vars = { ORIGIN_URL = "http://localhost:8000" }
+
+[env.staging]
+vars = { ORIGIN_URL = "https://api-staging.vivacampo.com.br" }
+
+[env.production]
+vars = { ORIGIN_URL = "https://api.vivacampo.com.br" }
+
+[observability]
+enabled = true

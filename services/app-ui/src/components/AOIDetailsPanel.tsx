@@ -5,13 +5,15 @@ import ChartComponent from './ChartComponent'
 import WeatherChart from './WeatherChart'
 import AOIActionsMenu from './AOIActionsMenu'
 import { useErrorHandler } from '@/lib/errorHandler'
-import { MapPin, Calendar, Activity, AlertTriangle, ChevronRight, CloudRain, Radio, Leaf, Droplets, Sparkles, Mountain } from 'lucide-react'
+import { MapPin, Calendar, Activity, AlertTriangle, ChevronRight, CloudRain, Radio, Leaf, Droplets, Sparkles, Mountain, BarChart3 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import { NitrogenAlert } from './NitrogenAlert'
+import { AnalysisTab } from './AnalysisTab'
 
 interface AOIDetailsPanelProps {
     aoi: AOI
@@ -29,7 +31,7 @@ type IndexType = 'NDVI' | 'NDWI' | 'NDMI' | 'SAVI' | 'ANOMALY' |
     'ARI' | 'CRI'
 
 type RadarIndexType = 'RVI' | 'RATIO'
-type TabType = 'OVERVIEW' | 'HEALTH' | 'WATER' | 'NUTRITION' | 'SOIL' | 'RADAR' | 'WEATHER' | 'ALERTS'
+type TabType = 'OVERVIEW' | 'ANALYSIS' | 'HEALTH' | 'WATER' | 'NUTRITION' | 'SOIL' | 'RADAR' | 'WEATHER' | 'ALERTS'
 
 export default function AOIDetailsPanel({
     aoi,
@@ -248,6 +250,9 @@ export default function AOIDetailsPanel({
                         <TabsTrigger value="OVERVIEW" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary gap-1.5">
                             <Activity size={14} /> Geral
                         </TabsTrigger>
+                        <TabsTrigger value="ANALYSIS" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary gap-1.5">
+                            <BarChart3 size={14} /> Análise
+                        </TabsTrigger>
                         <Separator orientation="vertical" className="h-5 mx-1" />
                         <TabsTrigger value="HEALTH" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700 gap-1.5">
                             <Leaf size={14} /> Saúde
@@ -302,6 +307,7 @@ export default function AOIDetailsPanel({
                                 </CardContent>
                             </Card>
                         </div>
+                        <NitrogenAlert aoiId={aoi.id} />
                         {uniqueAlerts.length > 0 && (
                             <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
                                 <CardContent className="p-4">
@@ -355,6 +361,11 @@ export default function AOIDetailsPanel({
                                 </CardContent>
                             </Card>
                         )}
+                    </TabsContent>
+
+                    {/* ---------- ANÁLISE ---------- */}
+                    <TabsContent value="ANALYSIS" className="mt-0 space-y-6">
+                        <AnalysisTab aoiId={aoi.id} />
                     </TabsContent>
 
                     {/* ---------- SAÚDE (HEALTH) ---------- */}

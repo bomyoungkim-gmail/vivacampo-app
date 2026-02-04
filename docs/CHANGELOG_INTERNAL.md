@@ -3,6 +3,20 @@
 > For humans. Keep it factual. Link PRs if available.
 
 ## Unreleased
+- Added SRRE (Simple Ratio Red Edge) vegetation index to TiTiler expressions.
+- Added DETECT_HARVEST worker job to create HARVEST_DETECTED signals from RVI drops.
+- Added nitrogen status API use case and router (SRRE zone map support).
+- Added correlation API use case and router for vigor/climate insights.
+- Added radar fallback tooltip and dot styling for NDVI chart when NDVI is missing but RVI is present.
+- Added NitrogenAlert component and wired it into AOI Overview.
+- Added Analysis tab with correlation chart and insights panel.
+- Added GitHub Actions workflows for staging/prod deploys and a test placeholder.
+- Added Terraform scaffold for staging/production (ECS, RDS, S3, SQS modules).
+- Added Cloudflare intelligence cache worker for nitrogen/correlation endpoints.
+- Added year-over-year correlation endpoint and UI chart for season comparison.
+- Added productivity score card based on NDVI average and radar mode badge on map.
+- Removed non-existent `rio-tiler-stac` dependency from TiTiler requirements to fix Docker build.
+- Added missing shadcn `Alert` component to resolve NitrogenAlert import.
 - Auto-backfill now triggers on AOI creation (last 8 weeks).
 - Backfill now enqueues PROCESS_RADAR_WEEK, PROCESS_WEATHER, and PROCESS_TOPOGRAPHY.
 - Worker job handlers mark status as RUNNING at start.
