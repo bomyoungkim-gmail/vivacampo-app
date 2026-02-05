@@ -1,4 +1,5 @@
 import { AdminSidebar } from "@/components/AdminSidebar";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export default function DashboardLayout({
     children,
@@ -6,12 +7,14 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     return (
-        <div className="flex min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-100 via-slate-200 to-slate-200">
+        <div className="flex min-h-screen bg-background">
             <AdminSidebar />
             <main className="flex-1 max-h-screen overflow-y-auto">
-                <div className="container mx-auto p-8 animate-fade-in-up">
-                    {children}
-                </div>
+                <ErrorBoundary>
+                    <div className="container mx-auto p-8 animate-fade-in-up">
+                        {children}
+                    </div>
+                </ErrorBoundary>
             </main>
         </div>
     );

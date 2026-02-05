@@ -3,6 +3,7 @@ Harvest detection via VH backscatter proxy (RVI drop).
 Scientific basis: VH drops > 3dB when crops are harvested.
 """
 import json
+from datetime import date
 import structlog
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -65,7 +66,7 @@ def create_harvest_signal(
         "aoi_id": aoi_id,
         "year": year,
         "week": week,
-        "score": min(rvi_drop, 1.0),
+        "score": max(0.0, min(rvi_drop, 1.0)),
         "evidence": evidence,
         "actions": actions,
     })
@@ -97,12 +98,14 @@ def detect_harvest_handler(job_id: str, payload: dict, db: Session):
 
         current_rvi = get_rvi_mean(tenant_id, aoi_id, year, week, db)
 
-        # Calculate previous week
-        prev_week = week - 1
-        prev_year = year
-        if prev_week < 1:
-            prev_week = 52
-            prev_year = year - 1
+        # Calculate previous week (handles ISO week 53)
+        if week == 1:
+            # Last week of previous year - use Dec 28 which is always in last ISO week
+            last_day_prev_year = date(year - 1, 12, 28)
+            prev_year, prev_week, _ = last_day_prev_year.isocalendar()
+        else:
+            prev_week = week - 1
+            prev_year = year
 
         previous_rvi = get_rvi_mean(tenant_id, aoi_id, prev_year, prev_week, db)
 

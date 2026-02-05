@@ -3,14 +3,23 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { Loader2 } from 'lucide-react'
 import ThemeToggle from '@/components/ThemeToggle'
+import { DataTable, Badge, type Column } from '@/components/ui'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'
 
+interface Tenant {
+    id: string
+    name: string
+    type: string
+    tier: string
+    status: 'ACTIVE' | 'INACTIVE'
+    created_at: string
+}
+
 export default function AdminTenantsPage() {
     const router = useRouter()
-    const [tenants, setTenants] = useState<any[]>([])
+    const [tenants, setTenants] = useState<Tenant[]>([])
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -19,7 +28,6 @@ export default function AdminTenantsPage() {
             router.push('/login')
             return
         }
-
         loadTenants()
     }, [router])
 
@@ -37,11 +45,49 @@ export default function AdminTenantsPage() {
         }
     }
 
-    const getStatusColor = (status: string) => {
-        return status === 'ACTIVE'
-            ? 'bg-primary/10 text-primary dark:bg-primary/20'
-            : 'bg-destructive/10 text-destructive dark:bg-destructive/20'
+    const getStatusVariant = (status: string): 'success' | 'error' => {
+        return status === 'ACTIVE' ? 'success' : 'error'
     }
+
+    // DataTable columns configuration
+    const columns: Column<Tenant>[] = [
+        {
+            key: 'name',
+            header: 'Name',
+            sortable: true,
+            mobileLabel: 'Nome',
+        },
+        {
+            key: 'type',
+            header: 'Type',
+            sortable: true,
+            mobileLabel: 'Tipo',
+        },
+        {
+            key: 'tier',
+            header: 'Tier',
+            sortable: true,
+            mobileLabel: 'Tier',
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            accessor: (row) => (
+                <Badge variant={getStatusVariant(row.status)}>
+                    {row.status}
+                </Badge>
+            ),
+            sortable: true,
+            mobileLabel: 'Status',
+        },
+        {
+            key: 'created_at',
+            header: 'Created',
+            accessor: (row) => new Date(row.created_at).toLocaleDateString('pt-BR'),
+            sortable: true,
+            mobileLabel: 'Criado em',
+        },
+    ]
 
     return (
         <div className="min-h-screen bg-background">
@@ -53,80 +99,13 @@ export default function AdminTenantsPage() {
             </header>
 
             <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-                {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    </div>
-                ) : (
-                    <>
-                        {/* Mobile: Cards */}
-                        <div className="block md:hidden space-y-4">
-                            {tenants.map((tenant) => (
-                                <div key={tenant.id} className="rounded-lg bg-card p-4 shadow border border-border">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div>
-                                            <h3 className="font-semibold text-foreground">{tenant.name}</h3>
-                                            <p className="text-xs text-muted-foreground mt-1">{tenant.type}</p>
-                                        </div>
-                                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusColor(tenant.status)}`}>
-                                            {tenant.status}
-                                        </span>
-                                    </div>
-                                    <div className="space-y-1 text-sm">
-                                        <div>
-                                            <span className="font-medium text-foreground">Tier:</span>{' '}
-                                            <span className="text-muted-foreground">{tenant.tier}</span>
-                                        </div>
-                                        <div>
-                                            <span className="font-medium text-foreground">Created:</span>{' '}
-                                            <span className="text-muted-foreground">
-                                                {new Date(tenant.created_at).toLocaleDateString('pt-BR')}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Desktop: Table */}
-                        <div className="hidden md:block rounded-lg bg-card shadow border border-border overflow-hidden">
-                            <table className="min-w-full divide-y divide-border">
-                                <thead className="bg-muted/50">
-                                    <tr>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Name</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Type</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tier</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Created</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-border">
-                                    {tenants.map((tenant) => (
-                                        <tr key={tenant.id} className="table-row-interactive">
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
-                                                {tenant.name}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                {tenant.type}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                {tenant.tier}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getStatusColor(tenant.status)}`}>
-                                                    {tenant.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                {new Date(tenant.created_at).toLocaleDateString('pt-BR')}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </>
-                )}
+                <DataTable
+                    data={tenants}
+                    columns={columns}
+                    rowKey={(row) => row.id}
+                    loading={loading}
+                    emptyMessage="Nenhum tenant encontrado"
+                />
             </main>
         </div>
     )

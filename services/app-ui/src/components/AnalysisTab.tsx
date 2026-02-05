@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CorrelationChart } from "./CorrelationChart";
 import { YearOverYearChart } from "./YearOverYearChart";
 import api from "@/lib/api";
+import { PRODUCTIVITY_HISTORICAL_AVG } from "@/lib/constants";
 import { AlertCircle, CloudRain, TrendingDown, Radio } from "lucide-react";
 
 type Insight = {
@@ -66,7 +67,17 @@ export function AnalysisTab({ aoiId }: { aoiId: string }) {
   }, [aoiId]);
 
   if (loading) return <Skeleton className="h-[400px] w-full" />;
-  if (!data && !yoy) return <p className="p-8 text-center text-muted-foreground">Sem dados</p>;
+  if (!data && !yoy) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex h-48 items-center justify-center rounded-lg border border-border bg-muted/40">
+            <p className="text-sm text-muted-foreground">Sem dados históricos disponíveis</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const yoyChartData = (() => {
     if (!yoy) return [];
@@ -94,7 +105,7 @@ export function AnalysisTab({ aoiId }: { aoiId: string }) {
     const ndviValues = data.data.map((row) => row.ndvi).filter((v): v is number => v != null);
     if (ndviValues.length === 0) return null;
     const score = ndviValues.reduce((acc, v) => acc + v, 0) / ndviValues.length;
-    const historicalAvg = 0.65;
+    const historicalAvg = PRODUCTIVITY_HISTORICAL_AVG;
     const deviation = ((score - historicalAvg) / historicalAvg) * 100;
     return { score, historicalAvg, deviation };
   })();

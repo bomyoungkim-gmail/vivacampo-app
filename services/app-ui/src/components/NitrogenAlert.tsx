@@ -6,28 +6,33 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import api from "@/lib/api";
+import type { NitrogenStatus } from "@/lib/types";
 
-interface NitrogenStatus {
-  status: "DEFICIENT" | "ADEQUATE" | "UNKNOWN";
-  confidence: number;
-  ndvi_mean: number | null;
-  ndre_mean: number | null;
-  reci_mean: number | null;
-  recommendation: string;
-  zone_map_url: string | null;
-}
+type NitrogenAlertProps = {
+  aoiId: string;
+  status?: NitrogenStatus | null;
+  loading?: boolean;
+};
 
-export function NitrogenAlert({ aoiId }: { aoiId: string }) {
-  const [status, setStatus] = useState<NitrogenStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+export function NitrogenAlert({ aoiId, status: statusProp, loading: loadingProp }: NitrogenAlertProps) {
+  const useRemote = statusProp === undefined;
+  const [status, setStatus] = useState<NitrogenStatus | null>(useRemote ? null : statusProp ?? null);
+  const [loading, setLoading] = useState(useRemote);
 
   useEffect(() => {
+    if (useRemote) return;
+    setStatus(statusProp ?? null);
+    setLoading(!!loadingProp);
+  }, [useRemote, statusProp, loadingProp]);
+
+  useEffect(() => {
+    if (!useRemote) return;
     api
       .get(`/v1/app/aois/${aoiId}/nitrogen/status`)
       .then((res) => setStatus(res.data))
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [aoiId]);
+  }, [aoiId, useRemote]);
 
   if (loading || !status || status.status !== "DEFICIENT") return null;
 

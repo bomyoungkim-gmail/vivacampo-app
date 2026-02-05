@@ -3,14 +3,24 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { Loader2 } from 'lucide-react'
 import ThemeToggle from '@/components/ThemeToggle'
+import { Button, DataTable, Badge, Input, Select, type Column } from '@/components/ui'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'
 
+interface AuditLog {
+    id: string
+    tenant_id: string
+    action: 'CREATE' | 'UPDATE' | 'DELETE'
+    resource_type: string
+    resource_id: string | null
+    actor_membership_id: string | null
+    created_at: string
+}
+
 export default function AdminAuditPage() {
     const router = useRouter()
-    const [auditLogs, setAuditLogs] = useState<any[]>([])
+    const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState({ tenant_id: '', action: '' })
 
@@ -39,14 +49,89 @@ export default function AdminAuditPage() {
         }
     }
 
-    const getActionColor = (action: string) => {
+    const getActionVariant = (action: string): 'default' | 'success' | 'warning' | 'error' | 'info' | 'secondary' => {
         switch (action) {
-            case 'CREATE': return 'bg-primary/10 text-primary dark:bg-primary/20'
-            case 'UPDATE': return 'bg-chart-2/10 text-chart-2 dark:bg-chart-2/20'
-            case 'DELETE': return 'bg-destructive/10 text-destructive dark:bg-destructive/20'
-            default: return 'bg-muted text-muted-foreground'
+            case 'CREATE': return 'info'
+            case 'UPDATE': return 'warning'
+            case 'DELETE': return 'error'
+            default: return 'default'
         }
     }
+
+    // DataTable columns configuration
+    const columns: Column<AuditLog>[] = [
+        {
+            key: 'created_at',
+            header: 'Timestamp',
+            accessor: (row) => new Date(row.created_at).toLocaleString('pt-BR'),
+            sortable: true,
+            mobileLabel: 'Data',
+        },
+        {
+            key: 'tenant_id',
+            header: 'Tenant',
+            accessor: (row) => row.tenant_id.substring(0, 8),
+            sortable: true,
+            mobileLabel: 'Tenant',
+        },
+        {
+            key: 'action',
+            header: 'Action',
+            accessor: (row) => (
+                <Badge variant={getActionVariant(row.action)}>
+                    {row.action}
+                </Badge>
+            ),
+            sortable: true,
+            mobileLabel: 'Ação',
+        },
+        {
+            key: 'resource',
+            header: 'Resource',
+            accessor: (row) => `${row.resource_type}: ${row.resource_id?.substring(0, 8) || 'N/A'}`,
+            sortable: true,
+            mobileLabel: 'Recurso',
+        },
+        {
+            key: 'actor_membership_id',
+            header: 'Actor',
+            accessor: (row) => row.actor_membership_id?.substring(0, 8) || 'System',
+            sortable: true,
+            mobileLabel: 'Ator',
+        },
+    ]
+
+    // Custom mobile card renderer
+    const renderMobileCard = (log: AuditLog) => (
+        <div className="rounded-lg bg-card p-4 shadow border border-border space-y-3">
+            <div className="flex justify-between items-start">
+                <Badge variant={getActionVariant(log.action)}>
+                    {log.action}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                    {new Date(log.created_at).toLocaleString('pt-BR')}
+                </span>
+            </div>
+            <div className="space-y-1 text-sm">
+                <div>
+                    <span className="font-medium text-foreground">Tenant:</span>{' '}
+                    <span className="text-muted-foreground">{log.tenant_id.substring(0, 8)}</span>
+                </div>
+                <div>
+                    <span className="font-medium text-foreground">Resource:</span>{' '}
+                    <span className="text-muted-foreground">
+                        {log.resource_type}: {log.resource_id?.substring(0, 8) || 'N/A'}
+                    </span>
+                </div>
+                <div>
+                    <span className="font-medium text-foreground">Actor:</span>{' '}
+                    <span className="text-muted-foreground">
+                        {log.actor_membership_id?.substring(0, 8) || 'System'}
+                    </span>
+                </div>
+            </div>
+        </div>
+    )
 
     return (
         <div className="min-h-screen bg-background">
@@ -61,120 +146,44 @@ export default function AdminAuditPage() {
                 {/* Filters */}
                 <div className="mb-6 rounded-lg bg-card p-4 shadow border border-border">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-foreground mb-2">Tenant ID</label>
-                            <input
-                                type="text"
-                                value={filter.tenant_id}
-                                onChange={(e) => setFilter({ ...filter, tenant_id: e.target.value })}
-                                className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-foreground min-h-touch focus:outline-none focus:ring-2 focus:ring-ring"
-                                placeholder="Filter by tenant..."
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-foreground mb-2">Action</label>
-                            <select
-                                value={filter.action}
-                                onChange={(e) => setFilter({ ...filter, action: e.target.value })}
-                                className="block w-full rounded-lg border border-input bg-background px-3 py-2 text-foreground min-h-touch focus:outline-none focus:ring-2 focus:ring-ring"
-                            >
-                                <option value="">All Actions</option>
-                                <option value="CREATE">CREATE</option>
-                                <option value="UPDATE">UPDATE</option>
-                                <option value="DELETE">DELETE</option>
-                            </select>
-                        </div>
+                        <Input
+                            type="text"
+                            label="Tenant ID"
+                            value={filter.tenant_id}
+                            onChange={(e) => setFilter({ ...filter, tenant_id: e.target.value })}
+                            placeholder="Filter by tenant..."
+                        />
+                        <Select
+                            label="Action"
+                            value={filter.action}
+                            onChange={(e) => setFilter({ ...filter, action: e.target.value })}
+                            options={[
+                                { value: '', label: 'All Actions' },
+                                { value: 'CREATE', label: 'CREATE' },
+                                { value: 'UPDATE', label: 'UPDATE' },
+                                { value: 'DELETE', label: 'DELETE' },
+                            ]}
+                        />
                     </div>
-                    <button
+                    <Button
                         onClick={loadAuditLogs}
-                        className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors min-h-touch min-w-touch"
+                        variant="primary"
+                        size="md"
+                        className="mt-4"
                     >
                         Apply Filters
-                    </button>
+                    </Button>
                 </div>
 
-                {/* Audit Log - Mobile Cards / Desktop Table */}
-                {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    </div>
-                ) : (
-                    <>
-                        {/* Mobile: Cards */}
-                        <div className="block md:hidden space-y-4">
-                            {auditLogs.map((log) => (
-                                <div key={log.id} className="rounded-lg bg-card p-4 shadow border border-border">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getActionColor(log.action)}`}>
-                                            {log.action}
-                                        </span>
-                                        <span className="text-xs text-muted-foreground">
-                                            {new Date(log.created_at).toLocaleString('pt-BR')}
-                                        </span>
-                                    </div>
-                                    <div className="space-y-2 text-sm">
-                                        <div>
-                                            <span className="font-medium text-foreground">Tenant:</span>{' '}
-                                            <span className="text-muted-foreground">{log.tenant_id.substring(0, 8)}</span>
-                                        </div>
-                                        <div>
-                                            <span className="font-medium text-foreground">Resource:</span>{' '}
-                                            <span className="text-muted-foreground">
-                                                {log.resource_type}: {log.resource_id?.substring(0, 8)}
-                                            </span>
-                                        </div>
-                                        <div>
-                                            <span className="font-medium text-foreground">Actor:</span>{' '}
-                                            <span className="text-muted-foreground">
-                                                {log.actor_membership_id?.substring(0, 8) || 'System'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Desktop: Table */}
-                        <div className="hidden md:block rounded-lg bg-card shadow border border-border overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-border">
-                                    <thead className="bg-muted/50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Timestamp</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tenant</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Action</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Resource</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actor</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-border">
-                                        {auditLogs.map((log) => (
-                                            <tr key={log.id} className="table-row-interactive">
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                    {new Date(log.created_at).toLocaleString('pt-BR')}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                    {log.tenant_id.substring(0, 8)}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getActionColor(log.action)}`}>
-                                                        {log.action}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
-                                                    {log.resource_type}: {log.resource_id?.substring(0, 8)}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                    {log.actor_membership_id?.substring(0, 8) || 'System'}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </>
-                )}
+                {/* Audit Log DataTable */}
+                <DataTable
+                    data={auditLogs}
+                    columns={columns}
+                    rowKey={(row) => row.id}
+                    loading={loading}
+                    emptyMessage="Nenhum log de auditoria encontrado"
+                    mobileCardRender={renderMobileCard}
+                />
             </main>
         </div>
     )

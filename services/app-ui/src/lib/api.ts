@@ -164,6 +164,9 @@ export const aoiAPI = {
 
     getWeatherHistory: (id: string, start?: string, end?: string): Promise<AxiosResponse<WeatherData[]>> =>
         api.get(`/v1/app/aois/${id}/weather/history`, { params: { start_date: start, end_date: end } }),
+
+    getNitrogenStatus: (id: string) =>
+        api.get(`/v1/app/aois/${id}/nitrogen/status`),
 }
 
 // =============================================================================

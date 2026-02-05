@@ -286,5 +286,19 @@ END $$;
 
 ---
 
+## Pending Migration Plans
+
+### Add Timestamps to `derived_weather_daily`
+**Reason:** Worker upsert expects `updated_at`, but legacy table may not have the column.  
+**Plan:** Add columns if missing, with defaults.  
+**SQL (to be applied via migration):**
+```sql
+ALTER TABLE derived_weather_daily
+  ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
+```
+
+---
+
 ## Last Updated
-2026-02-03
+2026-02-05

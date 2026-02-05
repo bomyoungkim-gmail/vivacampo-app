@@ -83,6 +83,20 @@ export interface AOIBackfillRequest {
 }
 
 // =============================================================================
+// Intelligence Types
+// =============================================================================
+
+export interface NitrogenStatus {
+    status: 'DEFICIENT' | 'ADEQUATE' | 'UNKNOWN'
+    confidence: number
+    ndvi_mean: number | null
+    ndre_mean: number | null
+    reci_mean: number | null
+    recommendation: string
+    zone_map_url: string | null
+}
+
+// =============================================================================
 // Signal Types
 // =============================================================================
 

@@ -1,8 +1,20 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Fira_Sans, Fira_Code } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const firaSans = Fira_Sans({
+    subsets: ["latin"],
+    weight: ["300", "400", "500", "600", "700"],
+    variable: "--font-sans",
+    display: "swap",
+});
+
+const firaCode = Fira_Code({
+    subsets: ["latin"],
+    weight: ["400", "500", "600"],
+    variable: "--font-mono",
+    display: "swap",
+});
 
 export const metadata: Metadata = {
     title: "VivaCampo Admin - System Administration",
@@ -16,7 +28,9 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="pt-BR">
-            <body className={inter.className}>{children}</body>
+            <body className={`${firaSans.variable} ${firaCode.variable} font-sans`}>
+                {children}
+            </body>
         </html>
     );
 }

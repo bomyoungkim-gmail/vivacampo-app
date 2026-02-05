@@ -31,8 +31,8 @@ class CorrelationService:
             weather AS (
                 SELECT EXTRACT(YEAR FROM dw.date)::int AS year,
                        EXTRACT(WEEK FROM dw.date)::int AS week,
-                       SUM(dw.precipitation_mm) AS rain_mm,
-                       AVG(dw.temperature_avg) AS temp_avg
+                       SUM(dw.precip_sum) AS rain_mm,
+                       AVG((dw.temp_max + dw.temp_min) / 2.0) AS temp_avg
                 FROM derived_weather_daily dw
                 WHERE dw.aoi_id = :aoi_id
                   AND dw.tenant_id = :tenant_id

@@ -1,17 +1,16 @@
 import { useState, useEffect, useMemo } from 'react'
-import type { AOI, Signal, DerivedAssets, RadarAssets, WeatherData } from '@/lib/types'
+import type { AOI, Signal, DerivedAssets, RadarAssets, WeatherData, NitrogenStatus } from '@/lib/types'
 import { signalAPI, aoiAPI } from '@/lib/api'
 import ChartComponent from './ChartComponent'
 import WeatherChart from './WeatherChart'
 import AOIActionsMenu from './AOIActionsMenu'
 import { useErrorHandler } from '@/lib/errorHandler'
-import { MapPin, Calendar, Activity, AlertTriangle, ChevronRight, CloudRain, Radio, Leaf, Droplets, Sparkles, Mountain, BarChart3 } from 'lucide-react'
+import { MapPin, Calendar, Activity, AlertTriangle, ChevronRight, CloudRain, Leaf, BarChart3 } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import { NitrogenAlert } from './NitrogenAlert'
 import { AnalysisTab } from './AnalysisTab'
 
@@ -47,6 +46,8 @@ export default function AOIDetailsPanel({
     const [history, setHistory] = useState<DerivedAssets[]>([])
     const [radarHistory, setRadarHistory] = useState<RadarAssets[]>([])
     const [weatherHistory, setWeatherHistory] = useState<WeatherData[]>([])
+    const [nitrogenStatus, setNitrogenStatus] = useState<NitrogenStatus | null>(null)
+    const [nitrogenLoading, setNitrogenLoading] = useState(false)
 
     const [loading, setLoading] = useState(false)
     const [selectedIndex, setSelectedIndex] = useState<IndexType>('NDVI')
@@ -91,6 +92,17 @@ export default function AOIDetailsPanel({
                     const weatherRes = await aoiAPI.getWeatherHistory(aoi.id)
                     setWeatherHistory(weatherRes.data)
                 } catch (e) { console.warn("Weather fetch failed", e) }
+
+                try {
+                    setNitrogenLoading(true)
+                    const nitrogenRes = await aoiAPI.getNitrogenStatus(aoi.id)
+                    setNitrogenStatus(nitrogenRes.data)
+                } catch (e) {
+                    console.warn("Nitrogen fetch failed", e)
+                    setNitrogenStatus(null)
+                } finally {
+                    setNitrogenLoading(false)
+                }
 
             } catch (err) {
                 console.error("Failed to fetch data", err)
@@ -190,6 +202,16 @@ export default function AOIDetailsPanel({
         })
     }, [signals])
 
+    const hasNitrogenAlert = nitrogenStatus?.status === 'DEFICIENT'
+    const totalAlerts = signals.length + (hasNitrogenAlert ? 1 : 0)
+    const alertsForTab = useMemo(() => {
+        return [...signals].sort((a, b) => {
+            const aDate = new Date(a.detected_at ?? a.created_at ?? 0).getTime()
+            const bDate = new Date(b.detected_at ?? b.created_at ?? 0).getTime()
+            return bDate - aDate
+        })
+    }, [signals])
+
     const currentChartProps = getChartProps()
     const currentRadarProps = getRadarProps()
 
@@ -243,39 +265,41 @@ export default function AOIDetailsPanel({
                 </div>
             </div>
 
-            {/* Tabs - Reorganized with icons */}
+            {/* Tabs - Two-row grouped navigation */}
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)} className="flex-1 flex flex-col overflow-hidden">
-                <div className="bg-card border-b border-border px-2 shrink-0">
-                    <TabsList className="h-12 w-full justify-start bg-transparent gap-1 overflow-x-auto">
-                        <TabsTrigger value="OVERVIEW" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary gap-1.5">
-                            <Activity size={14} /> Geral
+                <div className="bg-card border-b border-border shrink-0 py-1.5 px-2 space-y-1">
+                    {/* Row 1: Primary Navigation */}
+                    <TabsList className="h-auto w-full justify-start bg-transparent gap-1 p-0">
+                        <TabsTrigger value="OVERVIEW" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary gap-1.5 text-xs px-2.5 py-1.5 h-auto">
+                            <Activity size={13} /> Geral
                         </TabsTrigger>
-                        <TabsTrigger value="ANALYSIS" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary gap-1.5">
-                            <BarChart3 size={14} /> Análise
+                        <TabsTrigger value="ANALYSIS" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary gap-1.5 text-xs px-2.5 py-1.5 h-auto">
+                            <BarChart3 size={13} /> Análise
                         </TabsTrigger>
-                        <Separator orientation="vertical" className="h-5 mx-1" />
-                        <TabsTrigger value="HEALTH" className="data-[state=active]:bg-green-100 data-[state=active]:text-green-700 gap-1.5">
-                            <Leaf size={14} /> Saúde
+                        <TabsTrigger value="ALERTS" className="ml-auto data-[state=active]:bg-red-500/15 data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400 gap-1.5 text-xs px-2.5 py-1.5 h-auto">
+                            <AlertTriangle size={13} /> Alertas
+                            {totalAlerts > 0 && <Badge variant="destructive" className="h-4 px-1 text-[9px]">{totalAlerts}</Badge>}
                         </TabsTrigger>
-                        <TabsTrigger value="WATER" className="data-[state=active]:bg-blue-100 data-[state=active]:text-blue-700 gap-1.5">
-                            <Droplets size={14} /> Água
+                    </TabsList>
+                    {/* Row 2: Data Category Tabs */}
+                    <TabsList className="h-auto w-full justify-start bg-transparent gap-0.5 p-0 overflow-x-auto scrollbar-hide">
+                        <TabsTrigger value="HEALTH" className="data-[state=active]:bg-green-500/15 data-[state=active]:text-green-600 dark:data-[state=active]:text-green-400 text-[11px] px-2 py-1 h-auto rounded-full">
+                            Saúde
                         </TabsTrigger>
-                        <TabsTrigger value="NUTRITION" className="data-[state=active]:bg-purple-100 data-[state=active]:text-purple-700 gap-1.5">
-                            <Sparkles size={14} /> Nutrição
+                        <TabsTrigger value="WATER" className="data-[state=active]:bg-blue-500/15 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 text-[11px] px-2 py-1 h-auto rounded-full">
+                            Água
                         </TabsTrigger>
-                        <TabsTrigger value="SOIL" className="data-[state=active]:bg-orange-100 data-[state=active]:text-orange-700 gap-1.5">
-                            <Mountain size={14} /> Solo
+                        <TabsTrigger value="NUTRITION" className="data-[state=active]:bg-purple-500/15 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 text-[11px] px-2 py-1 h-auto rounded-full">
+                            Nutrição
                         </TabsTrigger>
-                        <Separator orientation="vertical" className="h-5 mx-1" />
-                        <TabsTrigger value="RADAR" className="data-[state=active]:bg-accent gap-1.5">
-                            <Radio size={14} /> Radar
+                        <TabsTrigger value="SOIL" className="data-[state=active]:bg-orange-500/15 data-[state=active]:text-orange-600 dark:data-[state=active]:text-orange-400 text-[11px] px-2 py-1 h-auto rounded-full">
+                            Solo
                         </TabsTrigger>
-                        <TabsTrigger value="WEATHER" className="data-[state=active]:bg-accent gap-1.5">
-                            <CloudRain size={14} /> Clima
+                        <TabsTrigger value="RADAR" className="data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400 text-[11px] px-2 py-1 h-auto rounded-full">
+                            Radar
                         </TabsTrigger>
-                        <TabsTrigger value="ALERTS" className="data-[state=active]:bg-red-100 data-[state=active]:text-red-700 gap-1.5">
-                            <AlertTriangle size={14} /> Alertas
-                            {uniqueAlerts.length > 0 && <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">{uniqueAlerts.length}</Badge>}
+                        <TabsTrigger value="WEATHER" className="data-[state=active]:bg-sky-500/15 data-[state=active]:text-sky-600 dark:data-[state=active]:text-sky-400 text-[11px] px-2 py-1 h-auto rounded-full">
+                            Clima
                         </TabsTrigger>
                     </TabsList>
                 </div>
@@ -307,8 +331,8 @@ export default function AOIDetailsPanel({
                                 </CardContent>
                             </Card>
                         </div>
-                        <NitrogenAlert aoiId={aoi.id} />
-                        {uniqueAlerts.length > 0 && (
+                        <NitrogenAlert aoiId={aoi.id} status={nitrogenStatus} loading={nitrogenLoading} />
+                        {totalAlerts > 0 && (
                             <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
                                 <CardContent className="p-4">
                                     <div className="flex justify-between items-center mb-2">
@@ -317,7 +341,7 @@ export default function AOIDetailsPanel({
                                             Ver todos <ChevronRight size={12} />
                                         </Button>
                                     </div>
-                                    <p className="text-sm text-orange-800/80 dark:text-orange-200/80">Foram detectados {uniqueAlerts.length} alertas recentes.</p>
+                                    <p className="text-sm text-orange-800/80 dark:text-orange-200/80">Foram detectados {totalAlerts} alertas recentes.</p>
                                 </CardContent>
                             </Card>
                         )}
@@ -496,7 +520,7 @@ export default function AOIDetailsPanel({
 
                     {/* ---------- ALERTAS ---------- */}
                     <TabsContent value="ALERTS" className="mt-0 space-y-3">
-                        {uniqueAlerts.length === 0 ? (
+                        {totalAlerts === 0 ? (
                             <Card>
                                 <CardContent className="text-center py-10">
                                     <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -507,19 +531,24 @@ export default function AOIDetailsPanel({
                                 </CardContent>
                             </Card>
                         ) : (
-                            uniqueAlerts.map(signal => (
-                                <Card key={signal.id} className="border-l-4 border-l-yellow-400">
-                                    <CardContent className="p-3">
-                                        <div className="flex justify-between items-start mb-1">
-                                            <h4 className="font-bold text-foreground text-sm">{signal.signal_type}</h4>
-                                            <Badge variant="secondary" className="text-[10px]">
-                                                {new Date(signal.detected_at || signal.created_at || new Date()).toLocaleDateString()}
-                                            </Badge>
-                                        </div>
-                                        <p className="text-sm text-muted-foreground line-clamp-2">{signal.metadata?.summary || "Anomalia detectada."}</p>
-                                    </CardContent>
-                                </Card>
-                            ))
+                            <>
+                                {hasNitrogenAlert && (
+                                    <NitrogenAlert aoiId={aoi.id} status={nitrogenStatus} loading={nitrogenLoading} />
+                                )}
+                                {alertsForTab.map(signal => (
+                                    <Card key={signal.id} className="border-l-4 border-l-yellow-400">
+                                        <CardContent className="p-3">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h4 className="font-bold text-foreground text-sm">{signal.signal_type}</h4>
+                                                <Badge variant="secondary" className="text-[10px]">
+                                                    {new Date(signal.detected_at || signal.created_at || new Date()).toLocaleDateString()}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground line-clamp-2">{signal.metadata?.summary || "Anomalia detectada."}</p>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </>
                         )}
                     </TabsContent>
 

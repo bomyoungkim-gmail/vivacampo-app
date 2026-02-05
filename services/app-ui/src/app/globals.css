@@ -128,8 +128,8 @@
   }
 }
 
-/* Touch targets for mobile */
-button,
+/* Touch targets for mobile - exclude tab triggers which need compact sizing */
+button:not([role="tab"]),
 a {
   min-height: 44px;
   min-width: 44px;

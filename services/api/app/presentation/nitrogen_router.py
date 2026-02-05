@@ -36,7 +36,7 @@ def get_nitrogen_status(
     db: Session = Depends(get_db),
 ):
     """Get nitrogen deficiency status for an AOI."""
-    base_url = settings.API_BASE_URL or "http://localhost:8000"
+    base_url = settings.api_base_url or "http://localhost:8000"
     use_case = GetNitrogenStatusUseCase(db)
     result = use_case.execute(str(membership.tenant_id), str(aoi_id), base_url)
 

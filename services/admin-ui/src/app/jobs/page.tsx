@@ -3,19 +3,40 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
-import { Loader2 } from 'lucide-react'
 import ThemeToggle from '@/components/ThemeToggle'
+import { Button, DataTable, Badge, Input, type Column } from '@/components/ui'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'
 
+interface Job {
+    id: string
+    job_type: string
+    status: 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED'
+    tenant_id: string
+    tenant_name: string | null
+    farm_name: string | null
+    aoi_id: string | null
+    aoi_name: string | null
+    error_message: string | null
+    created_at: string
+}
+
 export default function AdminJobsPage() {
     const router = useRouter()
-    const [jobs, setJobs] = useState<any[]>([])
+    const [jobs, setJobs] = useState<Job[]>([])
     const [loading, setLoading] = useState(true)
     const [filter, setFilter] = useState('ALL')
     const [reprocessLoading, setReprocessLoading] = useState(false)
     const [reprocessDays, setReprocessDays] = useState(56)
     const [reprocessLimit, setReprocessLimit] = useState(200)
+
+    const schemaOutdatedPattern = /(UndefinedColumn)|(column\s+"[^"]+"\s+of\s+relation\s+"observations_weekly"\s+does\s+not\s+exist)|(column\s+"updated_at"\s+of\s+relation\s+"observations_weekly"\s+does\s+not\s+exist)/i
+
+    const hasSchemaOutdated = jobs.some((job) => {
+        if (!job?.error_message) return false
+        const message = String(job.error_message)
+        return schemaOutdatedPattern.test(message)
+    })
 
     useEffect(() => {
         const token = localStorage.getItem('admin_token')
@@ -23,7 +44,6 @@ export default function AdminJobsPage() {
             router.push('/login')
             return
         }
-
         loadJobs()
     }, [router, filter])
 
@@ -76,15 +96,144 @@ export default function AdminJobsPage() {
         }
     }
 
-    const getStatusColor = (status: string) => {
+    const getStatusVariant = (status: string): 'default' | 'success' | 'warning' | 'error' | 'info' => {
         switch (status) {
-            case 'DONE': return 'bg-primary/10 text-primary dark:bg-primary/20'
-            case 'RUNNING': return 'bg-chart-2/10 text-chart-2 dark:bg-chart-2/20'
-            case 'PENDING': return 'bg-chart-3/10 text-chart-3 dark:bg-chart-3/20'
-            case 'FAILED': return 'bg-destructive/10 text-destructive dark:bg-destructive/20'
-            default: return 'bg-muted text-muted-foreground'
+            case 'DONE': return 'success'
+            case 'RUNNING': return 'info'
+            case 'PENDING': return 'warning'
+            case 'FAILED': return 'error'
+            default: return 'default'
         }
     }
+
+    // DataTable columns configuration
+    const columns: Column<Job>[] = [
+        {
+            key: 'job_type',
+            header: 'Job Type',
+            sortable: true,
+            mobileLabel: 'Tipo',
+        },
+        {
+            key: 'tenant_name',
+            header: 'Tenant',
+            accessor: (row) => row.tenant_name || row.tenant_id || '-',
+            sortable: true,
+            mobileLabel: 'Tenant',
+        },
+        {
+            key: 'farm_name',
+            header: 'Fazenda',
+            accessor: (row) => row.farm_name || '-',
+            sortable: true,
+            mobileLabel: 'Fazenda',
+        },
+        {
+            key: 'aoi_name',
+            header: 'Talhão',
+            accessor: (row) => row.aoi_name || row.aoi_id || '-',
+            sortable: true,
+            mobileLabel: 'Talhão',
+        },
+        {
+            key: 'status',
+            header: 'Status',
+            accessor: (row) => (
+                <Badge variant={getStatusVariant(row.status)}>
+                    {row.status}
+                </Badge>
+            ),
+            sortable: true,
+            mobileLabel: 'Status',
+        },
+        {
+            key: 'error_message',
+            header: 'Erro',
+            accessor: (row) => {
+                if (!row.error_message) return '-'
+                const truncated = row.error_message.slice(0, 60)
+                return (
+                    <span title={row.error_message} className="text-xs">
+                        {truncated}{row.error_message.length > 60 ? '…' : ''}
+                    </span>
+                )
+            },
+            className: 'max-w-xs',
+            mobileLabel: 'Erro',
+        },
+        {
+            key: 'created_at',
+            header: 'Created',
+            accessor: (row) => new Date(row.created_at).toLocaleString('pt-BR'),
+            sortable: true,
+            mobileLabel: 'Criado em',
+        },
+        {
+            key: 'actions',
+            header: 'Actions',
+            accessor: (row) => (
+                row.status === 'FAILED' ? (
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            handleRetry(row.id)
+                        }}
+                    >
+                        Retry
+                    </Button>
+                ) : null
+            ),
+            mobileLabel: 'Ações',
+        },
+    ]
+
+    // Custom mobile card renderer for better UX
+    const renderMobileCard = (job: Job) => (
+        <div className="rounded-lg bg-card p-4 shadow border border-border space-y-3">
+            <div className="flex justify-between items-start">
+                <div>
+                    <span className="font-semibold text-foreground">{job.job_type}</span>
+                    <div className="text-xs text-muted-foreground mt-1">
+                        {new Date(job.created_at).toLocaleString('pt-BR')}
+                    </div>
+                </div>
+                <Badge variant={getStatusVariant(job.status)}>
+                    {job.status}
+                </Badge>
+            </div>
+            <div className="space-y-1 text-sm">
+                <div>
+                    <span className="font-medium text-foreground">Tenant:</span>{' '}
+                    <span className="text-muted-foreground">{job.tenant_name || job.tenant_id || '-'}</span>
+                </div>
+                <div>
+                    <span className="font-medium text-foreground">Fazenda:</span>{' '}
+                    <span className="text-muted-foreground">{job.farm_name || '-'}</span>
+                </div>
+                <div>
+                    <span className="font-medium text-foreground">Talhão:</span>{' '}
+                    <span className="text-muted-foreground">{job.aoi_name || job.aoi_id || '-'}</span>
+                </div>
+                {job.error_message && (
+                    <div className="mt-2 p-2 rounded bg-destructive/10 text-xs text-destructive">
+                        {job.error_message.slice(0, 100)}{job.error_message.length > 100 ? '…' : ''}
+                    </div>
+                )}
+            </div>
+            {job.status === 'FAILED' && (
+                <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => handleRetry(job.id)}
+                    className="w-full"
+                >
+                    Retry
+                </Button>
+            )}
+        </div>
+    )
 
     return (
         <div className="min-h-screen bg-background">
@@ -96,168 +245,67 @@ export default function AdminJobsPage() {
             </header>
 
             <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+                {hasSchemaOutdated && (
+                    <div className="mb-6 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                        Schema desatualizado detectado: jobs falhando por coluna inexistente em `observations_weekly`.
+                        Aplique as migrações pendentes e reprocesse os jobs.
+                    </div>
+                )}
+
                 {/* Filters */}
                 <div className="mb-6 space-y-4">
                     <div className="flex flex-wrap items-center gap-2">
                         {['ALL', 'PENDING', 'RUNNING', 'DONE', 'FAILED'].map((status) => (
-                            <button
+                            <Button
                                 key={status}
                                 onClick={() => setFilter(status)}
-                                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors min-h-touch ${filter === status
-                                        ? 'bg-primary text-primary-foreground'
-                                        : 'bg-card text-foreground hover:bg-muted border border-border'
-                                    }`}
+                                variant={filter === status ? 'primary' : 'outline'}
+                                size="sm"
                             >
                                 {status}
-                            </button>
+                            </Button>
                         ))}
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 rounded-lg bg-card p-4 border border-border">
-                        <input
+                        <Input
                             type="number"
                             min={7}
                             max={365}
                             value={reprocessDays}
                             onChange={(e) => setReprocessDays(Number(e.target.value))}
-                            className="w-24 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground min-h-touch focus:outline-none focus:ring-2 focus:ring-ring"
+                            className="w-24"
                             placeholder="Dias"
                         />
-                        <input
+                        <Input
                             type="number"
                             min={1}
                             max={500}
                             value={reprocessLimit}
                             onChange={(e) => setReprocessLimit(Number(e.target.value))}
-                            className="w-24 rounded-lg border border-input bg-background px-3 py-2 text-sm text-foreground min-h-touch focus:outline-none focus:ring-2 focus:ring-ring"
+                            className="w-24"
                             placeholder="Limite"
                         />
-                        <button
+                        <Button
                             onClick={handleReprocessMissing}
-                            disabled={reprocessLoading}
-                            className="rounded-lg bg-chart-3 px-4 py-2 text-sm font-medium text-white hover:bg-chart-3/90 disabled:opacity-60 transition-colors min-h-touch"
-                            title="Enfileira backfill para AOIs sem derived_assets"
+                            loading={reprocessLoading}
+                            variant="primary"
+                            size="md"
                         >
-                            {reprocessLoading ? 'Enfileirando...' : 'Reprocessar AOIs sem dados'}
-                        </button>
+                            Reprocessar AOIs sem dados
+                        </Button>
                     </div>
                 </div>
 
-                {/* Jobs List */}
-                {loading ? (
-                    <div className="flex items-center justify-center py-12">
-                        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                    </div>
-                ) : (
-                    <>
-                        {/* Mobile: Cards */}
-                        <div className="block lg:hidden space-y-4">
-                            {jobs.map((job) => (
-                                <div key={job.id} className="rounded-lg bg-card p-4 shadow border border-border">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <div>
-                                            <span className="font-semibold text-foreground">{job.job_type}</span>
-                                            <div className="text-xs text-muted-foreground mt-1">
-                                                {new Date(job.created_at).toLocaleString('pt-BR')}
-                                            </div>
-                                        </div>
-                                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${getStatusColor(job.status)}`}>
-                                            {job.status}
-                                        </span>
-                                    </div>
-                                    <div className="space-y-1 text-sm">
-                                        <div>
-                                            <span className="font-medium text-foreground">Tenant:</span>{' '}
-                                            <span className="text-muted-foreground">{job.tenant_name || job.tenant_id || '-'}</span>
-                                        </div>
-                                        <div>
-                                            <span className="font-medium text-foreground">Fazenda:</span>{' '}
-                                            <span className="text-muted-foreground">{job.farm_name || '-'}</span>
-                                        </div>
-                                        <div>
-                                            <span className="font-medium text-foreground">Talhão:</span>{' '}
-                                            <span className="text-muted-foreground">{job.aoi_name || job.aoi_id || '-'}</span>
-                                        </div>
-                                        {job.error_message && (
-                                            <div className="mt-2 p-2 rounded bg-destructive/10 text-xs text-destructive">
-                                                {job.error_message.slice(0, 100)}{job.error_message.length > 100 ? '…' : ''}
-                                            </div>
-                                        )}
-                                    </div>
-                                    {job.status === 'FAILED' && (
-                                        <button
-                                            onClick={() => handleRetry(job.id)}
-                                            className="mt-3 w-full rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors min-h-touch"
-                                        >
-                                            Retry
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-
-                        {/* Desktop: Table with horizontal scroll */}
-                        <div className="hidden lg:block rounded-lg bg-card shadow border border-border overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-border">
-                                    <thead className="bg-muted/50">
-                                        <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Job Type</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Tenant</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Fazenda</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Talhão</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Erro</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Created</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-border">
-                                        {jobs.map((job) => (
-                                            <tr key={job.id} className="table-row-interactive">
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{job.job_type}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                    {job.tenant_name || job.tenant_id || '-'}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                    {job.farm_name || '-'}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                    {job.aoi_name || job.aoi_id || '-'}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap">
-                                                    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getStatusColor(job.status)}`}>
-                                                        {job.status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-xs text-muted-foreground max-w-xs truncate">
-                                                    {job.error_message ? (
-                                                        <span title={job.error_message}>
-                                                            {job.error_message.slice(0, 60)}{job.error_message.length > 60 ? '…' : ''}
-                                                        </span>
-                                                    ) : '-'}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                                                    {new Date(job.created_at).toLocaleString('pt-BR')}
-                                                </td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                    {job.status === 'FAILED' && (
-                                                        <button
-                                                            onClick={() => handleRetry(job.id)}
-                                                            className="text-primary hover:text-primary/80 font-medium transition-colors"
-                                                        >
-                                                            Retry
-                                                        </button>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </>
-                )}
+                {/* Jobs DataTable */}
+                <DataTable
+                    data={jobs}
+                    columns={columns}
+                    rowKey={(row) => row.id}
+                    loading={loading}
+                    emptyMessage="Nenhum job encontrado"
+                    mobileCardRender={renderMobileCard}
+                />
             </main>
         </div>
     )

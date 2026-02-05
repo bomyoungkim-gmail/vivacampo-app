@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from 'axios'
+import { Button, DataTable, Input, type Column } from '@/components/ui'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'
 
-type MissingWeeksItem = {
+interface MissingWeeksItem {
     tenant_id: string
     aoi_id: string
     farm_name?: string
@@ -15,7 +16,7 @@ type MissingWeeksItem = {
     missing_count: number
 }
 
-type MissingWeeksResponse = {
+interface MissingWeeksResponse {
     weeks: number
     items: MissingWeeksItem[]
 }
@@ -82,112 +83,141 @@ export default function MissingWeeksPage() {
         return preview.join(', ') + suffix
     }
 
+    // DataTable columns configuration
+    const columns: Column<MissingWeeksItem>[] = [
+        {
+            key: 'farm_name',
+            header: 'Fazenda',
+            accessor: (row) => row.farm_name || '-',
+            sortable: true,
+            mobileLabel: 'Fazenda',
+        },
+        {
+            key: 'aoi_name',
+            header: 'Talhão (AOI)',
+            accessor: (row) => row.aoi_name || row.aoi_id,
+            sortable: true,
+            mobileLabel: 'Talhão',
+        },
+        {
+            key: 'missing_count',
+            header: 'Missing',
+            sortable: true,
+            mobileLabel: 'Missing',
+        },
+        {
+            key: 'missing_weeks',
+            header: 'Semanas',
+            accessor: (row) => (
+                <span className="text-xs font-mono">
+                    {renderWeeks(row.missing_weeks)}
+                </span>
+            ),
+            mobileLabel: 'Semanas',
+        },
+    ]
+
+    // Custom mobile card renderer
+    const renderMobileCard = (item: MissingWeeksItem) => (
+        <div className="rounded-lg bg-card p-4 shadow border border-border space-y-3">
+            <div className="flex justify-between items-start">
+                <div>
+                    <span className="font-semibold text-foreground">{item.farm_name || '-'}</span>
+                    <div className="text-sm text-muted-foreground mt-1">
+                        {item.aoi_name || item.aoi_id}
+                    </div>
+                </div>
+                <div className="rounded-full bg-destructive/10 px-3 py-1">
+                    <span className="text-sm font-semibold text-destructive">{item.missing_count}</span>
+                </div>
+            </div>
+            <div className="text-xs font-mono text-muted-foreground">
+                {renderWeeks(item.missing_weeks)}
+            </div>
+        </div>
+    )
+
     return (
-        <div className="min-h-screen bg-gray-50">
-            <header className="bg-white shadow">
+        <div className="min-h-screen bg-background">
+            <header className="border-b border-border bg-card shadow-sm">
                 <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-                    <h1 className="text-2xl font-bold text-gray-900">Buracos de Dados (Semanas)</h1>
+                    <h1 className="text-2xl font-bold text-foreground">Buracos de Dados (Semanas)</h1>
                 </div>
             </header>
 
             <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-                <div className="mb-6 flex flex-wrap items-center gap-2">
-                    <input
-                        type="number"
-                        min={1}
-                        max={104}
-                        value={weeks}
-                        onChange={(e) => setWeeks(Number(e.target.value))}
-                        className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
-                        placeholder="Semanas"
-                    />
-                    <input
-                        type="number"
-                        min={1}
-                        max={200}
-                        value={limit}
-                        onChange={(e) => setLimit(Number(e.target.value))}
-                        className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
-                        placeholder="Limite"
-                    />
-                    <button
-                        onClick={loadMissingWeeks}
-                        className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                        Atualizar
-                    </button>
-                    <div className="ml-auto flex flex-wrap items-center gap-2">
-                        <input
+                <div className="mb-6 space-y-4">
+                    {/* Query Controls */}
+                    <div className="flex flex-wrap items-end gap-2">
+                        <Input
                             type="number"
+                            label="Semanas"
+                            min={1}
+                            max={104}
+                            value={weeks}
+                            onChange={(e) => setWeeks(Number(e.target.value))}
+                            className="w-24"
+                        />
+                        <Input
+                            type="number"
+                            label="Limite"
                             min={1}
                             max={200}
-                            value={reprocessLimit}
-                            onChange={(e) => setReprocessLimit(Number(e.target.value))}
-                            className="w-28 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
-                            placeholder="Limite Reproc."
+                            value={limit}
+                            onChange={(e) => setLimit(Number(e.target.value))}
+                            className="w-24"
                         />
-                        <input
-                            type="number"
-                            min={1}
-                            max={6}
-                            value={maxRuns}
-                            onChange={(e) => setMaxRuns(Number(e.target.value))}
-                            className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700"
-                            placeholder="Runs"
-                        />
-                        <button
-                            onClick={handleReprocess}
-                            disabled={reprocessLoading}
-                            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700 disabled:opacity-60"
+                        <Button
+                            onClick={loadMissingWeeks}
+                            variant="outline"
+                            size="md"
                         >
-                            {reprocessLoading ? 'Enfileirando...' : 'Reprocessar Buracos'}
-                        </button>
+                            Atualizar
+                        </Button>
+                    </div>
+
+                    {/* Reprocess Controls */}
+                    <div className="rounded-lg bg-card p-4 border border-border">
+                        <div className="flex flex-wrap items-end gap-2">
+                            <Input
+                                type="number"
+                                label="Limite Reproc."
+                                min={1}
+                                max={200}
+                                value={reprocessLimit}
+                                onChange={(e) => setReprocessLimit(Number(e.target.value))}
+                                className="w-32"
+                            />
+                            <Input
+                                type="number"
+                                label="Runs"
+                                min={1}
+                                max={6}
+                                value={maxRuns}
+                                onChange={(e) => setMaxRuns(Number(e.target.value))}
+                                className="w-24"
+                            />
+                            <Button
+                                onClick={handleReprocess}
+                                loading={reprocessLoading}
+                                variant="primary"
+                                size="md"
+                            >
+                                Reprocessar Buracos
+                            </Button>
+                        </div>
                     </div>
                 </div>
 
-                {loading ? (
-                    <div className="text-center py-12">
-                        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
-                    </div>
-                ) : (
-                    <div className="rounded-lg bg-white shadow overflow-hidden">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fazenda</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Talhão (AOI)</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Missing</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Semanas</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {items.map((item) => (
-                                    <tr key={item.aoi_id}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {item.farm_name || '-'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {item.aoi_name || item.aoi_id}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {item.missing_count}
-                                        </td>
-                                        <td className="px-6 py-4 text-xs text-gray-500 font-mono">
-                                            {renderWeeks(item.missing_weeks)}
-                                        </td>
-                                    </tr>
-                                ))}
-                                {items.length === 0 && (
-                                    <tr>
-                                        <td className="px-6 py-6 text-sm text-gray-500" colSpan={4}>
-                                            Nenhum buraco encontrado nas ultimas semanas.
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
+                {/* Missing Weeks DataTable */}
+                <DataTable
+                    data={items}
+                    columns={columns}
+                    rowKey={(row) => row.aoi_id}
+                    loading={loading}
+                    emptyMessage="Nenhum buraco encontrado nas últimas semanas"
+                    mobileCardRender={renderMobileCard}
+                />
             </main>
         </div>
     )

@@ -7,7 +7,6 @@ from datetime import datetime
 from uuid import UUID
 import structlog
 from sqlalchemy.orm import Session
-from sqlalchemy.orm import Session
 from worker.database import get_db
 from worker.shared.aws_clients import SQSClient
 from worker.jobs.process_week import process_week_handler
