@@ -21,6 +21,8 @@ import type {
     AIApprovalDecisionRequest,
     DerivedAssets,
     RadarAssets,
+    RawDerivedAssets,
+    RawRadarAssets,
     WeatherData,
 } from './types'
 
@@ -107,8 +109,34 @@ export const aoiAPI = {
     backfill: (id: string, data: AOIBackfillRequest): Promise<AxiosResponse<void>> =>
         api.post(`/v1/app/aois/${id}/backfill`, data),
 
-    getAssets: (id: string): Promise<AxiosResponse<DerivedAssets>> =>
-        api.get(`/v1/app/aois/${id}/assets`),
+    getAssets: async (id: string): Promise<AxiosResponse<DerivedAssets>> => {
+        const response = await api.get<RawDerivedAssets>(`/v1/app/aois/${id}/assets`)
+        const data = response.data
+        const mapped: DerivedAssets = {
+            ...data,
+            ndvi_tile_url: data.ndvi_s3_uri ?? null,
+            anomaly_tile_url: data.anomaly_s3_uri ?? null,
+            quicklook_tile_url: data.quicklook_s3_uri ?? null,
+            ndwi_tile_url: data.ndwi_s3_uri ?? null,
+            ndmi_tile_url: data.ndmi_s3_uri ?? null,
+            savi_tile_url: data.savi_s3_uri ?? null,
+            false_color_tile_url: data.false_color_s3_uri ?? null,
+            true_color_tile_url: data.true_color_s3_uri ?? null,
+            ndre_tile_url: data.ndre_s3_uri ?? null,
+            reci_tile_url: data.reci_s3_uri ?? null,
+            gndvi_tile_url: data.gndvi_s3_uri ?? null,
+            evi_tile_url: data.evi_s3_uri ?? null,
+            msi_tile_url: data.msi_s3_uri ?? null,
+            nbr_tile_url: data.nbr_s3_uri ?? null,
+            bsi_tile_url: data.bsi_s3_uri ?? null,
+            ari_tile_url: data.ari_s3_uri ?? null,
+            cri_tile_url: data.cri_s3_uri ?? null,
+        }
+        return {
+            ...response,
+            data: mapped,
+        }
+    },
 
     getHistory: (id: string): Promise<AxiosResponse<DerivedAssets[]>> =>
         api.get(`/v1/app/aois/${id}/history`),
@@ -116,11 +144,29 @@ export const aoiAPI = {
     listByFarm: (farmId: string): Promise<AxiosResponse<AOI[]>> =>
         api.get('/v1/app/aois', { params: { farm_id: farmId } }),
 
-    getRadarHistory: (id: string, year?: number): Promise<AxiosResponse<RadarAssets[]>> =>
-        api.get(`/v1/app/aois/${id}/radar/history`, { params: { year } }),
+    getRadarHistory: async (id: string, year?: number): Promise<AxiosResponse<RadarAssets[]>> => {
+        const response = await api.get<RawRadarAssets[]>(
+            `/v1/app/aois/${id}/radar/history`,
+            { params: { year } }
+        )
+        const mapped = response.data.map((row) => ({
+            ...row,
+            rvi_tile_url: row.rvi_s3_uri ?? null,
+            ratio_tile_url: row.ratio_s3_uri ?? null,
+            vv_tile_url: row.vv_s3_uri ?? null,
+            vh_tile_url: row.vh_s3_uri ?? null,
+        }))
+        return {
+            ...response,
+            data: mapped,
+        }
+    },
 
     getWeatherHistory: (id: string, start?: string, end?: string): Promise<AxiosResponse<WeatherData[]>> =>
         api.get(`/v1/app/aois/${id}/weather/history`, { params: { start_date: start, end_date: end } }),
+
+    getNitrogenStatus: (id: string) =>
+        api.get(`/v1/app/aois/${id}/nitrogen/status`),
 }
 
 // =============================================================================

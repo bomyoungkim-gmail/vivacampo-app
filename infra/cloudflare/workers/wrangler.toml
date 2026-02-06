@@ -1,0 +1,55 @@
+# Cloudflare Worker Configuration
+# VivaCampo Tile Cache Worker
+#
+# Deploy with: wrangler publish
+# Dev mode: wrangler dev
+#
+# Documentation: https://developers.cloudflare.com/workers/wrangler/configuration/
+
+name = "vivacampo-tile-cache"
+main = "tile-cache.js"
+compatibility_date = "2024-01-01"
+
+# Account ID (set via environment or wrangler.toml)
+# account_id = "your-account-id"
+
+# Workers configuration
+workers_dev = true
+
+# Production route (uncomment and configure for production)
+# routes = [
+#   { pattern = "tiles.vivacampo.com.br/*", zone_name = "vivacampo.com.br" }
+# ]
+
+# Environment variables
+[vars]
+# ORIGIN_URL is set per environment below
+
+# Development environment
+[env.development]
+vars = { ORIGIN_URL = "http://localhost:8000" }
+
+# Staging environment
+[env.staging]
+vars = { ORIGIN_URL = "https://api-staging.vivacampo.com.br" }
+# routes = [
+#   { pattern = "tiles-staging.vivacampo.com.br/*", zone_name = "vivacampo.com.br" }
+# ]
+
+# Production environment
+[env.production]
+vars = { ORIGIN_URL = "https://api.vivacampo.com.br" }
+# routes = [
+#   { pattern = "tiles.vivacampo.com.br/*", zone_name = "vivacampo.com.br" }
+# ]
+
+# Cache API configuration
+# The worker uses the default cache API which is available globally
+
+# Observability
+[observability]
+enabled = true
+
+# Triggers (optional cron for cache warming)
+# [triggers]
+# crons = ["0 6 * * 1"]  # Every Monday at 6:00 UTC

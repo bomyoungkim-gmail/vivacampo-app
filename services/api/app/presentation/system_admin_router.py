@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from typing import List, Optional
+from datetime import date, datetime, timedelta
 from uuid import UUID
 from app.database import get_db
 from app.auth.dependencies import get_current_system_admin
@@ -12,6 +13,14 @@ import json
 
 logger = structlog.get_logger()
 router = APIRouter()
+
+
+def _iso_week_start(year: int, week: int) -> date:
+    return date.fromisocalendar(year, week, 1)
+
+
+def _iso_week_end(year: int, week: int) -> date:
+    return date.fromisocalendar(year, week, 7)
 
 
 @router.get("/admin/tenants", response_model=List[TenantView])
@@ -161,20 +170,24 @@ async def list_all_jobs(
     params = {"limit": min(limit, 200)}
     
     if status:
-        conditions.append("status = :status")
+        conditions.append("j.status = :status")
         params["status"] = status
     
     if job_type:
-        conditions.append("job_type = :job_type")
+        conditions.append("j.job_type = :job_type")
         params["job_type"] = job_type
     
     where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     
     sql = text(f"""
-        SELECT id, tenant_id, aoi_id, job_type, status, created_at, updated_at
-        FROM jobs
+        SELECT 
+            j.id, j.tenant_id, j.aoi_id, j.job_type, j.job_key, j.status, j.error_message, j.created_at, j.updated_at,
+            a.name as aoi_name, f.name as farm_name
+        FROM jobs j
+        LEFT JOIN aois a ON a.id = j.aoi_id
+        LEFT JOIN farms f ON f.id = a.farm_id
         {where_clause}
-        ORDER BY created_at DESC
+        ORDER BY j.created_at DESC
         LIMIT :limit
     """)
     
@@ -186,8 +199,12 @@ async def list_all_jobs(
             id=row.id,
             tenant_id=row.tenant_id,
             aoi_id=row.aoi_id,
+            aoi_name=row.aoi_name,
+            farm_name=row.farm_name,
             job_type=row.job_type,
+            job_key=row.job_key,
             status=row.status,
+            error_message=row.error_message,
             created_at=row.created_at,
             updated_at=row.updated_at
         ))
@@ -227,6 +244,289 @@ async def admin_retry_job(
     )
     
     return {"message": "Job retry requested"}
+
+
+@router.post("/admin/ops/reprocess-missing-aois")
+async def reprocess_missing_aois(
+    days: int = 56,
+    limit: int = 200,
+    system_admin = Depends(get_current_system_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Enqueue BACKFILL jobs for AOIs with no derived assets.
+    """
+    from app.config import settings
+    from app.infrastructure.sqs_client import get_sqs_client
+    import json
+    import hashlib
+
+    to_date = date.today().isoformat()
+    from_date = (date.today() - timedelta(days=days)).isoformat()
+
+    sql = text("""
+        SELECT a.id, a.tenant_id
+        FROM aois a
+        WHERE a.status = 'ACTIVE'
+          AND NOT EXISTS (
+              SELECT 1 FROM derived_assets d
+              WHERE d.tenant_id = a.tenant_id AND d.aoi_id = a.id
+          )
+        LIMIT :limit
+    """)
+
+    rows = db.execute(sql, {"limit": min(limit, 500)}).fetchall()
+    if not rows:
+        return {"queued": 0, "message": "No missing AOIs found"}
+
+    sqs = get_sqs_client()
+    queued = 0
+
+    for row in rows:
+        job_key = hashlib.sha256(
+            f"{row.tenant_id}{row.id}{from_date}{to_date}BACKFILL{settings.pipeline_version}".encode()
+        ).hexdigest()
+
+        payload = {
+            "tenant_id": str(row.tenant_id),
+            "aoi_id": str(row.id),
+            "from_date": from_date,
+            "to_date": to_date,
+            "cadence": "weekly"
+        }
+
+        sql_insert = text("""
+            INSERT INTO jobs (tenant_id, aoi_id, job_type, job_key, status, payload_json)
+            VALUES (:tenant_id, :aoi_id, 'BACKFILL', :job_key, 'PENDING', :payload)
+            ON CONFLICT (tenant_id, job_key) DO UPDATE
+            SET status = 'PENDING', updated_at = now()
+            RETURNING id
+        """)
+
+        result = db.execute(sql_insert, {
+            "tenant_id": str(row.tenant_id),
+            "aoi_id": str(row.id),
+            "job_key": job_key,
+            "payload": json.dumps(payload)
+        })
+        db.commit()
+
+        job_id = result.fetchone()[0]
+
+        sqs.send_message(
+            settings.sqs_queue_name,
+            json.dumps({
+                "job_id": str(job_id),
+                "job_type": "BACKFILL",
+                "payload": payload
+            })
+        )
+        queued += 1
+
+    audit = get_audit_logger(db)
+    audit.log(
+        tenant_id="SYSTEM",
+        actor_membership_id=None,
+        action="ADMIN_REPROCESS_MISSING_AOIS",
+        resource_type="aoi",
+        resource_id=None,
+        metadata={"queued": queued, "from_date": from_date, "to_date": to_date}
+    )
+
+    return {"queued": queued, "from_date": from_date, "to_date": to_date}
+
+
+@router.get("/admin/ops/missing-weeks")
+async def list_missing_weeks(
+    weeks: int = 12,
+    limit: int = 50,
+    system_admin = Depends(get_current_system_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    List missing weekly observations for active AOIs in the last N weeks.
+    """
+    weeks = max(1, min(weeks, 104))
+    limit = max(1, min(limit, 200))
+
+    today = date.today()
+    start = today - timedelta(weeks=weeks - 1)
+
+    expected_weeks = []
+    cursor = start
+    while cursor <= today:
+        iso = cursor.isocalendar()
+        expected_weeks.append((iso.year, iso.week))
+        cursor += timedelta(days=7)
+
+    sql_aois = text("""
+        SELECT a.id, a.tenant_id, a.name as aoi_name, f.name as farm_name
+        FROM aois a
+        LEFT JOIN farms f ON f.id = a.farm_id
+        WHERE a.status = 'ACTIVE'
+        ORDER BY a.created_at DESC
+        LIMIT :limit
+    """)
+
+    aois = db.execute(sql_aois, {"limit": limit}).fetchall()
+    results = []
+
+    for row in aois:
+        sql_obs = text("""
+            SELECT year, week
+            FROM observations_weekly
+            WHERE tenant_id = :tenant_id
+              AND aoi_id = :aoi_id
+        """)
+        existing = db.execute(sql_obs, {
+            "tenant_id": row.tenant_id,
+            "aoi_id": row.id
+        }).fetchall()
+
+        existing_set = {(r.year, r.week) for r in existing}
+        missing = [(y, w) for (y, w) in expected_weeks if (y, w) not in existing_set]
+
+        if missing:
+            results.append({
+                "tenant_id": str(row.tenant_id),
+                "aoi_id": str(row.id),
+                "farm_name": row.farm_name,
+                "aoi_name": row.aoi_name,
+                "missing_weeks": missing,
+                "missing_count": len(missing)
+            })
+
+    return {"weeks": weeks, "items": results}
+
+
+@router.post("/admin/ops/reprocess-missing-weeks")
+async def reprocess_missing_weeks(
+    weeks: int = 12,
+    limit: int = 50,
+    max_runs_per_aoi: int = 3,
+    system_admin = Depends(get_current_system_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Enqueue BACKFILL jobs for missing weekly observations in the last N weeks.
+    """
+    from app.config import settings
+    from app.infrastructure.sqs_client import get_sqs_client
+    import json
+    import hashlib
+
+    weeks = max(1, min(weeks, 104))
+    limit = max(1, min(limit, 200))
+    max_runs_per_aoi = max(1, min(max_runs_per_aoi, 6))
+
+    today = date.today()
+    start = today - timedelta(weeks=weeks - 1)
+
+    expected_weeks = []
+    cursor = start
+    while cursor <= today:
+        iso = cursor.isocalendar()
+        expected_weeks.append((iso.year, iso.week))
+        cursor += timedelta(days=7)
+
+    sql_aois = text("""
+        SELECT a.id, a.tenant_id
+        FROM aois a
+        WHERE a.status = 'ACTIVE'
+        ORDER BY a.created_at DESC
+        LIMIT :limit
+    """)
+    aois = db.execute(sql_aois, {"limit": limit}).fetchall()
+    sqs = get_sqs_client()
+
+    queued = 0
+
+    for row in aois:
+        sql_obs = text("""
+            SELECT year, week
+            FROM observations_weekly
+            WHERE tenant_id = :tenant_id
+              AND aoi_id = :aoi_id
+        """)
+        existing = db.execute(sql_obs, {
+            "tenant_id": row.tenant_id,
+            "aoi_id": row.id
+        }).fetchall()
+
+        existing_set = {(r.year, r.week) for r in existing}
+        missing = [(y, w) for (y, w) in expected_weeks if (y, w) not in existing_set]
+
+        if not missing:
+            continue
+
+        # Build contiguous runs
+        runs = []
+        current = [missing[0]]
+        for (y, w) in missing[1:]:
+            prev_y, prev_w = current[-1]
+            prev_end = _iso_week_end(prev_y, prev_w)
+            this_start = _iso_week_start(y, w)
+            if this_start == prev_end + timedelta(days=1):
+                current.append((y, w))
+            else:
+                runs.append(current)
+                current = [(y, w)]
+        runs.append(current)
+
+        for run in runs[:max_runs_per_aoi]:
+            from_date = _iso_week_start(run[0][0], run[0][1]).isoformat()
+            to_date = _iso_week_end(run[-1][0], run[-1][1]).isoformat()
+
+            job_key = hashlib.sha256(
+                f"{row.tenant_id}{row.id}{from_date}{to_date}BACKFILL{settings.pipeline_version}".encode()
+            ).hexdigest()
+
+            payload = {
+                "tenant_id": str(row.tenant_id),
+                "aoi_id": str(row.id),
+                "from_date": from_date,
+                "to_date": to_date,
+                "cadence": "weekly"
+            }
+
+            sql_insert = text("""
+                INSERT INTO jobs (tenant_id, aoi_id, job_type, job_key, status, payload_json)
+                VALUES (:tenant_id, :aoi_id, 'BACKFILL', :job_key, 'PENDING', :payload)
+                ON CONFLICT (tenant_id, job_key) DO UPDATE
+                SET status = 'PENDING', updated_at = now()
+                RETURNING id
+            """)
+
+            result = db.execute(sql_insert, {
+                "tenant_id": str(row.tenant_id),
+                "aoi_id": str(row.id),
+                "job_key": job_key,
+                "payload": json.dumps(payload)
+            })
+            db.commit()
+
+            job_id = result.fetchone()[0]
+            sqs.send_message(
+                settings.sqs_queue_name,
+                json.dumps({
+                    "job_id": str(job_id),
+                    "job_type": "BACKFILL",
+                    "payload": payload
+                })
+            )
+            queued += 1
+
+    audit = get_audit_logger(db)
+    audit.log(
+        tenant_id="SYSTEM",
+        actor_membership_id=None,
+        action="ADMIN_REPROCESS_MISSING_WEEKS",
+        resource_type="aoi",
+        resource_id=None,
+        metadata={"weeks": weeks, "limit": limit, "queued": queued}
+    )
+
+    return {"queued": queued, "weeks": weeks, "limit": limit}
 
 
 @router.get("/admin/ops/health")

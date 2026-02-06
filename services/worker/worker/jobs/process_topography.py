@@ -106,8 +106,8 @@ def save_topo_assets(tenant_id: str, aoi_id: str,
 
 def update_job_status(job_id: str, status: str, db: Session, error: str = None):
     from sqlalchemy import text
-    sql = text("UPDATE jobs SET status = :status, updated_at = now() WHERE id = :job_id")
-    db.execute(sql, {"job_id": job_id, "status": status})
+    sql = text("UPDATE jobs SET status = :status, error_message = :error_message, updated_at = now() WHERE id = :job_id")
+    db.execute(sql, {"job_id": job_id, "status": status, "error_message": error})
     db.commit()
 
 # Job Handler
@@ -233,6 +233,7 @@ async def process_topography_async(job_id: str, payload: dict, db: Session):
 def process_topography_handler(job_id: str, payload: dict, db: Session):
     """PROCESS_TOPOGRAPHY job wrapper"""
     import asyncio
+    update_job_status(job_id, "RUNNING", db)
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
@@ -242,6 +243,4 @@ def process_topography_handler(job_id: str, payload: dict, db: Session):
             loop.close()
     except Exception as e:
         logger.error("process_topo_failed", job_id=job_id, exc_info=e)
-        from sqlalchemy import text
-        db.execute(text("UPDATE jobs SET status = 'FAILED' WHERE id = :id"), {"id": job_id})
-        db.commit()
+        update_job_status(job_id, "FAILED", db, error=str(e))

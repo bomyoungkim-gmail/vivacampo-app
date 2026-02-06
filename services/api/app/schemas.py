@@ -288,8 +288,12 @@ class SystemJobView(BaseModel):
     id: UUID
     tenant_id: UUID
     aoi_id: Optional[UUID]
+    aoi_name: Optional[str] = None
+    farm_name: Optional[str] = None
     job_type: str
+    job_key: str
     status: str
+    error_message: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 

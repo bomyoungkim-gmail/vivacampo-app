@@ -53,6 +53,36 @@ Tests complete user workflows:
 pytest test_e2e.py -v --asyncio-mode=auto
 ```
 
+### 4. RBAC Regression (P0)
+**Script:** `test_rbac.py`
+
+Validates P0 RBAC scenarios (viewer restrictions, cross-tenant access).
+
+**Run:**
+```bash
+pytest tests/test_rbac.py -v --asyncio-mode=auto
+```
+
+### 5. Worker Job Handlers (P1)
+**Script:** `test_worker_jobs.py`
+
+Validates core worker job handlers (BACKFILL, PROCESS_WEEK, ALERTS_WEEK, SIGNALS_WEEK, FORECAST_WEEK).
+
+**Run:**
+```bash
+pytest tests/test_worker_jobs.py -v --asyncio-mode=auto
+```
+
+### 6. External Integrations (P2)
+**Script:** `test_integrations_p2.py`
+
+Validates STAC client mapping, webhook outbox delivery, and AI provider factory with stubs.
+
+**Run:**
+```bash
+pytest tests/test_integrations_p2.py -v --asyncio-mode=auto
+```
+
 ## Pre-Test Setup
 
 ### 1. Start All Services
@@ -187,6 +217,12 @@ docker compose exec db pg_isready -U vivacampo
 # Check migrations applied
 docker compose exec db psql -U vivacampo -d vivacampo -c "\dt"
 ```
+
+### Windows + Docker Notes (P0 session)
+- The test suite now auto-overrides `db` → `localhost` on Windows when using Dockerized Postgres.
+- If you still see `failed to resolve host 'db'`, set it explicitly:
+  - PowerShell: `$env:DATABASE_HOST_OVERRIDE="localhost"`
+  - Cmd: `set DATABASE_HOST_OVERRIDE=localhost`
 
 ### Test Failures
 1. Ensure all services are running: `docker compose ps`

@@ -9,6 +9,7 @@ import json
 from app.database import get_db
 from app.auth.dependencies import get_current_membership, CurrentMembership
 from app.config import settings
+from app.infrastructure.s3_client import presign_row_s3_fields
 import structlog
 
 logger = structlog.get_logger()
@@ -48,7 +49,11 @@ async def get_radar_history(
     
     try:
         result = db.execute(sql, params)
-        return [dict(row._mapping) for row in result]
+        s3_fields = ["rvi_s3_uri", "ratio_s3_uri"]
+        return [
+            presign_row_s3_fields(dict(row._mapping), s3_fields)
+            for row in result
+        ]
     except Exception as e:
         logger.warning("radar_table_query_failed", exc_info=e)
         return []

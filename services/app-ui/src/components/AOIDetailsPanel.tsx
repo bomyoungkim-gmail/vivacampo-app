@@ -1,11 +1,18 @@
 import { useState, useEffect, useMemo } from 'react'
-import type { AOI, Signal, DerivedAssets, RadarAssets, WeatherData } from '@/lib/types'
+import type { AOI, Signal, DerivedAssets, RadarAssets, WeatherData, NitrogenStatus } from '@/lib/types'
 import { signalAPI, aoiAPI } from '@/lib/api'
 import ChartComponent from './ChartComponent'
 import WeatherChart from './WeatherChart'
 import AOIActionsMenu from './AOIActionsMenu'
 import { useErrorHandler } from '@/lib/errorHandler'
-import { MapPin, Calendar, Activity, AlertTriangle, ChevronRight, CloudRain, Radio } from 'lucide-react'
+import { MapPin, Calendar, Activity, AlertTriangle, ChevronRight, CloudRain, Leaf, BarChart3 } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { NitrogenAlert } from './NitrogenAlert'
+import { AnalysisTab } from './AnalysisTab'
 
 interface AOIDetailsPanelProps {
     aoi: AOI
@@ -23,7 +30,7 @@ type IndexType = 'NDVI' | 'NDWI' | 'NDMI' | 'SAVI' | 'ANOMALY' |
     'ARI' | 'CRI'
 
 type RadarIndexType = 'RVI' | 'RATIO'
-type TabType = 'OVERVIEW' | 'HEALTH' | 'WATER' | 'NUTRITION' | 'SOIL' | 'RADAR' | 'WEATHER' | 'ALERTS'
+type TabType = 'OVERVIEW' | 'ANALYSIS' | 'HEALTH' | 'WATER' | 'NUTRITION' | 'SOIL' | 'RADAR' | 'WEATHER' | 'ALERTS'
 
 export default function AOIDetailsPanel({
     aoi,
@@ -39,6 +46,8 @@ export default function AOIDetailsPanel({
     const [history, setHistory] = useState<DerivedAssets[]>([])
     const [radarHistory, setRadarHistory] = useState<RadarAssets[]>([])
     const [weatherHistory, setWeatherHistory] = useState<WeatherData[]>([])
+    const [nitrogenStatus, setNitrogenStatus] = useState<NitrogenStatus | null>(null)
+    const [nitrogenLoading, setNitrogenLoading] = useState(false)
 
     const [loading, setLoading] = useState(false)
     const [selectedIndex, setSelectedIndex] = useState<IndexType>('NDVI')
@@ -83,6 +92,17 @@ export default function AOIDetailsPanel({
                     const weatherRes = await aoiAPI.getWeatherHistory(aoi.id)
                     setWeatherHistory(weatherRes.data)
                 } catch (e) { console.warn("Weather fetch failed", e) }
+
+                try {
+                    setNitrogenLoading(true)
+                    const nitrogenRes = await aoiAPI.getNitrogenStatus(aoi.id)
+                    setNitrogenStatus(nitrogenRes.data)
+                } catch (e) {
+                    console.warn("Nitrogen fetch failed", e)
+                    setNitrogenStatus(null)
+                } finally {
+                    setNitrogenLoading(false)
+                }
 
             } catch (err) {
                 console.error("Failed to fetch data", err)
@@ -182,25 +202,35 @@ export default function AOIDetailsPanel({
         })
     }, [signals])
 
+    const hasNitrogenAlert = nitrogenStatus?.status === 'DEFICIENT'
+    const totalAlerts = signals.length + (hasNitrogenAlert ? 1 : 0)
+    const alertsForTab = useMemo(() => {
+        return [...signals].sort((a, b) => {
+            const aDate = new Date(a.detected_at ?? a.created_at ?? 0).getTime()
+            const bDate = new Date(b.detected_at ?? b.created_at ?? 0).getTime()
+            return bDate - aDate
+        })
+    }, [signals])
+
     const currentChartProps = getChartProps()
     const currentRadarProps = getRadarProps()
 
     return (
-        <div className="h-full flex flex-col bg-white overflow-hidden rounded-t-xl sm:rounded-none">
+        <div className="h-full flex flex-col bg-background overflow-hidden rounded-t-xl sm:rounded-none">
             {/* Header */}
-            <div className="p-4 border-b border-gray-100 flex justify-between items-start bg-white z-10">
+            <div className="p-4 border-b border-border flex justify-between items-start bg-card z-10">
                 <div>
                     <div className="flex items-center gap-2 mb-1">
-                        <h2 className="font-bold text-xl text-gray-900 leading-tight">{aoi.name}</h2>
-                        {isEditing && <span className="text-[10px] font-black tracking-wide text-orange-600 bg-orange-100 px-1.5 py-0.5 rounded uppercase animate-pulse">Editando</span>}
+                        <h2 className="font-bold text-xl text-foreground leading-tight">{aoi.name}</h2>
+                        {isEditing && <Badge variant="outline" className="text-[10px] bg-orange-100 text-orange-600 border-orange-200 animate-pulse">Editando</Badge>}
                     </div>
-                    <div className="flex items-center gap-3 text-sm text-gray-500">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide flex items-center gap-1
-                            ${aoi.use_type === 'CROP' ? 'bg-orange-50 text-orange-600'
-                                : aoi.use_type === 'TIMBER' ? 'bg-[#f4e4bc] text-[#8B4513]'
-                                    : 'bg-green-50 text-green-600'}`}>
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                        <Badge variant="secondary" className={`text-[10px] font-bold uppercase
+                            ${aoi.use_type === 'CROP' ? 'bg-orange-100 text-orange-700 hover:bg-orange-100'
+                                : aoi.use_type === 'TIMBER' ? 'bg-amber-100 text-amber-800 hover:bg-amber-100'
+                                    : 'bg-green-100 text-green-700 hover:bg-green-100'}`}>
                             {aoi.use_type === 'PASTURE' ? 'Pastagem' : aoi.use_type === 'TIMBER' ? 'Madeira' : 'Lavoura'}
-                        </span>
+                        </Badge>
                         <span className="flex items-center gap-1">
                             <MapPin size={12} /> {aoi.area_ha ? `${aoi.area_ha.toFixed(1)} ha` : '--'}
                         </span>
@@ -209,8 +239,8 @@ export default function AOIDetailsPanel({
                 <div className="flex items-center gap-1">
                     {isEditing ? (
                         <div className="flex gap-2">
-                            <button onClick={onCancelEdit} className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg">Cancelar</button>
-                            <button onClick={onSave} className="px-3 py-1.5 text-xs font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm">Salvar</button>
+                            <Button variant="outline" size="sm" onClick={onCancelEdit}>Cancelar</Button>
+                            <Button size="sm" onClick={onSave}>Salvar</Button>
                         </div>
                     ) : (
                         <>
@@ -219,202 +249,312 @@ export default function AOIDetailsPanel({
                                 onDelete={onDelete}
                                 onExport={() => alert("Exportar KML em breve")}
                             />
-                            <button
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={onClose}
-                                className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                                className="h-9 w-9 p-0"
                                 title="Voltar para lista"
                             >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                                 </svg>
-                            </button>
+                            </Button>
                         </>
                     )}
                 </div>
             </div>
 
-            {/* Tabs */}
-            <div className="flex border-b border-gray-200 px-4 pt-2 gap-4 bg-white shrink-0 overflow-x-auto">
-                <button onClick={() => setActiveTab('OVERVIEW')} className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'OVERVIEW' ? 'border-green-600 text-green-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Visão Geral</button>
-                <div className="h-6 w-px bg-gray-200 my-auto mx-2 hidden sm:block"></div>
-                <button onClick={() => setActiveTab('HEALTH')} className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-1 ${activeTab === 'HEALTH' ? 'border-green-600 text-green-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Saúde</button>
-                <button onClick={() => setActiveTab('WATER')} className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-1 ${activeTab === 'WATER' ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Água</button>
-                <button onClick={() => setActiveTab('NUTRITION')} className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-1 ${activeTab === 'NUTRITION' ? 'border-purple-600 text-purple-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Nutrição</button>
-                <button onClick={() => setActiveTab('SOIL')} className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-1 ${activeTab === 'SOIL' ? 'border-orange-600 text-orange-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Solo</button>
-                <div className="h-6 w-px bg-gray-200 my-auto mx-2 hidden sm:block"></div>
-                <button onClick={() => setActiveTab('RADAR')} className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-1 ${activeTab === 'RADAR' ? 'border-gray-600 text-gray-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Radar</button>
-                <button onClick={() => setActiveTab('WEATHER')} className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-1 ${activeTab === 'WEATHER' ? 'border-gray-600 text-gray-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Clima</button>
-                <button onClick={() => setActiveTab('ALERTS')} className={`pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap flex items-center gap-1 ${activeTab === 'ALERTS' ? 'border-red-600 text-red-700' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Alertas ({uniqueAlerts.length})</button>
-            </div>
+            {/* Tabs - Two-row grouped navigation */}
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabType)} className="flex-1 flex flex-col overflow-hidden">
+                <div className="bg-card border-b border-border shrink-0 py-1.5 px-2 space-y-1">
+                    {/* Row 1: Primary Navigation */}
+                    <TabsList className="h-auto w-full justify-start bg-transparent gap-1 p-0">
+                        <TabsTrigger value="OVERVIEW" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary gap-1.5 text-xs px-2.5 py-1.5 h-auto">
+                            <Activity size={13} /> Geral
+                        </TabsTrigger>
+                        <TabsTrigger value="ANALYSIS" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary gap-1.5 text-xs px-2.5 py-1.5 h-auto">
+                            <BarChart3 size={13} /> Análise
+                        </TabsTrigger>
+                        <TabsTrigger value="ALERTS" className="ml-auto data-[state=active]:bg-red-500/15 data-[state=active]:text-red-600 dark:data-[state=active]:text-red-400 gap-1.5 text-xs px-2.5 py-1.5 h-auto">
+                            <AlertTriangle size={13} /> Alertas
+                            {totalAlerts > 0 && <Badge variant="destructive" className="h-4 px-1 text-[9px]">{totalAlerts}</Badge>}
+                        </TabsTrigger>
+                    </TabsList>
+                    {/* Row 2: Data Category Tabs */}
+                    <TabsList className="h-auto w-full justify-start bg-transparent gap-0.5 p-0 overflow-x-auto scrollbar-hide">
+                        <TabsTrigger value="HEALTH" className="data-[state=active]:bg-green-500/15 data-[state=active]:text-green-600 dark:data-[state=active]:text-green-400 text-[11px] px-2 py-1 h-auto rounded-full">
+                            Saúde
+                        </TabsTrigger>
+                        <TabsTrigger value="WATER" className="data-[state=active]:bg-blue-500/15 data-[state=active]:text-blue-600 dark:data-[state=active]:text-blue-400 text-[11px] px-2 py-1 h-auto rounded-full">
+                            Água
+                        </TabsTrigger>
+                        <TabsTrigger value="NUTRITION" className="data-[state=active]:bg-purple-500/15 data-[state=active]:text-purple-600 dark:data-[state=active]:text-purple-400 text-[11px] px-2 py-1 h-auto rounded-full">
+                            Nutrição
+                        </TabsTrigger>
+                        <TabsTrigger value="SOIL" className="data-[state=active]:bg-orange-500/15 data-[state=active]:text-orange-600 dark:data-[state=active]:text-orange-400 text-[11px] px-2 py-1 h-auto rounded-full">
+                            Solo
+                        </TabsTrigger>
+                        <TabsTrigger value="RADAR" className="data-[state=active]:bg-amber-500/15 data-[state=active]:text-amber-600 dark:data-[state=active]:text-amber-400 text-[11px] px-2 py-1 h-auto rounded-full">
+                            Radar
+                        </TabsTrigger>
+                        <TabsTrigger value="WEATHER" className="data-[state=active]:bg-sky-500/15 data-[state=active]:text-sky-600 dark:data-[state=active]:text-sky-400 text-[11px] px-2 py-1 h-auto rounded-full">
+                            Clima
+                        </TabsTrigger>
+                    </TabsList>
+                </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4 bg-gray-50/50">
+                {/* Content - Scrollable */}
+                <ScrollArea className="flex-1 bg-muted/30">
 
-                {/* ---------- VISÃO GERAL ---------- */}
-                {activeTab === 'OVERVIEW' && (
-                    <div className="space-y-6">
+                    <div className="p-4 space-y-6">
+
+                    {/* ---------- VISÃO GERAL ---------- */}
+                    <TabsContent value="OVERVIEW" className="mt-0 space-y-6">
                         <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                                <p className="text-xs text-gray-400 font-medium uppercase mb-1">Status</p>
-                                <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                                    <p className="font-bold text-gray-800">Monitorado</p>
-                                </div>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
-                                <p className="text-xs text-gray-400 font-medium uppercase mb-1">Última Imagem</p>
-                                <div className="flex items-center gap-2">
-                                    <Calendar size={14} className="text-gray-400" />
-                                    <p className="font-bold text-gray-800">Há 5 dias</p>
-                                </div>
-                            </div>
+                            <Card>
+                                <CardContent className="p-4">
+                                    <p className="text-xs text-muted-foreground font-medium uppercase mb-1">Status</p>
+                                    <div className="flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                        <p className="font-bold text-foreground">Monitorado</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                            <Card>
+                                <CardContent className="p-4">
+                                    <p className="text-xs text-muted-foreground font-medium uppercase mb-1">Última Imagem</p>
+                                    <div className="flex items-center gap-2">
+                                        <Calendar size={14} className="text-muted-foreground" />
+                                        <p className="font-bold text-foreground">Há 5 dias</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
-                        {uniqueAlerts.length > 0 && (
-                            <div className="bg-orange-50 border border-orange-100 rounded-xl p-4">
-                                <div className="flex justify-between items-center mb-2">
-                                    <h4 className="text-orange-900 font-bold text-sm flex items-center gap-2"><AlertTriangle size={16} /> Atenção Necessária</h4>
-                                    <button onClick={() => setActiveTab('ALERTS')} className="text-xs font-bold text-orange-700 hover:underline flex items-center">Ver todos <ChevronRight size={12} /></button>
-                                </div>
-                                <p className="text-sm text-orange-800/80">Foram detectados {uniqueAlerts.length} alertas recentes. Verifique a aba de alertas.</p>
-                            </div>
+                        <NitrogenAlert aoiId={aoi.id} status={nitrogenStatus} loading={nitrogenLoading} />
+                        {totalAlerts > 0 && (
+                            <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20">
+                                <CardContent className="p-4">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <h4 className="text-orange-900 dark:text-orange-200 font-bold text-sm flex items-center gap-2"><AlertTriangle size={16} /> Atenção Necessária</h4>
+                                        <Button variant="ghost" size="sm" onClick={() => setActiveTab('ALERTS')} className="text-orange-700 dark:text-orange-300 h-auto py-1 px-2">
+                                            Ver todos <ChevronRight size={12} />
+                                        </Button>
+                                    </div>
+                                    <p className="text-sm text-orange-800/80 dark:text-orange-200/80">Foram detectados {totalAlerts} alertas recentes.</p>
+                                </CardContent>
+                            </Card>
                         )}
-                        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="font-bold text-gray-700 flex items-center gap-2"><Activity size={16} className="text-blue-500" /> Vigor Recente</h3>
-                                <button className="text-xs text-blue-600 font-bold" onClick={() => setActiveTab('HEALTH')}>Detalhes</button>
-                            </div>
-                            <div className="h-40">
-                                <ChartComponent title="NDVI (30 Dias)" data={chartData.slice(-4)} color="#16a34a" />
-                            </div>
-                        </div>
+                        <Card>
+                            <CardHeader className="pb-2">
+                                <div className="flex justify-between items-center">
+                                    <CardTitle className="text-base flex items-center gap-2"><Activity size={16} className="text-primary" /> Vigor Recente</CardTitle>
+                                    <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setActiveTab('HEALTH')}>Detalhes</Button>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-56">
+                                    <ChartComponent title="NDVI (30 Dias)" data={chartData.slice(-4)} color="hsl(var(--chart-1))" />
+                                </div>
+                            </CardContent>
+                        </Card>
                         {/* Weather Snippet */}
                         {weatherHistory.length > 0 && (
-                            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="font-bold text-gray-700 flex items-center gap-2"><CloudRain size={16} className="text-blue-500" /> Clima Recente</h3>
-                                    <button className="text-xs text-blue-600 font-bold" onClick={() => setActiveTab('WEATHER')}>Detalhes</button>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4 text-center">
-                                    <div className="bg-gray-50 rounded p-2">
-                                        <p className="text-xs text-gray-500">Chuva (7d)</p>
-                                        <p className="font-bold text-blue-600 text-lg">
-                                            {weatherHistory.slice(0, 7).reduce((a, b) => a + b.precip_sum, 0).toFixed(1)} mm
-                                        </p>
+                            <Card>
+                                <CardHeader className="pb-2">
+                                    <div className="flex justify-between items-center">
+                                        <CardTitle className="text-base flex items-center gap-2"><CloudRain size={16} className="text-blue-500" /> Clima Recente</CardTitle>
+                                        <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setActiveTab('WEATHER')}>Detalhes</Button>
                                     </div>
-                                    <div className="bg-gray-50 rounded p-2">
-                                        <p className="text-xs text-gray-500">Temp. Max (Ontem)</p>
-                                        <p className="font-bold text-red-500 text-lg">
-                                            {weatherHistory[weatherHistory.length - 1]?.temp_max?.toFixed(1) || '--'}°C
-                                        </p>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-2 gap-4 text-center">
+                                        <div className="bg-muted rounded-lg p-3">
+                                            <p className="text-xs text-muted-foreground">Chuva (7d)</p>
+                                            <p className="font-bold text-blue-600 text-xl">
+                                                {weatherHistory.slice(0, 7).reduce((a, b) => a + b.precip_sum, 0).toFixed(1)} mm
+                                            </p>
+                                        </div>
+                                        <div className="bg-muted rounded-lg p-3">
+                                            <p className="text-xs text-muted-foreground">Temp. Max (Ontem)</p>
+                                            <p className="font-bold text-red-500 text-xl">
+                                                {weatherHistory[weatherHistory.length - 1]?.temp_max?.toFixed(1) || '--'}°C
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
+                                </CardContent>
+                            </Card>
                         )}
-                    </div>
-                )}
+                    </TabsContent>
 
-                {/* ---------- SAÚDE (HEALTH) ---------- */}
-                {activeTab === 'HEALTH' && (
-                    <div className="space-y-4">
-                        <div className="bg-gray-100 p-1 rounded-lg flex overflow-x-auto gap-1">
-                            {(['NDVI', 'NDRE', 'RECI', 'GNDVI', 'EVI', 'ANOMALY'] as IndexType[]).map(type => (
-                                <button key={type} onClick={() => setSelectedIndex(type)} className={`flex-1 min-w-[60px] py-1.5 text-xs font-bold rounded-md transition-all shadow-sm whitespace-nowrap ${selectedIndex === type ? 'bg-white text-green-700 border border-green-200' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}>{type}</button>
-                            ))}
-                        </div>
-                        <ChartComponent title={currentChartProps.title} data={chartData} color={currentChartProps.color} />
-                    </div>
-                )}
+                    {/* ---------- ANÁLISE ---------- */}
+                    <TabsContent value="ANALYSIS" className="mt-0 space-y-6">
+                        <AnalysisTab aoiId={aoi.id} />
+                    </TabsContent>
 
-                {/* ---------- ÁGUA (WATER) ---------- */}
-                {activeTab === 'WATER' && (
-                    <div className="space-y-4">
-                        <div className="bg-gray-100 p-1 rounded-lg flex overflow-x-auto gap-1">
-                            {(['NDMI', 'NDWI', 'MSI'] as IndexType[]).map(type => (
-                                <button key={type} onClick={() => setSelectedIndex(type)} className={`flex-1 min-w-[60px] py-1.5 text-xs font-bold rounded-md transition-all shadow-sm whitespace-nowrap ${selectedIndex === type ? 'bg-white text-blue-700 border border-blue-200' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}>{type}</button>
-                            ))}
-                        </div>
-                        <ChartComponent title={currentChartProps.title} data={chartData} color={currentChartProps.color} />
-                    </div>
-                )}
+                    {/* ---------- SAÚDE (HEALTH) ---------- */}
+                    <TabsContent value="HEALTH" className="mt-0 space-y-4">
+                        <Card>
+                            <CardContent className="p-3">
+                                <div className="flex flex-wrap gap-2">
+                                    {(['NDVI', 'NDRE', 'RECI', 'GNDVI', 'EVI', 'ANOMALY'] as IndexType[]).map(type => (
+                                        <Button key={type} variant={selectedIndex === type ? 'default' : 'outline'} size="sm" onClick={() => setSelectedIndex(type)} className={`text-xs ${selectedIndex === type ? 'bg-green-600 hover:bg-green-700' : ''}`}>{type}</Button>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="h-72">
+                                    <ChartComponent title={currentChartProps.title} data={chartData} color={currentChartProps.color} />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
-                {/* ---------- NUTRIÇÃO (NUTRITION) ---------- */}
-                {activeTab === 'NUTRITION' && (
-                    <div className="space-y-4">
-                        <div className="bg-gray-100 p-1 rounded-lg flex overflow-x-auto gap-1">
-                            {(['RECI', 'ARI', 'CRI'] as IndexType[]).map(type => (
-                                <button key={type} onClick={() => setSelectedIndex(type)} className={`flex-1 min-w-[60px] py-1.5 text-xs font-bold rounded-md transition-all shadow-sm whitespace-nowrap ${selectedIndex === type ? 'bg-white text-purple-700 border border-purple-200' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}>{type}</button>
-                            ))}
-                        </div>
-                        <ChartComponent title={currentChartProps.title} data={chartData} color={currentChartProps.color} />
-                    </div>
-                )}
+                    {/* ---------- ÁGUA (WATER) ---------- */}
+                    <TabsContent value="WATER" className="mt-0 space-y-4">
+                        <Card>
+                            <CardContent className="p-3">
+                                <div className="flex flex-wrap gap-2">
+                                    {(['NDMI', 'NDWI', 'MSI'] as IndexType[]).map(type => (
+                                        <Button key={type} variant={selectedIndex === type ? 'default' : 'outline'} size="sm" onClick={() => setSelectedIndex(type)} className={`text-xs ${selectedIndex === type ? 'bg-blue-600 hover:bg-blue-700' : ''}`}>{type}</Button>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="h-72">
+                                    <ChartComponent title={currentChartProps.title} data={chartData} color={currentChartProps.color} />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
-                {/* ---------- SOLO (SOIL) ---------- */}
-                {activeTab === 'SOIL' && (
-                    <div className="space-y-4">
-                        <div className="bg-gray-100 p-1 rounded-lg flex overflow-x-auto gap-1">
-                            {(['SAVI', 'NBR', 'BSI'] as IndexType[]).map(type => (
-                                <button key={type} onClick={() => setSelectedIndex(type)} className={`flex-1 min-w-[60px] py-1.5 text-xs font-bold rounded-md transition-all shadow-sm whitespace-nowrap ${selectedIndex === type ? 'bg-white text-orange-700 border border-orange-200' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}>{type}</button>
-                            ))}
-                        </div>
-                        <ChartComponent title={currentChartProps.title} data={chartData} color={currentChartProps.color} />
-                    </div>
-                )}
+                    {/* ---------- NUTRIÇÃO (NUTRITION) ---------- */}
+                    <TabsContent value="NUTRITION" className="mt-0 space-y-4">
+                        <Card>
+                            <CardContent className="p-3">
+                                <div className="flex flex-wrap gap-2">
+                                    {(['RECI', 'ARI', 'CRI'] as IndexType[]).map(type => (
+                                        <Button key={type} variant={selectedIndex === type ? 'default' : 'outline'} size="sm" onClick={() => setSelectedIndex(type)} className={`text-xs ${selectedIndex === type ? 'bg-purple-600 hover:bg-purple-700' : ''}`}>{type}</Button>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="h-72">
+                                    <ChartComponent title={currentChartProps.title} data={chartData} color={currentChartProps.color} />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
-                {/* ---------- RADAR (NEW) ---------- */}
-                {activeTab === 'RADAR' && (
-                    <div className="space-y-4">
-                        <div className="bg-gray-200 p-1 rounded-lg flex overflow-x-auto">
-                            {(['RVI', 'RATIO'] as RadarIndexType[]).map(type => (
-                                <button key={type} onClick={() => setSelectedRadarIndex(type)} className={`flex-1 min-w-[60px] py-1.5 text-xs font-bold rounded-md transition-all shadow-sm ${selectedRadarIndex === type ? 'bg-white text-gray-900 border border-gray-200/50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}>{type}</button>
-                            ))}
-                        </div>
-                        <ChartComponent
-                            title={currentRadarProps.title}
-                            data={radarChartData}
-                            color={currentRadarProps.color}
-                            domain={currentRadarProps.domain} // Passing domain for Ratio
-                        />
-                        <div className="bg-purple-50 p-4 rounded-lg border border-purple-100 text-xs text-purple-800 leading-relaxed">
-                            <strong>Radar (Sentinel-1):</strong> O radar penetra nuvens. Use RVI para biomassa e Razão VH/VV para estrutura da vegetação, mesmo em dias nublados.
-                        </div>
-                    </div>
-                )}
+                    {/* ---------- SOLO (SOIL) ---------- */}
+                    <TabsContent value="SOIL" className="mt-0 space-y-4">
+                        <Card>
+                            <CardContent className="p-3">
+                                <div className="flex flex-wrap gap-2">
+                                    {(['SAVI', 'NBR', 'BSI'] as IndexType[]).map(type => (
+                                        <Button key={type} variant={selectedIndex === type ? 'default' : 'outline'} size="sm" onClick={() => setSelectedIndex(type)} className={`text-xs ${selectedIndex === type ? 'bg-orange-600 hover:bg-orange-700' : ''}`}>{type}</Button>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="h-72">
+                                    <ChartComponent title={currentChartProps.title} data={chartData} color={currentChartProps.color} />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
-                {/* ---------- WEATHER (NEW) ---------- */}
-                {activeTab === 'WEATHER' && (
-                    <div className="space-y-4">
-                        <WeatherChart data={weatherHistory} />
-                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 text-xs text-blue-800 leading-relaxed">
-                            <strong>Fonte:</strong> Dados meteorológicos históricos baseados em reanálise (ERA5) e estações próximas via Open-Meteo.
-                        </div>
-                    </div>
-                )}
+                    {/* ---------- RADAR ---------- */}
+                    <TabsContent value="RADAR" className="mt-0 space-y-4">
+                        <Card>
+                            <CardContent className="p-3">
+                                <div className="flex flex-wrap gap-2">
+                                    {(['RVI', 'RATIO'] as RadarIndexType[]).map(type => (
+                                        <Button key={type} variant={selectedRadarIndex === type ? 'default' : 'outline'} size="sm" onClick={() => setSelectedRadarIndex(type)} className="text-xs">{type}</Button>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="h-72">
+                                    <ChartComponent
+                                        title={currentRadarProps.title}
+                                        data={radarChartData}
+                                        color={currentRadarProps.color}
+                                        domain={currentRadarProps.domain}
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="border-purple-200 bg-purple-50 dark:bg-purple-950/20">
+                            <CardContent className="p-4 text-sm text-purple-800 dark:text-purple-200">
+                                <strong>Radar (Sentinel-1):</strong> O radar penetra nuvens. Use RVI para biomassa e Razão VH/VV para estrutura da vegetação, mesmo em dias nublados.
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
 
-                {/* ---------- ALERTAS ---------- */}
-                {activeTab === 'ALERTS' && (
-                    <div className="space-y-3">
-                        {uniqueAlerts.length === 0 ? (
-                            <div className="text-center py-10">
-                                <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-3"><span className="text-2xl">🌿</span></div>
-                                <h3 className="font-bold text-gray-800">Tudo limpo!</h3>
-                                <p className="text-sm text-gray-500 mt-1">Nenhum alerta recente.</p>
-                            </div>
+                    {/* ---------- WEATHER ---------- */}
+                    <TabsContent value="WEATHER" className="mt-0 space-y-4">
+                        <Card>
+                            <CardContent className="p-4">
+                                <div className="h-80">
+                                    <WeatherChart data={weatherHistory} />
+                                </div>
+                            </CardContent>
+                        </Card>
+                        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20">
+                            <CardContent className="p-4 text-sm text-blue-800 dark:text-blue-200">
+                                <strong>Fonte:</strong> Dados meteorológicos históricos baseados em reanálise (ERA5) e estações próximas via Open-Meteo.
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    {/* ---------- ALERTAS ---------- */}
+                    <TabsContent value="ALERTS" className="mt-0 space-y-3">
+                        {totalAlerts === 0 ? (
+                            <Card>
+                                <CardContent className="text-center py-10">
+                                    <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                                        <Leaf className="w-8 h-8 text-green-600" />
+                                    </div>
+                                    <h3 className="font-bold text-foreground">Tudo limpo!</h3>
+                                    <p className="text-sm text-muted-foreground mt-1">Nenhum alerta recente.</p>
+                                </CardContent>
+                            </Card>
                         ) : (
-                            uniqueAlerts.map(signal => (
-                                <div key={signal.id} className="bg-white border-l-4 border-yellow-400 rounded-r-lg shadow-sm p-3 flex flex-col gap-2">
-                                    <div className="flex justify-between items-start">
-                                        <h4 className="font-bold text-gray-800 text-sm">{signal.signal_type}</h4>
-                                        <span className="text-[10px] uppercase font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{new Date(signal.detected_at || signal.created_at || new Date()).toLocaleDateString()}</span>
-                                    </div>
-                                    <p className="text-xs text-gray-600 line-clamp-2">{signal.metadata?.summary || "Anomalia detectada."}</p>
-                                </div>
-                            ))
+                            <>
+                                {hasNitrogenAlert && (
+                                    <NitrogenAlert aoiId={aoi.id} status={nitrogenStatus} loading={nitrogenLoading} />
+                                )}
+                                {alertsForTab.map(signal => (
+                                    <Card key={signal.id} className="border-l-4 border-l-yellow-400">
+                                        <CardContent className="p-3">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h4 className="font-bold text-foreground text-sm">{signal.signal_type}</h4>
+                                                <Badge variant="secondary" className="text-[10px]">
+                                                    {new Date(signal.detected_at || signal.created_at || new Date()).toLocaleDateString()}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-sm text-muted-foreground line-clamp-2">{signal.metadata?.summary || "Anomalia detectada."}</p>
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                            </>
                         )}
-                    </div>
-                )}
+                    </TabsContent>
 
-            </div>
+                    </div>
+                </ScrollArea>
+            </Tabs>
         </div>
     )
 }

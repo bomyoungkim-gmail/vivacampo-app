@@ -83,22 +83,37 @@ export interface AOIBackfillRequest {
 }
 
 // =============================================================================
+// Intelligence Types
+// =============================================================================
+
+export interface NitrogenStatus {
+    status: 'DEFICIENT' | 'ADEQUATE' | 'UNKNOWN'
+    confidence: number
+    ndvi_mean: number | null
+    ndre_mean: number | null
+    reci_mean: number | null
+    recommendation: string
+    zone_map_url: string | null
+}
+
+// =============================================================================
 // Signal Types
 // =============================================================================
 
-export type SignalType = 'CHANGE_DETECTED' | 'ANOMALY' | 'ALERT'
+export type SignalType = 'CHANGE_DETECTED' | 'ANOMALY' | 'ALERT' | 'PASTURE_FORAGE_RISK' | 'CROP_STRESS' | 'PEST_OUTBREAK'
 export type SignalStatus = 'ACTIVE' | 'ACKNOWLEDGED' | 'RESOLVED'
 
 export interface Signal {
     id: string
     aoi_id: string
     aoi_name: string
-    signal_type: string
+    signal_type: SignalType
     status: SignalStatus
     score: number
     severity: 'LOW' | 'MEDIUM' | 'HIGH'
     confidence: 'LOW' | 'MEDIUM' | 'HIGH'
     evidence_json?: Record<string, any>
+    recommended_action?: string
     recommended_actions?: string[]
     detected_at: string
     metadata?: Record<string, any>
@@ -261,6 +276,64 @@ export interface WKTPolygon {
 export interface DerivedAssets {
     year: number
     week: number
+    ndvi_tile_url?: string | null
+    anomaly_tile_url?: string | null
+    quicklook_tile_url?: string | null
+    ndwi_tile_url?: string | null
+    ndmi_tile_url?: string | null
+    savi_tile_url?: string | null
+    false_color_tile_url?: string | null
+    true_color_tile_url?: string | null
+
+    // Advanced Indices URIs
+    ndre_tile_url?: string | null
+    reci_tile_url?: string | null
+    gndvi_tile_url?: string | null
+    evi_tile_url?: string | null
+    msi_tile_url?: string | null
+    nbr_tile_url?: string | null
+    bsi_tile_url?: string | null
+    ari_tile_url?: string | null
+    cri_tile_url?: string | null
+
+    // Statistics
+    ndvi_mean?: number
+    ndvi_min?: number
+    ndvi_max?: number
+    ndvi_std?: number
+
+    ndwi_mean?: number
+    ndwi_min?: number
+    ndwi_max?: number
+    ndwi_std?: number
+
+    ndmi_mean?: number
+    ndmi_min?: number
+    ndmi_max?: number
+    ndmi_std?: number
+
+    savi_mean?: number
+    savi_min?: number
+    savi_max?: number
+    savi_std?: number
+
+    anomaly_mean?: number
+
+    // Advanced Indices Stats
+    ndre_mean?: number
+    reci_mean?: number
+    gndvi_mean?: number
+    evi_mean?: number
+    msi_mean?: number
+    nbr_mean?: number
+    bsi_mean?: number
+    ari_mean?: number
+    cri_mean?: number
+}
+
+export interface RawDerivedAssets {
+    year: number
+    week: number
     ndvi_s3_uri?: string | null
     anomaly_s3_uri?: string | null
     quicklook_s3_uri?: string | null
@@ -317,6 +390,19 @@ export interface DerivedAssets {
 }
 
 export interface RadarAssets {
+    year: number
+    week: number
+    rvi_tile_url?: string | null
+    ratio_tile_url?: string | null
+    vv_tile_url?: string | null
+    vh_tile_url?: string | null
+    rvi_mean?: number
+    rvi_std?: number
+    ratio_mean?: number
+    ratio_std?: number
+}
+
+export interface RawRadarAssets {
     year: number
     week: number
     rvi_s3_uri?: string | null

@@ -53,4 +53,8 @@ playwright.config.ts
 # Project Specific
 .gemini
 tests
-infra
+#infra
+#!infra/
+#!infra/docker/
+#!infra/docker/localstack-init/
+#!infra/docker/localstack-init/**

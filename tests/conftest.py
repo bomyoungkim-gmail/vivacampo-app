@@ -1,5 +1,6 @@
 import os
 import sys
+from urllib.parse import urlparse, urlunparse
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import uuid
@@ -39,7 +40,42 @@ def _ensure_env() -> None:
         os.environ.setdefault(key, value)
 
 
+def _apply_db_host_overrides() -> None:
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        return
+
+    host_override = os.environ.get("DATABASE_HOST_OVERRIDE")
+    port_override = os.environ.get("DATABASE_PORT_OVERRIDE")
+
+    if not host_override and os.name == "nt":
+        parsed = urlparse(database_url)
+        if parsed.hostname == "db":
+            host_override = "localhost"
+
+    if not (host_override or port_override):
+        return
+
+    parsed = urlparse(database_url)
+    host = host_override or parsed.hostname or ""
+    port = port_override or parsed.port
+    userinfo = ""
+    if parsed.username:
+        userinfo = parsed.username
+        if parsed.password:
+            userinfo = f"{userinfo}:{parsed.password}"
+
+    netloc = host
+    if port:
+        netloc = f"{netloc}:{port}"
+    if userinfo:
+        netloc = f"{userinfo}@{netloc}"
+
+    os.environ["DATABASE_URL"] = urlunparse(parsed._replace(netloc=netloc))
+
+
 _ensure_env()
+_apply_db_host_overrides()
 
 
 api_path = ROOT / "services" / "api"
@@ -56,6 +92,7 @@ def ensure_db_schema() -> None:
 
     database.Base.metadata.create_all(bind=database.engine)
     with database.engine.begin() as conn:
+        conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS pgcrypto"))
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS tenant_settings (

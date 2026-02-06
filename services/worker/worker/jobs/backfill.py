@@ -24,6 +24,8 @@ async def handle_backfill(job: Dict[str, Any], db: Session):
     4. FORECAST_WEEK (generate forecasts)
     """
     logger.info("backfill_started", job_id=job["id"])
+    db.execute(text("UPDATE jobs SET status = 'RUNNING', updated_at = now() WHERE id = :job_id"), {"job_id": job["id"]})
+    db.commit()
     
     tenant_id = job["tenant_id"]
     aoi_id = job["aoi_id"]
@@ -51,6 +53,9 @@ async def handle_backfill(job: Dict[str, Any], db: Session):
     
     jobs_created = {
         "PROCESS_WEEK": 0,
+        "PROCESS_RADAR_WEEK": 0,
+        "PROCESS_WEATHER": 0,
+        "PROCESS_TOPOGRAPHY": 0,
         "ALERTS_WEEK": 0,
         "SIGNALS_WEEK": 0,
         "FORECAST_WEEK": 0
@@ -59,6 +64,76 @@ async def handle_backfill(job: Dict[str, Any], db: Session):
     # Create jobs for each week
     from worker.shared.aws_clients import SQSClient
     sqs = SQSClient()
+
+    # Create PROCESS_WEATHER (range-based) once per backfill
+    weather_job_key = hashlib.sha256(
+        f"{tenant_id}{aoi_id}{from_date.date().isoformat()}{to_date.date().isoformat()}PROCESS_WEATHER{pipeline_version}".encode()
+    ).hexdigest()
+
+    weather_payload = {
+        "tenant_id": tenant_id,
+        "aoi_id": aoi_id,
+        "start_date": from_date.date().isoformat(),
+        "end_date": to_date.date().isoformat()
+    }
+
+    sql_weather = text("""
+        INSERT INTO jobs (tenant_id, aoi_id, job_type, job_key, status, payload_json)
+        VALUES (:tenant_id, :aoi_id, 'PROCESS_WEATHER', :job_key, 'PENDING', :payload)
+        ON CONFLICT (tenant_id, job_key) DO UPDATE 
+        SET status = 'PENDING', updated_at = now()
+        RETURNING id
+    """)
+
+    result = db.execute(sql_weather, {
+        "tenant_id": tenant_id,
+        "aoi_id": aoi_id,
+        "job_key": weather_job_key,
+        "payload": json.dumps(weather_payload)
+    })
+
+    row = result.fetchone()
+    if row:
+        jobs_created["PROCESS_WEATHER"] += 1
+        sqs.send_message({
+            "job_id": str(row[0]),
+            "job_type": "PROCESS_WEATHER",
+            "payload": weather_payload
+        })
+
+    # Create PROCESS_TOPOGRAPHY once per backfill
+    topo_job_key = hashlib.sha256(
+        f"{tenant_id}{aoi_id}PROCESS_TOPOGRAPHY{pipeline_version}".encode()
+    ).hexdigest()
+
+    topo_payload = {
+        "tenant_id": tenant_id,
+        "aoi_id": aoi_id
+    }
+
+    sql_topo = text("""
+        INSERT INTO jobs (tenant_id, aoi_id, job_type, job_key, status, payload_json)
+        VALUES (:tenant_id, :aoi_id, 'PROCESS_TOPOGRAPHY', :job_key, 'PENDING', :payload)
+        ON CONFLICT (tenant_id, job_key) DO UPDATE 
+        SET status = 'PENDING', updated_at = now()
+        RETURNING id
+    """)
+
+    result = db.execute(sql_topo, {
+        "tenant_id": tenant_id,
+        "aoi_id": aoi_id,
+        "job_key": topo_job_key,
+        "payload": json.dumps(topo_payload)
+    })
+
+    row = result.fetchone()
+    if row:
+        jobs_created["PROCESS_TOPOGRAPHY"] += 1
+        sqs.send_message({
+            "job_id": str(row[0]),
+            "job_type": "PROCESS_TOPOGRAPHY",
+            "payload": topo_payload
+        })
 
     for year, week in weeks_to_process:
         # 1. PROCESS_WEEK
@@ -94,6 +169,35 @@ async def handle_backfill(job: Dict[str, Any], db: Session):
             sqs.send_message({
                 "job_id": str(row[0]),
                 "job_type": "PROCESS_WEEK",
+                "payload": payload_dict
+            })
+
+        # 1b. PROCESS_RADAR_WEEK
+        job_key = hashlib.sha256(
+            f"{tenant_id}{aoi_id}{year}{week}PROCESS_RADAR_WEEK{pipeline_version}".encode()
+        ).hexdigest()
+
+        sql = text("""
+            INSERT INTO jobs (tenant_id, aoi_id, job_type, job_key, status, payload_json)
+            VALUES (:tenant_id, :aoi_id, 'PROCESS_RADAR_WEEK', :job_key, 'PENDING', :payload)
+            ON CONFLICT (tenant_id, job_key) DO UPDATE 
+            SET status = 'PENDING', updated_at = now()
+            RETURNING id
+        """)
+
+        result = db.execute(sql, {
+            "tenant_id": tenant_id,
+            "aoi_id": aoi_id,
+            "job_key": job_key,
+            "payload": json.dumps(payload_dict)
+        })
+
+        row = result.fetchone()
+        if row:
+            jobs_created["PROCESS_RADAR_WEEK"] += 1
+            sqs.send_message({
+                "job_id": str(row[0]),
+                "job_type": "PROCESS_RADAR_WEEK",
                 "payload": payload_dict
             })
         

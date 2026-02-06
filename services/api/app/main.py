@@ -87,9 +87,9 @@ async def metrics():
 
 # Register routers
 from app.presentation import (
-    auth_router, farms_router, aois_router, jobs_router, 
+    auth_router, farms_router, aois_router, jobs_router,
     signals_router, ai_assistant_router, tenant_admin_router,
-    system_admin_router, weather_router, radar_router
+    system_admin_router, weather_router, radar_router, tiles_router, nitrogen_router, correlation_router
 )
 
 app.include_router(auth_router.router, prefix="/v1", tags=["auth"])
@@ -99,6 +99,9 @@ app.include_router(jobs_router.router, prefix="/v1/app", tags=["jobs"])
 app.include_router(signals_router.router, prefix="/v1/app", tags=["signals"])
 app.include_router(weather_router.router, prefix="/v1/app", tags=["weather"])
 app.include_router(radar_router.router, prefix="/v1/app", tags=["radar"])
+app.include_router(nitrogen_router.router, prefix="/v1/app", tags=["nitrogen"])
+app.include_router(correlation_router.router, prefix="/v1/app", tags=["correlation"])
 app.include_router(ai_assistant_router.router, prefix="/v1/app", tags=["ai-assistant"])
 app.include_router(tenant_admin_router.router, prefix="/v1/app", tags=["tenant-admin"])
 app.include_router(system_admin_router.router, prefix="/v1", tags=["system-admin"])
+app.include_router(tiles_router.router, prefix="/v1", tags=["tiles"])

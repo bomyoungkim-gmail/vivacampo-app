@@ -6,6 +6,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import structlog
 from pystac_client import Client
+from pystac_client.stac_api_io import StacApiIO
+from pystac_client.exceptions import APIError
 from shapely.geometry import shape, mapping
 import rasterio
 from rasterio.mask import mask
@@ -13,7 +15,9 @@ import numpy as np
 import asyncio
 import requests
 import aiohttp
-from tenacity import retry, stop_after_attempt, wait_exponential
+from urllib3 import Retry
+from requests.exceptions import RequestException, Timeout as RequestsTimeout
+from tenacity import Retrying, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 
 logger = structlog.get_logger()
@@ -28,12 +32,29 @@ class STACClient:
     def __init__(self, catalog_url: str = "https://planetarycomputer.microsoft.com/api/stac/v1"):
         self.catalog_url = catalog_url
         self.client = None
+        # Tunables for reliability
+        self.search_limit = 50
+        self.search_max_items = 100
+        self.search_timeout = (5, 60)  # (connect, read)
+        self.search_max_retries = 5
     
+    def _build_stac_io(self) -> StacApiIO:
+        retry = Retry(
+            total=self.search_max_retries,
+            backoff_factor=1,
+            status_forcelist=[502, 503, 504],
+            allowed_methods=None,
+            respect_retry_after_header=True,
+            raise_on_status=False,
+        )
+        return StacApiIO(max_retries=retry, timeout=self.search_timeout)
+
     def _get_client(self):
         """Lazy initialization of STAC client"""
         if self.client is None:
             try:
-                self.client = Client.open(self.catalog_url)
+                stac_io = self._build_stac_io()
+                self.client = Client.open(self.catalog_url, stac_io=stac_io)
                 logger.info("stac_client_initialized", catalog=self.catalog_url)
             except Exception as e:
                 logger.error("stac_client_init_failed", exc_info=e)
@@ -66,22 +87,48 @@ class STACClient:
         
         try:
             client = self._get_client()
+
+            try:
+                bounds = shape(aoi_geom).bounds
+            except Exception:
+                bounds = None
+
+            logger.info(
+                "stac_search_start",
+                start_date=str(start_date),
+                end_date=str(end_date),
+                collections=collections,
+                max_cloud_cover=max_cloud_cover,
+                aoi_bounds=bounds
+            )
             
             # Simple query for Sentinel-2 cloud cover
             query = {}
             if "sentinel-2-l2a" in collections:
                 query["eo:cloud_cover"] = {"lt": max_cloud_cover}
 
-            # Search STAC catalog
-            search = client.search(
-                collections=collections,
-                intersects=aoi_geom,
-                datetime=f"{start_date.isoformat()}/{end_date.isoformat()}",
-                query=query,
-                max_items=100
+            search_kwargs = {
+                "collections": collections,
+                "datetime": f"{start_date.isoformat()}/{end_date.isoformat()}",
+                "query": query,
+                "limit": self.search_limit,
+                "max_items": self.search_max_items,
+            }
+            if bounds:
+                search_kwargs["bbox"] = list(bounds)
+            else:
+                search_kwargs["intersects"] = aoi_geom
+
+            retryer = Retrying(
+                stop=stop_after_attempt(4),
+                wait=wait_exponential(multiplier=1, min=1, max=15),
+                retry=retry_if_exception_type((APIError, RequestException, RequestsTimeout)),
+                reraise=True,
             )
-            
-            items = list(search.items())
+            for attempt in retryer:
+                with attempt:
+                    search = client.search(**search_kwargs)
+                    items = list(search.items())
             
             logger.info("stac_search_completed",
                        scenes_found=len(items),
@@ -150,6 +197,13 @@ class STACClient:
         }
         
         async with aiohttp.ClientSession() as session:
+            logger.info(
+                "open_meteo_request",
+                lat=lat,
+                lon=lon,
+                start_date=start_date,
+                end_date=end_date
+            )
             async with session.get(url, params=params) as resp:
                 if resp.status != 200:
                     logger.error("open_meteo_failed", status=resp.status, text=await resp.text())
@@ -169,6 +223,7 @@ class STACClient:
                         "precip_sum": daily["precipitation_sum"][i],
                         "et0_fao": daily["et0_fao_evapotranspiration"][i]
                     })
+                logger.info("open_meteo_response", days=len(results))
                 return results
 
     

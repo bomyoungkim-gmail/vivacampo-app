@@ -122,7 +122,7 @@ export default function ChartComponent({ data, title, color = '#10b981', domain 
                             <Tooltip
                                 contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)' }}
                                 labelFormatter={(label) => format(parseISO(label), 'dd ' + (isAfter(parseISO(label), new Date().setFullYear(new Date().getFullYear() - 1)) ? 'MMMM' : 'MMM yyyy'), { locale: ptBR })}
-                                formatter={(value: number | undefined) => [value?.toFixed(2) ?? '--', title]}
+                                formatter={(value) => [typeof value === 'number' ? value.toFixed(2) : '--', title]}
                             />
                             <ReferenceLine y={0.3} label={{ value: 'Solo', position: 'insideLeft', fontSize: 10, fill: '#ef4444' }} stroke="#fca5a5" strokeDasharray="3 3" />
                             <ReferenceLine y={0.8} label={{ value: 'Vigor', position: 'insideLeft', fontSize: 10, fill: '#22c55e' }} stroke="#86efac" strokeDasharray="3 3" />

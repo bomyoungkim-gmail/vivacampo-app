@@ -96,8 +96,8 @@ def save_radar_assets(tenant_id: str, aoi_id: str, year: int, week: int,
 
 def update_job_status(job_id: str, status: str, db: Session, error: str = None):
     from sqlalchemy import text
-    sql = text("UPDATE jobs SET status = :status, updated_at = now() WHERE id = :job_id")
-    db.execute(sql, {"job_id": job_id, "status": status})
+    sql = text("UPDATE jobs SET status = :status, error_message = :error_message, updated_at = now() WHERE id = :job_id")
+    db.execute(sql, {"job_id": job_id, "status": status, "error_message": error})
     db.commit()
 
 async def process_radar_week_async(job_id: str, payload: dict, db: Session):
@@ -215,6 +215,7 @@ def process_radar_week_handler(job_id: str, payload: dict, db: Session):
     """PROCESS_RADAR_WEEK job handler Wrapper"""
     import asyncio
     logger.info("process_radar_week_start", job_id=job_id)
+    update_job_status(job_id, "RUNNING", db)
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)

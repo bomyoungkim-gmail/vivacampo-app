@@ -24,7 +24,9 @@ services:
     volumes: ["redisdata:/data"]
 
   localstack:
-    image: localstack/localstack:latest
+    build:
+      context: .
+      dockerfile: infra/docker/localstack/Dockerfile
     ports: ["4566:4566"]
     environment:
       - SERVICES=s3,sqs
@@ -35,7 +37,6 @@ services:
     volumes:
       - localstackdata:/var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./infra/docker/localstack-init:/etc/localstack/init/ready.d
     healthcheck:
       test: ["CMD", "bash", "-c", "awslocal sqs get-queue-url --queue-name vivacampo-jobs"]
       interval: 5s

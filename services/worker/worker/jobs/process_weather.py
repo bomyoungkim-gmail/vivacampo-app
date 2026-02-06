@@ -2,7 +2,7 @@
 import structlog
 import requests
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from worker.config import settings
@@ -35,6 +35,9 @@ def ensure_weather_table_exists(db: Session):
         CREATE INDEX IF NOT EXISTS idx_weather_aoi_date ON derived_weather_daily (aoi_id, date);
     """)
     db.execute(sql)
+    # Ensure legacy tables get missing timestamp columns without a migration.
+    db.execute(text("ALTER TABLE derived_weather_daily ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();"))
+    db.execute(text("ALTER TABLE derived_weather_daily ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();"))
     db.commit()
 
 def save_weather_batch(tenant_id: str, aoi_id: str, data: list, db: Session):
@@ -100,15 +103,33 @@ async def fetch_open_meteo_history(lat: float, lon: float, start_date: str, end_
     response.raise_for_status()
     return response.json()
 
+
+def clamp_date_range(start_date: date, end_date: date, today: date | None = None) -> tuple[date, date, bool]:
+    """
+    Clamp the date range to avoid future end dates (Open-Meteo archive rejects).
+    Returns (start_date, end_date, did_clamp).
+    """
+    today = today or datetime.now().date()
+    did_clamp = False
+
+    if end_date > today:
+        end_date = today
+        did_clamp = True
+
+    if start_date > end_date:
+        start_date = end_date
+        did_clamp = True
+
+    return start_date, end_date, did_clamp
+
 def update_job_status(job_id: str, status: str, db: Session, error: str = None):
-    sql = text("UPDATE jobs SET status = :status, error_message = :err, updated_at = now() WHERE id = :job_id")
-    db.execute(sql, {"job_id": job_id, "status": status, "err": error})
+    sql = text("UPDATE jobs SET status = :status, error_message = :error_message, updated_at = now() WHERE id = :job_id")
+    db.execute(sql, {"job_id": job_id, "status": status, "error_message": error})
     db.commit()
 
 async def process_weather_history_async(job_id: str, payload: dict, db: Session):
     from worker.shared.utils import get_aoi_geometry
-    from shapely import wkt
-    import shapely.geometry
+    from shapely.geometry import shape
     
     tenant_id = payload.get('tenant_id')
     aoi_id = payload.get('aoi_id')
@@ -124,15 +145,23 @@ async def process_weather_history_async(job_id: str, payload: dict, db: Session)
     if payload.get('end_date'):
         end_date = datetime.fromisoformat(payload['end_date']).date()
         
+    start_date, end_date, did_clamp = clamp_date_range(start_date, end_date)
+    if did_clamp:
+        logger.info(
+            "open_meteo_date_clamped",
+            start_date=start_date.isoformat(),
+            end_date=end_date.isoformat()
+        )
+
     start_str = start_date.isoformat()
     end_str = end_date.isoformat()
     
     # Get Centroid
-    geom_wkt = get_aoi_geometry(aoi_id, db)
-    if not geom_wkt:
+    geom_geojson = get_aoi_geometry(aoi_id, db)
+    if not geom_geojson:
         raise ValueError("AOI Geometry not found")
-        
-    polygon = wkt.loads(geom_wkt)
+
+    polygon = shape(geom_geojson)
     centroid = polygon.centroid
     lat, lon = centroid.y, centroid.x
     
@@ -170,6 +199,7 @@ async def process_weather_history_async(job_id: str, payload: dict, db: Session)
 
 def process_weather_history_handler(job_id: str, payload: dict, db: Session):
     logger.info("process_weather_history_start", job_id=job_id)
+    update_job_status(job_id, "RUNNING", db)
     try:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)

@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import axios from 'axios'
 import { z } from 'zod'
+import ThemeToggle from '@/components/ThemeToggle'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, LoadingSpinner } from '@/components/ui'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000'
 
@@ -61,128 +63,109 @@ export default function AdminDashboardPage() {
 
     if (loading) {
         return (
-            <div className="flex min-h-screen items-center justify-center">
-                <div className="text-center">
-                    <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-blue-600 border-r-transparent"></div>
-                    <p className="mt-2 text-gray-600">Carregando...</p>
-                </div>
+            <div className="flex min-h-[50vh] items-center justify-center bg-background">
+                <LoadingSpinner size="lg" label="Carregando estatísticas..." />
             </div>
         )
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
-            {/* Header */}
-            <header className="bg-white shadow">
-                <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600">
-                                <svg className="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                </svg>
-                            </div>
-                            <h1 className="text-2xl font-bold text-gray-900">VivaCampo Admin</h1>
+        <div className="space-y-8">
+            {/* Page Header */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-foreground">Visão Geral</h1>
+                    <p className="mt-2 text-muted-foreground">Monitoramento em tempo real do sistema VivaCampo.</p>
+                </div>
+                <ThemeToggle />
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                <Card>
+                    <CardContent className="pt-6">
+                        <div className="text-sm font-medium text-muted-foreground">Banco de Dados</div>
+                        <div className="mt-2 flex items-center">
+                            <div className={`h-3 w-3 rounded-full mr-2 ${stats?.database === 'healthy' ? 'bg-primary' : 'bg-destructive'}`} />
+                            <span className="text-2xl font-bold text-foreground">
+                                {stats?.database === 'healthy' ? 'Online' : 'Offline'}
+                            </span>
                         </div>
-                        <button
-                            onClick={handleLogout}
-                            className="rounded-md bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300"
-                        >
-                            Sair
-                        </button>
-                    </div>
-                </div>
-            </header>
+                    </CardContent>
+                </Card>
 
-            {/* Navigation */}
-            <nav className="bg-white border-b border-gray-200">
-                <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex space-x-8">
-                        <Link href="/dashboard" className="border-b-2 border-blue-600 px-1 py-4 text-sm font-medium text-blue-600">
-                            Dashboard
-                        </Link>
-                        <Link href="/tenants" className="border-b-2 border-transparent px-1 py-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
-                            Tenants
-                        </Link>
-                        <Link href="/jobs" className="border-b-2 border-transparent px-1 py-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
-                            Jobs
-                        </Link>
-                        <Link href="/audit" className="border-b-2 border-transparent px-1 py-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
-                            Audit Log
-                        </Link>
-                    </div>
-                </div>
-            </nav>
-
-            {/* Main Content */}
-            <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-                <div className="mb-6">
-                    <h2 className="text-xl font-semibold text-gray-900">System Health</h2>
-                </div>
-
-                {/* Stats Grid */}
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="rounded-lg bg-white p-6 shadow">
-                        <div className="text-sm font-medium text-gray-500">Database</div>
-                        <div className="mt-2 text-2xl font-semibold text-gray-900">
-                            {stats?.database === 'healthy' ? '✓' : '✗'}
-                        </div>
-                        <div className="mt-1 text-sm text-gray-600">{stats?.database}</div>
-                    </div>
-
-                    <div className="rounded-lg bg-white p-6 shadow">
-                        <div className="text-sm font-medium text-gray-500">Pending Jobs</div>
-                        <div className="mt-2 text-2xl font-semibold text-gray-900">
+                <Card>
+                    <CardContent className="pt-6">
+                        <div className="text-sm font-medium text-muted-foreground">Jobs na Fila</div>
+                        <div className="mt-2 text-3xl font-bold text-foreground">
                             {stats?.jobs_24h?.pending || 0}
                         </div>
-                        <div className="mt-1 text-sm text-gray-600">Last 24h</div>
-                    </div>
+                        <div className="mt-1 text-xs text-muted-foreground">Aguardando processamento</div>
+                    </CardContent>
+                </Card>
 
-                    <div className="rounded-lg bg-white p-6 shadow">
-                        <div className="text-sm font-medium text-gray-500">Running Jobs</div>
-                        <div className="mt-2 text-2xl font-semibold text-gray-900">
+                <Card>
+                    <CardContent className="pt-6">
+                        <div className="text-sm font-medium text-muted-foreground">Jobs Rodando</div>
+                        <div className="mt-2 text-3xl font-bold text-primary">
                             {stats?.jobs_24h?.running || 0}
                         </div>
-                        <div className="mt-1 text-sm text-gray-600">Last 24h</div>
-                    </div>
+                        <div className="mt-1 text-xs text-muted-foreground">Processamento ativo</div>
+                    </CardContent>
+                </Card>
 
-                    <div className="rounded-lg bg-white p-6 shadow">
-                        <div className="text-sm font-medium text-gray-500">Failed Jobs</div>
-                        <div className="mt-2 text-2xl font-semibold text-red-600">
+                <Card>
+                    <CardContent className="pt-6">
+                        <div className="text-sm font-medium text-muted-foreground">Falhas (24h)</div>
+                        <div className="mt-2 text-3xl font-bold text-destructive">
                             {stats?.jobs_24h?.failed || 0}
                         </div>
-                        <div className="mt-1 text-sm text-gray-600">Last 24h</div>
-                    </div>
-                </div>
+                        <div className="mt-1 text-xs text-muted-foreground">Atenção requerida</div>
+                    </CardContent>
+                </Card>
+            </div>
 
-                {/* Quick Actions */}
-                <div className="mt-8">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <Link
-                            href="/tenants"
-                            className="block rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow"
-                        >
-                            <h4 className="font-medium text-gray-900">Manage Tenants</h4>
-                            <p className="mt-1 text-sm text-gray-600">View and manage all tenants</p>
-                        </Link>
-                        <Link
-                            href="/jobs"
-                            className="block rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow"
-                        >
-                            <h4 className="font-medium text-gray-900">Monitor Jobs</h4>
-                            <p className="mt-1 text-sm text-gray-600">View job queue and retry failed jobs</p>
-                        </Link>
-                        <Link
-                            href="/audit"
-                            className="block rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow"
-                        >
-                            <h4 className="font-medium text-gray-900">Audit Log</h4>
-                            <p className="mt-1 text-sm text-gray-600">Review system-wide audit trail</p>
-                        </Link>
-                    </div>
+            {/* Quick Actions */}
+            <div className="mt-8">
+                <h3 className="text-lg font-semibold text-foreground mb-4">Ações Rápidas</h3>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <Link href="/tenants">
+                        <Card variant="interactive" className="group relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-5 transition-opacity group-hover:opacity-10">
+                                <svg className="w-16 h-16 text-primary" fill="currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" /></svg>
+                            </div>
+                            <CardHeader>
+                                <CardTitle className="group-hover:text-primary transition-colors">Gerenciar Tenants</CardTitle>
+                                <CardDescription>Visualizar e editar clientes da plataforma.</CardDescription>
+                            </CardHeader>
+                        </Card>
+                    </Link>
+
+                    <Link href="/jobs">
+                        <Card variant="interactive" className="group relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-5 transition-opacity group-hover:opacity-10">
+                                <svg className="w-16 h-16 text-chart-2" fill="currentColor" viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" /></svg>
+                            </div>
+                            <CardHeader>
+                                <CardTitle className="group-hover:text-chart-2 transition-colors">Monitorar Jobs</CardTitle>
+                                <CardDescription>Acompanhar filas de processamento.</CardDescription>
+                            </CardHeader>
+                        </Card>
+                    </Link>
+
+                    <Link href="/audit">
+                        <Card variant="interactive" className="group relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-5 transition-opacity group-hover:opacity-10">
+                                <svg className="w-16 h-16 text-chart-4" fill="currentColor" viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z" /></svg>
+                            </div>
+                            <CardHeader>
+                                <CardTitle className="group-hover:text-chart-4 transition-colors">Logs de Auditoria</CardTitle>
+                                <CardDescription>Rastrear atividades do sistema.</CardDescription>
+                            </CardHeader>
+                        </Card>
+                    </Link>
                 </div>
-            </main>
+            </div>
         </div>
     )
 }
