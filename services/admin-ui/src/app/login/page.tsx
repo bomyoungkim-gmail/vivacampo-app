@@ -18,7 +18,7 @@ export default function AdminLoginPage() {
         // For now, just store it
         if (token.length > 10) {
             localStorage.setItem('admin_token', token)
-            router.push('/admin/dashboard')
+            router.push('/dashboard')
         } else {
             setError('Token inválido')
             setLoading(false)

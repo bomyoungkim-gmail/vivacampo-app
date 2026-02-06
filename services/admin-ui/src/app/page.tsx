@@ -10,9 +10,9 @@ export default function AdminHome() {
         // Check if admin is authenticated
         const token = localStorage.getItem('admin_token')
         if (token) {
-            router.push('/admin/dashboard')
+            router.push('/dashboard')
         } else {
-            router.push('/admin/login')
+            router.push('/login')
         }
     }, [router])
 

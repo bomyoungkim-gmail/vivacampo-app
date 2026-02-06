@@ -50,7 +50,7 @@ export function middleware(request: NextRequest) {
         "style-src 'self' 'unsafe-inline' https://unpkg.com",
         "img-src 'self' data: https: blob:",
         "font-src 'self' data:",
-        "connect-src 'self' http://localhost:8000 https://unpkg.com",
+        "connect-src 'self' http://localhost:8000 https://api.vivacampo.placestecnologia.com.br https://unpkg.com",
         "frame-ancestors 'none'"
     ].join('; ')
     response.headers.set('Content-Security-Policy', csp)

@@ -31,7 +31,7 @@ export default function AdminDashboardPage() {
     useEffect(() => {
         const token = localStorage.getItem('admin_token')
         if (!token) {
-            router.push('/admin/login')
+            router.push('/login')
             return
         }
 
@@ -56,7 +56,7 @@ export default function AdminDashboardPage() {
 
     const handleLogout = () => {
         localStorage.removeItem('admin_token')
-        router.push('/admin/login')
+        router.push('/login')
     }
 
     if (loading) {
@@ -98,16 +98,16 @@ export default function AdminDashboardPage() {
             <nav className="bg-white border-b border-gray-200">
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div className="flex space-x-8">
-                        <Link href="/admin/dashboard" className="border-b-2 border-blue-600 px-1 py-4 text-sm font-medium text-blue-600">
+                        <Link href="/dashboard" className="border-b-2 border-blue-600 px-1 py-4 text-sm font-medium text-blue-600">
                             Dashboard
                         </Link>
-                        <Link href="/admin/tenants" className="border-b-2 border-transparent px-1 py-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+                        <Link href="/tenants" className="border-b-2 border-transparent px-1 py-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
                             Tenants
                         </Link>
-                        <Link href="/admin/jobs" className="border-b-2 border-transparent px-1 py-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+                        <Link href="/jobs" className="border-b-2 border-transparent px-1 py-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
                             Jobs
                         </Link>
-                        <Link href="/admin/audit" className="border-b-2 border-transparent px-1 py-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
+                        <Link href="/audit" className="border-b-2 border-transparent px-1 py-4 text-sm font-medium text-gray-500 hover:border-gray-300 hover:text-gray-700">
                             Audit Log
                         </Link>
                     </div>
@@ -160,21 +160,21 @@ export default function AdminDashboardPage() {
                     <h3 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <Link
-                            href="/admin/tenants"
+                            href="/tenants"
                             className="block rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow"
                         >
                             <h4 className="font-medium text-gray-900">Manage Tenants</h4>
                             <p className="mt-1 text-sm text-gray-600">View and manage all tenants</p>
                         </Link>
                         <Link
-                            href="/admin/jobs"
+                            href="/jobs"
                             className="block rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow"
                         >
                             <h4 className="font-medium text-gray-900">Monitor Jobs</h4>
                             <p className="mt-1 text-sm text-gray-600">View job queue and retry failed jobs</p>
                         </Link>
                         <Link
-                            href="/admin/audit"
+                            href="/audit"
                             className="block rounded-lg bg-white p-6 shadow hover:shadow-md transition-shadow"
                         >
                             <h4 className="font-medium text-gray-900">Audit Log</h4>
