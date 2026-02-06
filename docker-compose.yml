@@ -107,7 +107,7 @@ services:
       context: ./services/admin-ui
       target: deps
     environment:
-      - NEXT_PUBLIC_API_BASE=http://localhost:8000
+      - NEXT_PUBLIC_API_BASE=https://api.vivacampo.placestecnologia.com.br
       - NEXT_PUBLIC_BASE_PATH=/admin
     ports: ["3001:3001"]
     volumes:
@@ -121,12 +121,12 @@ services:
     build:
       context: ./services/app-ui
       args:
-        NEXT_PUBLIC_API_BASE: /app/api
+        NEXT_PUBLIC_API_BASE: https://api.vivacampo.placestecnologia.com.br
         NEXT_PUBLIC_BASE_PATH: /app
         NEXT_PUBLIC_ENABLE_MOCK_AUTH: "true"
       target: deps
     environment:
-      - NEXT_PUBLIC_API_BASE=/app/api
+      - NEXT_PUBLIC_API_BASE=https://api.vivacampo.placestecnologia.com.br
       - NEXT_PUBLIC_BASE_PATH=/app
       - NEXT_PUBLIC_ENABLE_MOCK_AUTH=true
     ports: ["3002:3000"]
