@@ -1,25 +1,25 @@
-import base64
-import json
 import logging
 from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import text
+from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.schemas import OpportunitySignalView
-from app.auth.dependencies import get_current_membership, CurrentMembership
-from app.infrastructure.repositories import SignalRepository
+from app.auth.dependencies import get_current_membership, CurrentMembership, get_current_tenant_id
+from app.domain.value_objects.tenant_id import TenantId
+from app.application.dtos.signals import AckSignalCommand, GetSignalCommand, ListSignalsCommand
+from app.infrastructure.di_container import ApiContainer
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(responses=DEFAULT_ERROR_RESPONSES, dependencies=[Depends(get_current_tenant_id)])
 
 
 @router.get("/signals", response_model=List[OpportunitySignalView])
-def list_signals(
+async def list_signals(
     status: Optional[str] = None,
     signal_type: Optional[str] = None,
     aoi_id: Optional[UUID] = None,
@@ -34,97 +34,52 @@ def list_signals(
     List opportunity signals for the current tenant.
     Uses cursor-based pagination for scalability.
     """
-    # Start with base condition on tenant
-    conditions = ["s.tenant_id = :tenant_id"]
-    params = {
-        "tenant_id": str(membership.tenant_id),
-        "limit": min(limit, 100)
-    }
-    
-    # Decode cursor
-    if cursor:
-        try:
-            decoded = base64.b64decode(cursor).decode()
-            cursor_id, cursor_created = decoded.split(":")
-            # Use tuple comparison for cursor pagination
-            conditions.append("(s.created_at, s.id) < (:cursor_created, :cursor_id)")
-            params["cursor_created"] = cursor_created
-            params["cursor_id"] = cursor_id
-        except Exception as e:
-            logger.warning("invalid_cursor", cursor=cursor, exc_info=e)
-            raise HTTPException(status_code=400, detail="Invalid cursor")
-    
-    if status:
-        conditions.append("s.status = :status")
-        params["status"] = status
-    
-    if signal_type:
-        conditions.append("s.signal_type = :signal_type")
-        params["signal_type"] = signal_type
-    
-    if aoi_id:
-        conditions.append("s.aoi_id = :aoi_id")
-        params["aoi_id"] = str(aoi_id)
+    container = ApiContainer()
+    use_case = container.list_signals_use_case(db)
 
-    if farm_id:
-        conditions.append("a.farm_id = :farm_id")
-        params["farm_id"] = str(farm_id)
-    
-    sql = text(f"""
-        SELECT s.id, s.aoi_id, a.name as aoi_name, s.year, s.week, s.signal_type, s.status, s.severity, 
-               s.confidence, s.score, s.model_version, s.change_method, 
-               s.evidence_json, s.recommended_actions, s.created_at
-        FROM opportunity_signals s
-        JOIN aois a ON s.aoi_id = a.id
-        WHERE {' AND '.join(conditions)}
-        ORDER BY s.created_at DESC, s.id DESC
-        LIMIT :limit + 1
-    """)
-    
-    result = db.execute(sql, params)
-    
-    signals = []
-    has_more = False
-    
-    for idx, row in enumerate(result):
-        if idx >= limit:
-            has_more = True
-            break
-        
-        signals.append(OpportunitySignalView(
-            id=row.id,
-            aoi_id=row.aoi_id,
-            aoi_name=row.aoi_name,
-            year=row.year,
-            week=row.week,
-            signal_type=row.signal_type,
-            status=row.status,
-            severity=row.severity,
-            confidence=row.confidence,
-            score=row.score,
-            model_version=row.model_version,
-            change_method=row.change_method,
-            evidence_json=json.loads(row.evidence_json) if isinstance(row.evidence_json, str) else (row.evidence_json or {}),
-            recommended_actions=json.loads(row.recommended_actions) if isinstance(row.recommended_actions, str) else (row.recommended_actions or []),
-            created_at=row.created_at
-        ))
-    
-    # Generate next cursor
-    next_cursor = None
-    if has_more and signals:
-        last_signal = signals[-1]
-        cursor_str = f"{last_signal.id}:{last_signal.created_at}"
-        next_cursor = base64.b64encode(cursor_str.encode()).decode()
-    
-    # Add next_cursor to response headers
-    if next_cursor:
-        response.headers["X-Next-Cursor"] = next_cursor
-    
-    return signals
+    try:
+        result = await use_case.execute(
+            ListSignalsCommand(
+                tenant_id=TenantId(value=membership.tenant_id),
+                status=status,
+                signal_type=signal_type,
+                aoi_id=aoi_id,
+                farm_id=farm_id,
+                cursor=cursor,
+                limit=limit,
+            )
+        )
+    except Exception as e:
+        logger.warning("invalid_cursor", cursor=cursor, exc_info=e)
+        raise HTTPException(status_code=400, detail="Invalid cursor")
+
+    if result.next_cursor:
+        response.headers["X-Next-Cursor"] = result.next_cursor
+
+    return [
+        OpportunitySignalView(
+            id=item.id,
+            aoi_id=item.aoi_id,
+            aoi_name=item.aoi_name,
+            year=item.year,
+            week=item.week,
+            signal_type=item.signal_type,
+            status=item.status,
+            severity=item.severity,
+            confidence=item.confidence,
+            score=item.score,
+            model_version=item.model_version,
+            change_method=item.change_method,
+            evidence_json=item.evidence_json or {},
+            recommended_actions=item.recommended_actions or [],
+            created_at=item.created_at,
+        )
+        for item in result.items
+    ]
 
 
 @router.get("/signals/{signal_id}", response_model=OpportunitySignalView)
-def get_signal(
+async def get_signal(
     signal_id: str,
     membership: CurrentMembership = Depends(get_current_membership),
     db: Session = Depends(get_db)
@@ -132,48 +87,36 @@ def get_signal(
     """
     Get a specific signal by ID.
     """
-    # Use raw SQL to get AOI name efficiently
-    sql = text("""
-        SELECT s.id, s.aoi_id, a.name as aoi_name, s.year, s.week, s.signal_type, s.status, s.severity, 
-               s.confidence, s.score, s.model_version, s.change_method, 
-               s.evidence_json, s.recommended_actions, s.created_at
-        FROM opportunity_signals s
-        JOIN aois a ON s.aoi_id = a.id
-        WHERE s.id = :signal_id AND s.tenant_id = :tenant_id
-    """)
-    
-    result = db.execute(sql, {
-        "signal_id": signal_id,
-        "tenant_id": str(membership.tenant_id)
-    }).first()
-    
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Signal not found"
-        )
-        
+    container = ApiContainer()
+    use_case = container.get_signal_use_case(db)
+    signal = await use_case.execute(
+        GetSignalCommand(tenant_id=TenantId(value=membership.tenant_id), signal_id=UUID(signal_id))
+    )
+
+    if not signal:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Signal not found")
+
     return OpportunitySignalView(
-        id=result.id,
-        aoi_id=result.aoi_id,
-        aoi_name=result.aoi_name,
-        year=result.year,
-        week=result.week,
-        signal_type=result.signal_type,
-        status=result.status,
-        severity=result.severity,
-        confidence=result.confidence,
-        score=result.score,
-        model_version=result.model_version,
-        change_method=result.change_method,
-        evidence_json=json.loads(result.evidence_json) if isinstance(result.evidence_json, str) else (result.evidence_json or {}),
-        recommended_actions=json.loads(result.recommended_actions) if isinstance(result.recommended_actions, str) else (result.recommended_actions or []),
-        created_at=result.created_at
+        id=signal.id,
+        aoi_id=signal.aoi_id,
+        aoi_name=signal.aoi_name,
+        year=signal.year,
+        week=signal.week,
+        signal_type=signal.signal_type,
+        status=signal.status,
+        severity=signal.severity,
+        confidence=signal.confidence,
+        score=signal.score,
+        model_version=signal.model_version,
+        change_method=signal.change_method,
+        evidence_json=signal.evidence_json or {},
+        recommended_actions=signal.recommended_actions or [],
+        created_at=signal.created_at,
     )
 
 
 @router.post("/signals/{signal_id}/ack", status_code=status.HTTP_200_OK)
-def acknowledge_signal(
+async def acknowledge_signal(
     signal_id: UUID, # Changed type hint from str to UUID
     membership: CurrentMembership = Depends(get_current_membership),
     db: Session = Depends(get_db)
@@ -181,19 +124,13 @@ def acknowledge_signal(
     """
     Acknowledge a signal (change status to ACK).
     """
-    signal_repo = SignalRepository(db)
-    signal = signal_repo.get_by_id(
-        signal_id=signal_id, # Removed redundant UUID() constructor call
-        tenant_id=membership.tenant_id
+    container = ApiContainer()
+    use_case = container.ack_signal_use_case(db)
+    ok = await use_case.execute(
+        AckSignalCommand(tenant_id=TenantId(value=membership.tenant_id), signal_id=signal_id)
     )
-    
-    if not signal:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Signal not found"
-        )
-    
-    signal.status = "ACK"
-    db.commit()
-    
+
+    if not ok:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Signal not found")
+
     return {"message": "Signal acknowledged"}

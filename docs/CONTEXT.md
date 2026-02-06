@@ -1,6 +1,6 @@
 # Durable Project Context (Human-readable)
 
-Last Updated: 2026-02-04 11:05
+Last Updated: 2026-02-06
 
 ## What this is
 This file is the compact, durable memory of the project.
@@ -24,10 +24,11 @@ Keep it short (1–2 pages). Update it weekly or after major changes.
 - No GIS software required (web-based map interface)
 
 ## Current State
-**Stage:** MVP (Development) - 90% complete
+**Stage:** MVP (Development) - hexagonal migration complete; validation pending
 
 **What exists today:**
 - ✅ Multi-tenant backend (FastAPI + PostGIS)
+- ✅ Hexagonal architecture across API/Worker (ports/adapters, use cases, DI)
 - ✅ Background job processor (Python Worker + SQS)
 - ✅ Map tile server (TiTiler for COG → XYZ tiles)
 - ✅ User frontend (Next.js + Leaflet + Geoman)
@@ -47,15 +48,18 @@ Keep it short (1–2 pages). Update it weekly or after major changes.
 - ✅ Radar fallback tooltip + radar mode badge
 - ✅ AI Copilot (anomaly detection, recommended actions)
 - ✅ Authentication (OIDC + Mock for dev)
+- ✅ Security suite for tenant isolation (`tests/security/`)
+- ✅ RLS context wiring + migration available (set_config + SQL)
 
 **What is missing:**
 - ✅ TiTiler security (presigned URLs; raw S3 URIs not exposed)
 - ✅ Integration tests for Worker jobs and external integrations (stubbed)
 - ✅ Dynamic Tiling with MosaicJSON (ADR-0007) - multi-band vegetation indices working
 - ⚠️ Cloudflare CDN setup for tile caching (workers ready; pending credentials)
-- ⚠️ Data migration to dynamic tiling (legacy COG cleanup)
-- ⚠️ GIS integration documentation (QGIS/ArcGIS)
+- ⚠️ E2E validation (Playwright) with WebKit/Mobile Safari remaining
 - ⚠️ Validation after volume run (Admin UI Jobs, missing-weeks reprocess, error visibility)
+- ⚠️ Staging/prod validation of new flows (tiles/process_week/admin jobs/missing weeks)
+- ⚠️ RLS rollout validation in staging/prod
 - ⚠️ Request ID propagation across services
 - ⚠️ Production deployment (staging + CI/CD workflows ready; pending credentials)
 - ⚠️ Alert delivery (email/SMS/push notifications)
@@ -100,7 +104,7 @@ Keep it short (1–2 pages). Update it weekly or after major changes.
 - Job errors: `jobs.error_message` persists failure reasons
 
 **Domain Contract:**
-- Location: `services/api/app/infrastructure/models.py` (SQLAlchemy ORM)
+- Location: `services/api/app/domain` + `services/worker/worker/domain`
 - Multi-tenant isolation: All queries filter by `tenant_id`
 - No business logic in routers (thin controllers)
 
@@ -166,9 +170,9 @@ Keep it short (1–2 pages). Update it weekly or after major changes.
 
 **Security:**
 - Auth: OIDC (production), Mock (dev)
-- Multi-tenant: Row-level security via `tenant_id`
+- Multi-tenant: RLS via `tenant_id` + `set_config` context
 - Rate limiting: 100 req/min per IP (SlowAPI)
 - Secrets: Env vars (local), AWS Secrets Manager (prod, planned)
 
 ## Last Updated
-2026-02-04 20:15
+2026-02-06

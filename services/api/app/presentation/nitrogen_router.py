@@ -7,16 +7,20 @@ from uuid import UUID
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.application.nitrogen import GetNitrogenStatusUseCase
-from app.auth.dependencies import CurrentMembership, get_current_membership
+from app.application.dtos.nitrogen import GetNitrogenStatusCommand
+from app.application.use_cases.nitrogen import GetNitrogenStatusUseCase
+from app.auth.dependencies import CurrentMembership, get_current_membership, get_current_tenant_id
 from app.config import settings
 from app.database import get_db
+from app.domain.value_objects.tenant_id import TenantId
+from app.infrastructure.di_container import ApiContainer
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(responses=DEFAULT_ERROR_RESPONSES, dependencies=[Depends(get_current_tenant_id)])
 
 
 class NitrogenStatus(BaseModel):
@@ -37,8 +41,15 @@ def get_nitrogen_status(
 ):
     """Get nitrogen deficiency status for an AOI."""
     base_url = settings.api_base_url or "http://localhost:8000"
-    use_case = GetNitrogenStatusUseCase(db)
-    result = use_case.execute(str(membership.tenant_id), str(aoi_id), base_url)
+    container = ApiContainer()
+    use_case = container.nitrogen_use_case(db)
+    result = use_case.execute(
+        GetNitrogenStatusCommand(
+            tenant_id=TenantId(value=membership.tenant_id),
+            aoi_id=str(aoi_id),
+            base_url=base_url,
+        )
+    )
 
     if not result:
         raise HTTPException(
@@ -46,4 +57,4 @@ def get_nitrogen_status(
             detail="No vegetation data found",
         )
 
-    return NitrogenStatus(**result)
+    return NitrogenStatus(**result.model_dump())

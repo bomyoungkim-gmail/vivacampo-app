@@ -1,14 +1,20 @@
 import boto3
+from botocore.config import Config
 from app.config import settings
 
 class SQSClientWrapper:
     def __init__(self):
+        config = Config(
+            connect_timeout=settings.aws_connect_timeout_seconds,
+            read_timeout=settings.aws_read_timeout_seconds,
+        )
         self.client = boto3.client(
             "sqs",
             region_name=settings.aws_region,
             endpoint_url=settings.aws_endpoint_url,
             aws_access_key_id=settings.aws_access_key_id,
             aws_secret_access_key=settings.aws_secret_access_key,
+            config=config,
         )
 
     def send_message(self, queue_name_or_url: str, body: str):

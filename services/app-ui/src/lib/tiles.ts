@@ -100,18 +100,3 @@ export function isDynamicTilingEnabled(): boolean {
   return !APP_CONFIG.IS_PRODUCTION
 }
 
-/**
- * Map legacy tile prop names to index names.
- */
-export const LEGACY_TILE_PROP_MAP: Record<string, string> = {
-  ndviTileUrl: 'ndvi',
-  ndwiTileUrl: 'ndwi',
-  ndmiTileUrl: 'ndmi',
-  saviTileUrl: 'savi',
-  eviTileUrl: 'evi',
-  ndreTileUrl: 'ndre',
-  gndviTileUrl: 'gndvi',
-  anomalyTileUrl: 'anomaly',
-  falseColorTileUrl: 'false_color',
-  trueColorTileUrl: 'true_color',
-}

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator, EmailStr
+from pydantic import BaseModel, ConfigDict, Field, EmailStr, field_validator
 from typing import Literal, Optional, List
 from uuid import UUID
 from datetime import datetime
@@ -13,9 +13,11 @@ class OIDCLoginRequest(BaseModel):
     provider: Literal["cognito", "google", "microsoft", "local"]
     id_token: str
     
-    @validator('provider')
+    @field_validator("provider", mode="before")
     def validate_provider(cls, v):
-        return v.lower()
+        if isinstance(v, str):
+            return v.lower()
+        return v
 
 
 class IdentityView(BaseModel):
@@ -24,8 +26,7 @@ class IdentityView(BaseModel):
     name: str
     status: str
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class WorkspaceView(BaseModel):
@@ -59,7 +60,7 @@ class FarmCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     timezone: str = "America/Sao_Paulo"
     
-    @validator('name')
+    @field_validator("name")
     def sanitize_name(cls, v):
         return bleach.clean(v, tags=[], strip=True)
 
@@ -72,8 +73,7 @@ class FarmView(BaseModel):
     aoi_count: int = 0
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============
@@ -86,11 +86,11 @@ class AOICreate(BaseModel):
     use_type: Literal["PASTURE", "CROP", "TIMBER"]
     geom: dict  # GeoJSON MultiPolygon
     
-    @validator('name')
+    @field_validator("name")
     def sanitize_name(cls, v):
         return bleach.clean(v, tags=[], strip=True)
     
-    @validator('geom')
+    @field_validator("geom")
     def validate_geojson(cls, v):
         if v.get('type') != 'MultiPolygon':
             raise ValueError("Geometry must be MultiPolygon")
@@ -108,8 +108,7 @@ class AOIView(BaseModel):
     area_ha: float
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ============
@@ -130,17 +129,17 @@ class OpportunitySignalView(BaseModel):
     model_version: str
     change_method: str
     evidence_json: dict
-    recommended_actions: List[str] = Field(..., max_items=5)
+    recommended_actions: List[str] = Field(..., max_length=5)
     created_at: datetime
     
-    @validator('recommended_actions')
+    @field_validator("recommended_actions")
     def validate_actions(cls, v):
         for action in v:
             if len(action) > 120:
                 raise ValueError("Action must be ≤120 chars")
         return v
     
-    @validator('evidence_json')
+    @field_validator("evidence_json")
     def validate_evidence(cls, v):
         required = ['window_weeks', 'baseline_ref', 'valid_pixel_ratio_summary', 'change_detection']
         for key in required:
@@ -148,8 +147,7 @@ class OpportunitySignalView(BaseModel):
                 raise ValueError(f"Missing required evidence field: {key}")
         return v
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SignalFeedbackCreate(BaseModel):
@@ -165,14 +163,14 @@ class AOICreate(BaseModel):
     use_type: Literal["PASTURE", "CROP", "TIMBER"]
     geometry: str  # WKT from frontend
     
-    @validator('name')
+    @field_validator("name")
     def sanitize_name(cls, v):
         return bleach.clean(v, tags=[], strip=True)
 
 
 class AOIView(BaseModel):
     id: UUID
-    tenant_id: UUID = None # Optional or default
+    tenant_id: Optional[UUID] = None  # Optional or default
     farm_id: UUID
     name: str
     use_type: str
@@ -181,8 +179,7 @@ class AOIView(BaseModel):
     geometry: str # Added geometry field
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class AOIPatch(BaseModel):
@@ -330,14 +327,15 @@ class CopilotApprovalDecision(BaseModel):
 class ErrorResponse(BaseModel):
     error: dict
     
-    class Config:
-        schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "error": {
                     "code": "VALIDATION_ERROR",
                     "message": "Invalid input",
                     "details": {},
-                    "request_id": "abc123"
+                    "traceId": "abc123",
                 }
             }
         }
+    )

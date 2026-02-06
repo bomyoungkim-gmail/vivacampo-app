@@ -1,21 +1,25 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 from app.database import get_db
-from app.auth.dependencies import get_current_membership, CurrentMembership, require_role
-from app.application.farms import CreateFarmUseCase, ListFarmsUseCase
+from app.auth.dependencies import get_current_membership, CurrentMembership, require_role, get_current_tenant_id
+from app.application.dtos.farms import CreateFarmCommand, ListFarmsCommand
+from app.application.dtos.geocoding import GeocodeCommand
+from app.domain.value_objects.tenant_id import TenantId
+from app.infrastructure.di_container import ApiContainer
 from app.schemas import FarmCreate, FarmView
 from app.domain.quotas import check_farm_quota, QuotaExceededError
 from app.domain.audit import get_audit_logger
 import structlog
 
 logger = structlog.get_logger()
-router = APIRouter()
+router = APIRouter(responses=DEFAULT_ERROR_RESPONSES, dependencies=[Depends(get_current_tenant_id)])
 
 
 @router.post("/farms", response_model=FarmView, status_code=status.HTTP_201_CREATED)
-def create_farm(
+async def create_farm(
     farm_data: FarmCreate,
     membership: CurrentMembership = Depends(require_role("OPERATOR")),
     db: Session = Depends(get_db)
@@ -34,11 +38,14 @@ def create_farm(
             detail=f"Farm quota exceeded: {e.current}/{e.limit}"
         )
     
-    use_case = CreateFarmUseCase(db)
-    farm = use_case.execute(
-        tenant_id=str(membership.tenant_id),
-        name=farm_data.name,
-        timezone=farm_data.timezone
+    container = ApiContainer()
+    use_case = container.create_farm_use_case(db)
+    farm = await use_case.execute(
+        CreateFarmCommand(
+            tenant_id=TenantId(value=membership.tenant_id),
+            name=farm_data.name,
+            timezone=farm_data.timezone,
+        )
     )
     
     # Audit log
@@ -51,20 +58,38 @@ def create_farm(
         resource_id=str(farm.id),
         metadata={"name": farm_data.name, "timezone": farm_data.timezone}
     )
-    return FarmView.from_orm(farm)
+    return FarmView(
+        id=farm.id,
+        tenant_id=farm.tenant_id,
+        name=farm.name,
+        timezone=farm.timezone,
+        aoi_count=farm.aoi_count,
+        created_at=farm.created_at,
+    )
 
 
 @router.get("/farms", response_model=List[FarmView])
-def list_farms(
+async def list_farms(
     membership: CurrentMembership = Depends(get_current_membership),
     db: Session = Depends(get_db)
 ):
     """
     List all farms for the current tenant.
     """
-    use_case = ListFarmsUseCase(db)
-    farms = use_case.execute(tenant_id=membership.tenant_id)
-    return [FarmView.from_orm(farm) for farm in farms]
+    container = ApiContainer()
+    use_case = container.list_farms_use_case(db)
+    farms = await use_case.execute(ListFarmsCommand(tenant_id=TenantId(value=membership.tenant_id)))
+    return [
+        FarmView(
+            id=farm.id,
+            tenant_id=farm.tenant_id,
+            name=farm.name,
+            timezone=farm.timezone,
+            aoi_count=farm.aoi_count,
+            created_at=farm.created_at,
+        )
+        for farm in farms
+    ]
 
 
 @router.get("/farms/geocode")
@@ -77,25 +102,11 @@ async def geocode_location(
     """
     if not q:
         return []
-        
-    import httpx
-    
-    url = "https://nominatim.openstreetmap.org/search"
-    params = {
-        "format": "json",
-        "q": q,
-        "limit": 5,
-        "addressdetails": 1
-    }
-    headers = {
-        "User-Agent": "VivaCampo/1.0 (contact@vivacampo.com)"
-    }
-    
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.get(url, params=params, headers=headers)
-            resp.raise_for_status()
-            return resp.json()
-        except Exception as e:
-            logger.error("geocode_failed", error=str(e))
-            raise HTTPException(status_code=500, detail="Geocoding service unavailable")
+
+    container = ApiContainer()
+    use_case = container.geocode_use_case()
+    try:
+        return await use_case.execute(GeocodeCommand(query=q))
+    except Exception as e:
+        logger.error("geocode_failed", error=str(e))
+        raise HTTPException(status_code=500, detail="Geocoding service unavailable")

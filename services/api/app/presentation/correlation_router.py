@@ -4,15 +4,19 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.application.correlation import CorrelationService
-from app.auth.dependencies import CurrentMembership, get_current_membership
+from app.application.dtos.correlation import CorrelationCommand, YearOverYearCommand
+from app.application.use_cases.correlation import CorrelationUseCase, YearOverYearUseCase
+from app.auth.dependencies import CurrentMembership, get_current_membership, get_current_tenant_id
 from app.database import get_db
+from app.domain.value_objects.tenant_id import TenantId
+from app.infrastructure.di_container import ApiContainer
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(responses=DEFAULT_ERROR_RESPONSES, dependencies=[Depends(get_current_tenant_id)])
 
 
 class CorrelationDataPoint(BaseModel):
@@ -54,14 +58,20 @@ def get_vigor_climate_correlation(
     db: Session = Depends(get_db),
 ):
     """Get correlation data between vegetation vigor and climate."""
-    service = CorrelationService(db)
-    data = service.fetch_correlation_data(str(aoi_id), str(membership.tenant_id), weeks)
-    if not data:
+    container = ApiContainer()
+    use_case = container.correlation_use_case(db)
+    result = use_case.execute(
+        CorrelationCommand(
+            tenant_id=TenantId(value=membership.tenant_id),
+            aoi_id=str(aoi_id),
+            weeks=weeks,
+        )
+    )
+    if not result.data:
         raise HTTPException(status_code=404, detail="No correlation data found")
-    insights = service.generate_insights(data)
     return CorrelationResponse(
-        data=[CorrelationDataPoint(**d) for d in data],
-        insights=[Insight(**i) for i in insights],
+        data=[CorrelationDataPoint(**d.model_dump()) for d in result.data],
+        insights=[Insight(**i.model_dump()) for i in result.insights],
     )
 
 
@@ -72,13 +82,19 @@ def get_year_over_year(
     db: Session = Depends(get_db),
 ):
     """Get year-over-year NDVI comparison for an AOI."""
-    service = CorrelationService(db)
-    result = service.fetch_year_over_year(str(aoi_id), str(membership.tenant_id))
+    container = ApiContainer()
+    use_case = container.year_over_year_use_case(db)
+    result = use_case.execute(
+        YearOverYearCommand(
+            tenant_id=TenantId(value=membership.tenant_id),
+            aoi_id=str(aoi_id),
+        )
+    )
     if not result:
         raise HTTPException(status_code=404, detail="No year-over-year data found")
     return YearOverYearResponse(
-        current_year=result["current_year"],
-        previous_year=result["previous_year"],
-        current_series=[YearOverYearPoint(**d) for d in result["current_series"]],
-        previous_series=[YearOverYearPoint(**d) for d in result["previous_series"]],
+        current_year=result.current_year,
+        previous_year=result.previous_year,
+        current_series=[YearOverYearPoint(**p.model_dump()) for p in result.current_series],
+        previous_series=[YearOverYearPoint(**p.model_dump()) for p in result.previous_series],
     )

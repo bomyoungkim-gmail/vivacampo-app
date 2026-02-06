@@ -15,9 +15,13 @@ _s3_client = None
 def get_s3_client():
     global _s3_client
     if _s3_client is None:
-        config = None
+        config_kwargs = {
+            "connect_timeout": settings.aws_connect_timeout_seconds,
+            "read_timeout": settings.aws_read_timeout_seconds,
+        }
         if settings.s3_force_path_style:
-            config = Config(s3={"addressing_style": "path"})
+            config_kwargs["s3"] = {"addressing_style": "path"}
+        config = Config(**config_kwargs)
         _s3_client = boto3.client(
             "s3",
             region_name=settings.aws_region,

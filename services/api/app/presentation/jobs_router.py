@@ -1,20 +1,29 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 from typing import List, Optional
 from uuid import UUID
 from app.database import get_db
-from app.auth.dependencies import get_current_membership, CurrentMembership, require_role
+from app.auth.dependencies import get_current_membership, CurrentMembership, require_role, get_current_tenant_id
+from app.domain.value_objects.tenant_id import TenantId
+from app.application.dtos.jobs import (
+    CancelJobCommand,
+    GetJobCommand,
+    ListJobRunsCommand,
+    ListJobsCommand,
+    RetryJobCommand,
+)
+from app.infrastructure.di_container import ApiContainer
 from app.schemas import JobView, JobRunView
 from app.domain.audit import get_audit_logger
 import structlog
 
 logger = structlog.get_logger()
-router = APIRouter()
+router = APIRouter(responses=DEFAULT_ERROR_RESPONSES, dependencies=[Depends(get_current_tenant_id)])
 
 
 @router.get("/jobs", response_model=List[JobView])
-def list_jobs(
+async def list_jobs(
     aoi_id: Optional[UUID] = None,
     job_type: Optional[str] = None,
     status: Optional[str] = None,
@@ -23,128 +32,89 @@ def list_jobs(
     db: Session = Depends(get_db)
 ):
     """List jobs for the current tenant"""
-    conditions = ["tenant_id = :tenant_id"]
-    params = {
-        "tenant_id": str(membership.tenant_id),
-        "limit": min(limit, 100)
-    }
-    
-    if aoi_id:
-        conditions.append("aoi_id = :aoi_id")
-        params["aoi_id"] = str(aoi_id)
-    
-    if job_type:
-        conditions.append("job_type = :job_type")
-        params["job_type"] = job_type
-    
-    if status:
-        conditions.append("status = :status")
-        params["status"] = status
-    
-    sql = text(f"""
-        SELECT id, aoi_id, job_type, status, created_at, updated_at
-        FROM jobs
-        WHERE {' AND '.join(conditions)}
-        ORDER BY created_at DESC
-        LIMIT :limit
-    """)
-    
-    result = db.execute(sql, params)
-    
-    jobs = []
-    for row in result:
-        jobs.append(JobView(
-            id=row.id,
-            aoi_id=row.aoi_id,
-            job_type=row.job_type,
-            status=row.status,
-            created_at=row.created_at,
-            updated_at=row.updated_at
-        ))
-    
-    return jobs
+    container = ApiContainer()
+    use_case = container.list_jobs_use_case(db)
+    jobs = await use_case.execute(
+        ListJobsCommand(
+            tenant_id=TenantId(value=membership.tenant_id),
+            aoi_id=aoi_id,
+            job_type=job_type,
+            status=status,
+            limit=limit,
+        )
+    )
+
+    return [
+        JobView(
+            id=job.id,
+            aoi_id=job.aoi_id,
+            job_type=job.job_type,
+            status=job.status,
+            created_at=job.created_at,
+            updated_at=job.updated_at,
+        )
+        for job in jobs
+    ]
 
 
 @router.get("/jobs/{job_id}", response_model=JobView)
-def get_job(
+async def get_job(
     job_id: UUID,
     membership: CurrentMembership = Depends(get_current_membership),
     db: Session = Depends(get_db)
 ):
     """Get job details"""
-    sql = text("""
-        SELECT id, aoi_id, job_type, status, payload_json, created_at, updated_at
-        FROM jobs
-        WHERE id = :job_id AND tenant_id = :tenant_id
-    """)
-    
-    result = db.execute(sql, {
-        "job_id": str(job_id),
-        "tenant_id": str(membership.tenant_id)
-    }).fetchone()
-    
-    if not result:
+    container = ApiContainer()
+    use_case = container.get_job_use_case(db)
+    job = await use_case.execute(GetJobCommand(tenant_id=TenantId(value=membership.tenant_id), job_id=job_id))
+
+    if not job:
         raise HTTPException(status_code=404, detail="Job not found")
-    
-    import json
+
     return JobView(
-        id=result.id,
-        aoi_id=result.aoi_id,
-        job_type=result.job_type,
-        status=result.status,
-        payload=json.loads(result.payload_json) if result.payload_json else None,
-        created_at=result.created_at,
-        updated_at=result.updated_at
+        id=job.id,
+        aoi_id=job.aoi_id,
+        job_type=job.job_type,
+        status=job.status,
+        payload=job.payload,
+        created_at=job.created_at,
+        updated_at=job.updated_at,
     )
 
 
 @router.get("/jobs/{job_id}/runs", response_model=List[JobRunView])
-def get_job_runs(
+async def get_job_runs(
     job_id: UUID,
     membership: CurrentMembership = Depends(get_current_membership),
     db: Session = Depends(get_db)
 ):
     """Get job run history"""
-    # Verify job belongs to tenant
-    sql = text("SELECT id FROM jobs WHERE id = :job_id AND tenant_id = :tenant_id")
-    result = db.execute(sql, {
-        "job_id": str(job_id),
-        "tenant_id": str(membership.tenant_id)
-    }).fetchone()
-    
-    if not result:
+    container = ApiContainer()
+    use_case = container.list_job_runs_use_case(db)
+    runs, job_exists = await use_case.execute(
+        ListJobRunsCommand(tenant_id=TenantId(value=membership.tenant_id), job_id=job_id)
+    )
+
+    if not job_exists:
         raise HTTPException(status_code=404, detail="Job not found")
-    
-    # Get runs
-    sql = text("""
-        SELECT id, attempt, status, metrics_json, error_json, started_at, finished_at
-        FROM job_runs
-        WHERE job_id = :job_id
-        ORDER BY attempt DESC
-        LIMIT 10
-    """)
-    
-    result = db.execute(sql, {"job_id": str(job_id)})
-    
-    runs = []
-    import json
-    for row in result:
-        runs.append(JobRunView(
-            id=row.id,
-            job_id=job_id,
-            attempt=row.attempt,
-            status=row.status,
-            metrics=json.loads(row.metrics_json) if row.metrics_json else None,
-            error=json.loads(row.error_json) if row.error_json else None,
-            started_at=row.started_at,
-            finished_at=row.finished_at
-        ))
-    
-    return runs
+
+    return [
+        JobRunView(
+            id=run.id,
+            job_id=run.job_id,
+            attempt=run.attempt,
+            status=run.status,
+            metrics=run.metrics,
+            error=run.error,
+            started_at=run.started_at,
+            finished_at=run.finished_at,
+        )
+        for run in runs
+    ]
 
 
 @router.post("/jobs/{job_id}/retry", status_code=status.HTTP_202_ACCEPTED)
-def retry_job(
+async def retry_job(
     job_id: UUID,
     membership: CurrentMembership = Depends(require_role("OPERATOR")),
     db: Session = Depends(get_db)
@@ -153,38 +123,17 @@ def retry_job(
     Retry a failed job.
     Requires OPERATOR or TENANT_ADMIN role.
     """
-    # Verify job exists and is in FAILED state
-    sql = text("""
-        SELECT status FROM jobs
-        WHERE id = :job_id AND tenant_id = :tenant_id
-    """)
-    
-    result = db.execute(sql, {
-        "job_id": str(job_id),
-        "tenant_id": str(membership.tenant_id)
-    }).fetchone()
-    
-    if not result:
-        raise HTTPException(status_code=404, detail="Job not found")
-    
-    if result.status not in ["FAILED", "CANCELLED"]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot retry job in {result.status} state"
+    container = ApiContainer()
+    use_case = container.retry_job_use_case(db)
+    try:
+        ok = await use_case.execute(
+            RetryJobCommand(tenant_id=TenantId(value=membership.tenant_id), job_id=job_id)
         )
-    
-    # Update job status
-    sql = text("""
-        UPDATE jobs
-        SET status = 'PENDING', updated_at = now()
-        WHERE id = :job_id AND tenant_id = :tenant_id
-    """)
-    
-    db.execute(sql, {
-        "job_id": str(job_id),
-        "tenant_id": str(membership.tenant_id)
-    })
-    db.commit()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    if not ok:
+        raise HTTPException(status_code=404, detail="Job not found")
     
     # Audit log
     audit = get_audit_logger(db)
@@ -201,7 +150,7 @@ def retry_job(
 
 
 @router.post("/jobs/{job_id}/cancel", status_code=status.HTTP_202_ACCEPTED)
-def cancel_job(
+async def cancel_job(
     job_id: UUID,
     membership: CurrentMembership = Depends(require_role("OPERATOR")),
     db: Session = Depends(get_db)
@@ -210,38 +159,17 @@ def cancel_job(
     Cancel a pending or running job.
     Requires OPERATOR or TENANT_ADMIN role.
     """
-    # Verify job exists
-    sql = text("""
-        SELECT status FROM jobs
-        WHERE id = :job_id AND tenant_id = :tenant_id
-    """)
-    
-    result = db.execute(sql, {
-        "job_id": str(job_id),
-        "tenant_id": str(membership.tenant_id)
-    }).fetchone()
-    
-    if not result:
-        raise HTTPException(status_code=404, detail="Job not found")
-    
-    if result.status not in ["PENDING", "RUNNING"]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot cancel job in {result.status} state"
+    container = ApiContainer()
+    use_case = container.cancel_job_use_case(db)
+    try:
+        ok = await use_case.execute(
+            CancelJobCommand(tenant_id=TenantId(value=membership.tenant_id), job_id=job_id)
         )
-    
-    # Update job status
-    sql = text("""
-        UPDATE jobs
-        SET status = 'CANCELLED', updated_at = now()
-        WHERE id = :job_id AND tenant_id = :tenant_id
-    """)
-    
-    db.execute(sql, {
-        "job_id": str(job_id),
-        "tenant_id": str(membership.tenant_id)
-    })
-    db.commit()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    if not ok:
+        raise HTTPException(status_code=404, detail="Job not found")
     
     # Audit log
     audit = get_audit_logger(db)

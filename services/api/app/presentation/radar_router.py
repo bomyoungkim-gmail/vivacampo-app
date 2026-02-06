@@ -1,19 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
+from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 from typing import List, Optional
 from uuid import UUID
-from datetime import date
-import json
 
 from app.database import get_db
-from app.auth.dependencies import get_current_membership, CurrentMembership
-from app.config import settings
+from app.auth.dependencies import get_current_membership, CurrentMembership, get_current_tenant_id
 from app.infrastructure.s3_client import presign_row_s3_fields
-import structlog
+from app.application.dtos.radar import RadarHistoryCommand
+from app.domain.value_objects.tenant_id import TenantId
+from app.infrastructure.di_container import ApiContainer
 
-logger = structlog.get_logger()
-router = APIRouter()
+router = APIRouter(responses=DEFAULT_ERROR_RESPONSES, dependencies=[Depends(get_current_tenant_id)])
 
 @router.get("/aois/{aoi_id}/radar/history", response_model=List[dict])
 async def get_radar_history(
@@ -26,34 +24,15 @@ async def get_radar_history(
     """
     Get historical Radar (Sentinel-1) data (RVI, Ratio).
     """
-    conditions = ["tenant_id = :tenant_id", "aoi_id = :aoi_id"]
-    params = {
-        "tenant_id": str(membership.tenant_id),
-        "aoi_id": str(aoi_id),
-        "limit": limit
-    }
-    
-    if year:
-        conditions.append("year = :year")
-        params["year"] = year
-        
-    where_clause = " AND ".join(conditions)
-    
-    sql = text(f"""
-        SELECT year, week, rvi_mean, rvi_std, ratio_mean, ratio_std, rvi_s3_uri, ratio_s3_uri
-        FROM derived_radar_assets
-        WHERE {where_clause}
-        ORDER BY year DESC, week DESC
-        LIMIT :limit
-    """)
-    
-    try:
-        result = db.execute(sql, params)
-        s3_fields = ["rvi_s3_uri", "ratio_s3_uri"]
-        return [
-            presign_row_s3_fields(dict(row._mapping), s3_fields)
-            for row in result
-        ]
-    except Exception as e:
-        logger.warning("radar_table_query_failed", exc_info=e)
-        return []
+    container = ApiContainer()
+    use_case = container.radar_history_use_case(db)
+    history = await use_case.execute(
+        RadarHistoryCommand(
+            tenant_id=TenantId(value=membership.tenant_id),
+            aoi_id=aoi_id,
+            year=year,
+            limit=limit,
+        )
+    )
+    s3_fields = ["rvi_s3_uri", "ratio_s3_uri"]
+    return [presign_row_s3_fields(row, s3_fields) for row in history]

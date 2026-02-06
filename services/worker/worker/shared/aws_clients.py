@@ -1,4 +1,5 @@
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 from worker.config import settings
 import structlog
@@ -8,12 +9,17 @@ logger = structlog.get_logger()
 
 class SQSClient:
     def __init__(self):
+        config = Config(
+            connect_timeout=settings.aws_connect_timeout_seconds,
+            read_timeout=settings.aws_read_timeout_seconds,
+        )
         self.client = boto3.client(
             "sqs",
             region_name=settings.aws_region,
             endpoint_url=settings.aws_endpoint_url,
             aws_access_key_id=settings.aws_access_key_id,
             aws_secret_access_key=settings.aws_secret_access_key,
+            config=config,
         )
         self.queue_url = self._resolve_queue(
             queue_name=settings.sqs_queue_name,
@@ -95,24 +101,21 @@ class SQSClient:
 
 class S3Client:
     def __init__(self):
+        config_kwargs = {
+            "connect_timeout": settings.aws_connect_timeout_seconds,
+            "read_timeout": settings.aws_read_timeout_seconds,
+        }
+        if settings.s3_force_path_style:
+            config_kwargs["s3"] = {"addressing_style": "path"}
+        config = Config(**config_kwargs)
         self.client = boto3.client(
             's3',
             region_name=settings.aws_region,
             endpoint_url=settings.aws_endpoint_url,
             aws_access_key_id=settings.aws_access_key_id,
-            aws_secret_access_key=settings.aws_secret_access_key
+            aws_secret_access_key=settings.aws_secret_access_key,
+            config=config,
         )
-        
-        # For LocalStack
-        if settings.s3_force_path_style:
-            self.client = boto3.client(
-                's3',
-                region_name=settings.aws_region,
-                endpoint_url=settings.aws_endpoint_url,
-                aws_access_key_id=settings.aws_access_key_id,
-                aws_secret_access_key=settings.aws_secret_access_key,
-                config=boto3.session.Config(s3={'addressing_style': 'path'})
-            )
         
         self.bucket = settings.s3_bucket
         logger.info("s3_client_initialized", bucket=self.bucket)

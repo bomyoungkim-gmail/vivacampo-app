@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas import (
@@ -10,13 +11,12 @@ from app.schemas import (
     SessionTokenResponse
 )
 from app.infrastructure.models import Identity, Tenant, Membership
+from app.auth.dependencies import get_current_membership, CurrentMembership
 from app.auth.utils import validate_oidc_token, create_session_token
+from app.config import settings
 import uuid
 
-router = APIRouter()
-
-
-from app.config import settings
+router = APIRouter(responses=DEFAULT_ERROR_RESPONSES)
 
 @router.post("/auth/oidc/login", response_model=dict)
 async def oidc_login(
@@ -129,21 +129,18 @@ async def oidc_login(
 @router.post("/auth/workspaces/switch", response_model=SessionTokenResponse)
 async def switch_workspace(
     request: WorkspaceSwitchRequest,
+    membership: CurrentMembership = Depends(get_current_membership),
     db: Session = Depends(get_db)
 ):
     """
     Switch workspace (tenant).
     Returns session token with active_tenant_id + membership_id + role.
     
-    NOTE: In production, this would require authentication.
-    For MVP, we'll add proper auth later.
     """
-    # TODO: Get current identity from auth token
-    # For now, we'll accept tenant_id and find membership
-    
-    # Find membership (simplified for MVP)
+    # Find membership for the same identity
     membership = db.query(Membership).filter(
         Membership.tenant_id == request.tenant_id,
+        Membership.identity_id == membership.identity_id,
         Membership.status == "ACTIVE"
     ).first()
     

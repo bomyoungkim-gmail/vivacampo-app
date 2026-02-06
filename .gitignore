@@ -69,4 +69,8 @@ ai/
 .continue/
 .claude.md
 .codex.md
-.llm.md
+
+# Test Artifacts
+test-results/
+**/test-results/
+tests/.tmp/

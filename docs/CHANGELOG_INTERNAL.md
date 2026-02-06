@@ -57,6 +57,52 @@
   - App-UI: Improved dark mode contrast (muted-foreground: 65.1% → 70%)
   - App-UI: Added dark mode support to chart components
 
+## 2026-02-05
+- Added hexagonal domain foundation (Pydantic base classes, value objects, Farm/AOI entities).
+- Added domain ports (message queue, object storage, farm repository) and worker domain scaffolding.
+- Added unit tests for domain entities and value objects.
+- Added infrastructure adapters for SQS and S3 (API) and satellite providers (worker).
+- Added resilient satellite adapter with fallback chain and validation of external payloads.
+- Added local queue and local filesystem adapters for dev/testing.
+- Added in-memory satellite cache adapter.
+- Added circuit breaker usage for SQS/S3 adapters and resilient satellite adapter.
+- Added unit tests for satellite adapters and local adapters.
+- Added application DTOs/use cases for farms and SQLAlchemy farm repository adapter.
+- Updated farms router to use use cases/DTOs.
+- Added unit tests for farm use cases.
+- Added AOI DTOs/use cases and SQLAlchemy AOI repository adapter.
+- Updated AOI router (create/list) to use use cases/DTOs.
+- Added signal DTOs/use cases and SQLAlchemy signal repository adapter.
+- Updated signals router to use use cases/DTOs.
+- Added job DTOs/use cases and SQLAlchemy job repository adapter.
+- Updated jobs router to use use cases/DTOs.
+- Added correlation/nitrogen DTOs, use cases, and SQLAlchemy adapters.
+- Updated correlation and nitrogen routers to use use cases/DTOs.
+- Added unit tests for AOI, signal, job, correlation, and nitrogen use cases.
+- Added DI containers for API/worker and basic container tests.
+- Wired API routers to resolve use cases through DI container.
+- Refactored AOI auto-backfill to use RequestBackfill use case (no direct SQL in router).
+- Added radar and weather data repository ports/adapters plus use cases.
+- Updated radar and weather routers to use use cases/DTOs.
+- Added weather sync job creation to job repository adapter.
+- Added unit tests for radar and weather use cases.
+- Refactored tiles router to use use cases and spatial repository (removed direct SQL/S3 usage).
+- Added AOI spatial repository and tile use cases/config.
+- Added system admin, tenant admin, and AI assistant repositories and use cases.
+- Updated system admin, tenant admin, and AI assistant routers to use use cases.
+- Added unit tests for tiles, system admin, tenant admin, and AI assistant use cases.
+- Refactored farms geocoding endpoint to use geocoding use case + Nominatim adapter.
+- Added geocoding port/adapter/use case and unit test.
+- Standardized HTTP and validation error responses to contract shape via exception handlers.
+- Added error handler tests.
+- Added request ID middleware with traceId propagation in error responses.
+- Standardized rate limit handler error shape (429) and added OpenAPI error schema + per-route error docs.
+- Added `get_current_tenant_id` dependency and applied it to multi-tenant routers.
+
+## 2026-02-06
+- Removed fallback tiling path in app-ui (`DynamicTileLayer` + removed tile prop map constant).
+- Removed prior COG pipeline from worker `process_week` and forced dynamic tiling path.
+
 ## 2026-02-04
 - Added LocalStack custom build + init script for SQS queue bootstrap
 - Added/updated P0 RBAC regression tests and Windows-friendly DB host override

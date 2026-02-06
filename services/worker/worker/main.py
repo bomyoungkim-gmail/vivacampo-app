@@ -7,6 +7,7 @@ from datetime import datetime
 from uuid import UUID
 import structlog
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from worker.database import get_db
 from worker.shared.aws_clients import SQSClient
 from worker.jobs.process_week import process_week_handler
@@ -30,7 +31,6 @@ MAX_MESSAGES = min(10, WORKER_CONCURRENCY)
 
 # Job type to handler mapping
 JOB_HANDLERS = {
-    # Existing handlers (legacy COG-based processing)
     "PROCESS_WEEK": process_week_handler,
     "PROCESS_RADAR_WEEK": process_radar_week_handler,
     "PROCESS_TOPOGRAPHY": process_topography_handler,
@@ -44,6 +44,21 @@ JOB_HANDLERS = {
     "CALCULATE_STATS": calculate_stats_handler,
     "WARM_CACHE": warm_cache_handler,
     "DETECT_HARVEST": detect_harvest_handler,
+}
+
+JOB_REQUIRED_FIELDS = {
+    "PROCESS_WEEK": ("tenant_id", "aoi_id"),
+    "PROCESS_RADAR_WEEK": ("tenant_id", "aoi_id"),
+    "PROCESS_TOPOGRAPHY": ("tenant_id", "aoi_id"),
+    "PROCESS_WEATHER": ("tenant_id", "aoi_id"),
+    "ALERTS_WEEK": ("tenant_id", "aoi_id"),
+    "SIGNALS_WEEK": ("tenant_id", "aoi_id"),
+    "FORECAST_WEEK": ("tenant_id", "aoi_id"),
+    "BACKFILL": ("tenant_id", "aoi_id"),
+    "CALCULATE_STATS": ("tenant_id", "aoi_id"),
+    "WARM_CACHE": ("tenant_id", "aoi_id"),
+    "DETECT_HARVEST": ("tenant_id", "aoi_id"),
+    # CREATE_MOSAIC is global (no tenant_id/aoi_id required)
 }
 
 
@@ -63,6 +78,12 @@ def run_handler(handler, job_id: str, payload: dict, db: Session):
     return handler(job_id=job_id, payload=payload, db=db)
 
 
+def _missing_required_fields(job_type: str, payload: dict) -> list[str]:
+    required = JOB_REQUIRED_FIELDS.get(job_type, ())
+    missing = [field for field in required if not payload.get(field)]
+    return missing
+
+
 def calculate_job_key(tenant_id: str, aoi_id: str, year: int, week: int, job_type: str, pipeline_version: str) -> str:
     """
     Calculate idempotent job key.
@@ -77,6 +98,17 @@ def _mark_job_failed(db: Session, job_id: str, error: str):
     sql = text("UPDATE jobs SET status = 'FAILED', error_message = :error, updated_at = now() WHERE id = :job_id")
     db.execute(sql, {"job_id": job_id, "error": error})
     db.commit()
+
+
+def _set_tenant_context(db: Session, tenant_id: str | None) -> None:
+    db.execute(text("SELECT set_config('app.is_system_admin', 'false', true)"))
+    if tenant_id:
+        db.execute(
+            text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
+            {"tenant_id": str(tenant_id)},
+        )
+    else:
+        db.execute(text("SELECT set_config('app.tenant_id', '', true)"))
 
 
 def process_message(message: dict, db: Session):
@@ -104,6 +136,20 @@ def process_message(message: dict, db: Session):
         if not handler:
             logger.error("unknown_job_type", job_type=job_type)
             return
+
+        missing_fields = _missing_required_fields(job_type, payload)
+        if missing_fields:
+            logger.error(
+                "job_payload_missing_fields",
+                job_id=job_id,
+                job_type=job_type,
+                missing_fields=missing_fields,
+            )
+            if job_id:
+                _mark_job_failed(db, job_id, f"Missing required fields: {', '.join(missing_fields)}")
+            return
+
+        _set_tenant_context(db, payload.get("tenant_id"))
         
         # Execute handler
         run_handler(handler, job_id, payload, db)

@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     aws_endpoint_url: str | None = None
     aws_access_key_id: str | None = None
     aws_secret_access_key: str | None = None
+    aws_connect_timeout_seconds: int = 5
+    aws_read_timeout_seconds: int = 60
     s3_bucket: str
     s3_force_path_style: bool = False
     

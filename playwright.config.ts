@@ -37,16 +37,20 @@ export default defineConfig({
         },
     ],
 
+    /*
     webServer: [
         {
-            command: 'cd services/app-ui && npm run dev',
-            url: 'http://localhost:3002',
-            reuseExistingServer: !process.env.CI,
+            command: 'cd services/app-ui && npm run dev -- -p 3002',
+            url: 'http://127.0.0.1:3002',
+            reuseExistingServer: true,
+            timeout: 120 * 1000,
         },
         {
-            command: 'cd services/admin-ui && npm run dev',
-            url: 'http://localhost:3001',
-            reuseExistingServer: !process.env.CI,
+            command: 'cd services/admin-ui && npm run dev -- -p 3001',
+            url: 'http://127.0.0.1:3001',
+            reuseExistingServer: true,
+            timeout: 120 * 1000,
         },
     ],
+    */
 })

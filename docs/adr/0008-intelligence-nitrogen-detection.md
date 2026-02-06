@@ -1,7 +1,7 @@
 # ADR-0008 — SRRE Index and Nitrogen Detection
 
 Date: 2026-02-04
-Status: Proposed
+Status: Accepted
 Owners: Intelligence Team
 
 ## Context

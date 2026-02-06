@@ -1,0 +1,30 @@
+{
+  "name": "vivacampo-app",
+  "version": "1.0.0",
+  "description": "1) Copy .env.example to .env and fill values\r 2) Run: `docker-compose up`",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bomyoungkim-gmail/vivacampo-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/bomyoungkim-gmail/vivacampo-app/issues"
+  },
+  "homepage": "https://github.com/bomyoungkim-gmail/vivacampo-app#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.58.1",
+    "@types/node": "^25.2.1",
+    "typescript": "^5.9.3"
+  }
+}

@@ -73,7 +73,32 @@ Validates core worker job handlers (BACKFILL, PROCESS_WEEK, ALERTS_WEEK, SIGNALS
 pytest tests/test_worker_jobs.py -v --asyncio-mode=auto
 ```
 
-### 6. External Integrations (P2)
+### 6. Worker AWS Integration (P1)
+**Script:** `test_worker_aws_integration.py`
+
+Validates LocalStack S3/SQS and worker DB adapters:
+- S3 upload/get JSON
+- SQS send/receive/delete
+- SQL job repository upsert + status update
+
+**Run:**
+```bash
+pytest tests/test_worker_aws_integration.py -v
+```
+
+### 7. API AWS Integration (P1)
+**Script:** `test_api_aws_integration.py`
+
+Validates API S3/SQS adapters against LocalStack:
+- S3 upload/download/exists
+- SQS publish/consume
+
+**Run:**
+```bash
+pytest tests/test_api_aws_integration.py -v
+```
+
+### 8. External Integrations (P2)
 **Script:** `test_integrations_p2.py`
 
 Validates STAC client mapping, webhook outbox delivery, and AI provider factory with stubs.
@@ -81,6 +106,58 @@ Validates STAC client mapping, webhook outbox delivery, and AI provider factory 
 **Run:**
 ```bash
 pytest tests/test_integrations_p2.py -v --asyncio-mode=auto
+```
+
+### 9. Contract Tests (P1)
+**Folder:** `tests/contract/`
+
+Validates port/adapter contracts (local queue/storage + worker job repo).
+
+**Run:**
+```bash
+pytest tests/contract -v
+```
+
+## Example: DI Overrides in Tests
+
+Use `overrides` to inject fakes without changing production wiring:
+
+```python
+from app.infrastructure.di_container import ApiContainer
+
+class FakeQueue:
+    async def publish(self, queue_name, message, delay_seconds=0):
+        return "fake-id"
+
+container = ApiContainer(overrides={"message_queue": FakeQueue()})
+queue = container.message_queue()
+```
+
+```python
+from worker.infrastructure.di_container import WorkerContainer
+
+class FakeWeatherProvider:
+    async def get_history(self, *args, **kwargs):
+        return []
+
+container = WorkerContainer(overrides={"weather_provider": FakeWeatherProvider()})
+provider = container.weather_provider()
+```
+
+## Markers
+
+We use pytest markers to separate suites:
+- `unit` for fast tests without external services
+- `integration` for LocalStack/DB/API dependent tests
+- `e2e` for full user flows
+- `contract` for adapter/port contract checks
+
+Examples:
+```bash
+pytest -m unit
+pytest -m integration
+pytest -m contract
+pytest -m "not integration"
 ```
 
 ## Pre-Test Setup
@@ -106,6 +183,23 @@ curl http://localhost:8000/health
 
 # Check TiTiler
 curl http://localhost:8001/healthz
+```
+
+## Testcontainers (Postgres/Redis)
+
+We plan to add Testcontainers-based integration for Postgres/Redis. Until then:
+- Use Docker Compose (db/redis/localstack) for integration tests.
+- Keep CI running LocalStack + services as shown below.
+
+When Testcontainers are enabled:
+1. Ensure Docker is running locally.
+2. Install dependencies:
+```bash
+pip install testcontainers[postgresql,redis]
+```
+3. Run only the Testcontainers-marked tests:
+```bash
+pytest -m integration -k testcontainers
 ```
 
 ## Test Coverage

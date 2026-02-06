@@ -1,7 +1,7 @@
 # ADR-0010 — Correlation API and Analysis Tab
 
 Date: 2026-02-04
-Status: Proposed
+Status: Accepted
 Owners: Intelligence Team
 
 ## Context

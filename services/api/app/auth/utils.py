@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from typing import Optional
@@ -27,7 +27,7 @@ def create_session_token(
     Create session token for workspace switch.
     Contains active_tenant_id, membership_id, role.
     """
-    expires = datetime.utcnow() + timedelta(minutes=settings.session_token_ttl_minutes)
+    expires = datetime.now(UTC) + timedelta(minutes=settings.session_token_ttl_minutes)
     
     payload = {
         "sub": str(identity_id),

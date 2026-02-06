@@ -1,7 +1,7 @@
 # ADR-0009 — Radar-Based Harvest Detection
 
 Date: 2026-02-04
-Status: Proposed
+Status: Accepted
 Owners: Intelligence Team
 
 ## Context

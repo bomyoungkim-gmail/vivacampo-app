@@ -1,20 +1,29 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 from typing import List, Optional
 from uuid import UUID
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from app.database import get_db
-from app.auth.dependencies import get_current_membership, CurrentMembership, require_role
+from app.auth.dependencies import get_current_membership, CurrentMembership, require_role, get_current_tenant_id
 from app.schemas import AOICreate, AOIView, AOIPatch, BackfillRequest
 from app.domain.quotas import check_aoi_quota, check_backfill_quota, QuotaExceededError
 from app.domain.audit import get_audit_logger
+from app.domain.value_objects.tenant_id import TenantId
+from app.application.dtos.aois import CreateAoiCommand, ListAoisCommand
+from app.application.dtos.aoi_management import (
+    AoiAssetsCommand,
+    AoiHistoryCommand,
+    DeleteAoiCommand,
+    RequestBackfillCommand,
+    UpdateAoiCommand,
+)
+from app.infrastructure.di_container import ApiContainer
 from app.infrastructure.s3_client import presign_row_s3_fields
 import structlog
-import hashlib
 
 logger = structlog.get_logger()
-router = APIRouter()
+router = APIRouter(responses=DEFAULT_ERROR_RESPONSES, dependencies=[Depends(get_current_tenant_id)])
 
 
 @router.post("/aois", response_model=AOIView, status_code=status.HTTP_201_CREATED)
@@ -37,31 +46,19 @@ async def create_aoi(
             detail=f"AOI quota exceeded: {e.current}/{e.limit}"
         )
     
-    # Validate geometry
-    # Validate geometry
     geom_wkt = aoi_data.geometry  # Expect fully formed WKT from client
-    
-    sql = text("""
-        INSERT INTO aois (tenant_id, farm_id, name, use_type, geom, area_ha, status)
-        VALUES (
-            :tenant_id, :farm_id, :name, :use_type, 
-            ST_GeomFromText(:geom, 4326),
-            ST_Area(ST_GeomFromText(:geom, 4326)::geography) / 10000,
-            'ACTIVE'
+
+    container = ApiContainer()
+    use_case = container.create_aoi_use_case(db)
+    aoi = await use_case.execute(
+        CreateAoiCommand(
+            tenant_id=TenantId(value=membership.tenant_id),
+            farm_id=aoi_data.farm_id,
+            name=aoi_data.name,
+            use_type=aoi_data.use_type,
+            geometry_wkt=geom_wkt,
         )
-        RETURNING id, name, use_type, area_ha, status, created_at
-    """)
-    
-    result = db.execute(sql, {
-        "tenant_id": str(membership.tenant_id),
-        "farm_id": str(aoi_data.farm_id),
-        "name": aoi_data.name,
-        "use_type": aoi_data.use_type,
-        "geom": geom_wkt
-    })
-    db.commit()
-    
-    row = result.fetchone()
+    )
     
     # Audit log
     audit = get_audit_logger(db)
@@ -70,25 +67,34 @@ async def create_aoi(
         actor_membership_id=str(membership.membership_id),
         action="CREATE",
         resource_type="aoi",
-        resource_id=str(row.id),
-        metadata={"name": aoi_data.name, "use_type": aoi_data.use_type, "area_ha": row.area_ha}
+        resource_id=str(aoi.id),
+        metadata={"name": aoi_data.name, "use_type": aoi_data.use_type, "area_ha": aoi.area_ha}
     )
 
     # Trigger initial backfill for last 8 weeks on creation
     try:
-        _create_backfill_job(str(membership.tenant_id), str(row.id), 56, db)
+        backfill_use_case = container.request_backfill_use_case(db)
+        await backfill_use_case.execute(
+            RequestBackfillCommand(
+                tenant_id=TenantId(value=membership.tenant_id),
+                aoi_id=aoi.id,
+                from_date=(datetime.utcnow() - timedelta(days=56)).date().isoformat(),
+                to_date=datetime.utcnow().date().isoformat(),
+                cadence="weekly",
+            )
+        )
     except Exception as e:
-        logger.error("auto_backfill_on_create_failed", aoi_id=str(row.id), exc_info=e)
-    
+        logger.error("auto_backfill_on_create_failed", aoi_id=str(aoi.id), exc_info=e)
+
     return AOIView(
-        id=row.id,
-        farm_id=aoi_data.farm_id,
-        name=row.name,
-        use_type=row.use_type,
-        area_ha=row.area_ha,
-        geometry=aoi_data.geometry,
-        status=row.status,
-        created_at=row.created_at
+        id=aoi.id,
+        farm_id=aoi.farm_id,
+        name=aoi.name,
+        use_type=aoi.use_type,
+        area_ha=aoi.area_ha,
+        geometry=aoi.geometry,
+        status=aoi.status,
+        created_at=aoi.created_at,
     )
 
 
@@ -100,45 +106,29 @@ async def list_aois(
     db: Session = Depends(get_db)
 ):
     """List all AOIs for the current tenant"""
-    conditions = ["tenant_id = :tenant_id"]
-    params = {"tenant_id": str(membership.tenant_id)}
-    
-    if farm_id:
-        conditions.append("farm_id = :farm_id")
-        params["farm_id"] = str(farm_id)
-    
-    if status:
-        conditions.append("status = :status")
-        params["status"] = status
-    
-    sql = text(f"""
-        SELECT id, farm_id, name, use_type, area_ha, status, created_at,
-               ST_AsText(geom) as geometry
-        FROM aois
-        WHERE {' AND '.join(conditions)}
-        ORDER BY created_at DESC
-        LIMIT 100
-    """)
-    
-    result = db.execute(sql, params)
-    
-    aois = []
-    for row in result:
-        aois.append(AOIView(
-            id=row.id,
-            farm_id=row.farm_id,
-            name=row.name,
-            use_type=row.use_type,
-            area_ha=row.area_ha,
-            geometry=row.geometry,
-            status=row.status,
-            created_at=row.created_at
-        ))
-    
-    return aois
+    container = ApiContainer()
+    use_case = container.list_aois_use_case(db)
+    aois = await use_case.execute(
+        ListAoisCommand(
+            tenant_id=TenantId(value=membership.tenant_id),
+            farm_id=farm_id,
+            status=status,
+        )
+    )
 
-
-    return [dict(row._mapping) for row in result]
+    return [
+        AOIView(
+            id=aoi.id,
+            farm_id=aoi.farm_id,
+            name=aoi.name,
+            use_type=aoi.use_type,
+            area_ha=aoi.area_ha,
+            geometry=aoi.geometry,
+            status=aoi.status,
+            created_at=aoi.created_at,
+        )
+        for aoi in aois
+    ]
 
 
 @router.delete("/aois/{aoi_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -151,11 +141,11 @@ async def delete_aoi(
     Delete an AOI.
     Cascades to derived_assets and observations via DB constraints.
     """
-    # Check existence and ownership
-    sql_check = text("SELECT id FROM aois WHERE id = :aoi_id AND tenant_id = :tenant_id")
-    result = db.execute(sql_check, {"aoi_id": str(aoi_id), "tenant_id": str(membership.tenant_id)}).fetchone()
-    
-    if not result:
+    container = ApiContainer()
+    use_case = container.delete_aoi_use_case(db)
+    deleted = await use_case.execute(DeleteAoiCommand(tenant_id=TenantId(value=membership.tenant_id), aoi_id=aoi_id))
+
+    if not deleted:
         raise HTTPException(status_code=404, detail="AOI not found")
 
     # Audit log
@@ -169,63 +159,6 @@ async def delete_aoi(
         metadata={}
     )
 
-    # Delete
-    sql_delete = text("DELETE FROM aois WHERE id = :aoi_id")
-    db.execute(sql_delete, {"aoi_id": str(aoi_id)})
-    db.commit()
-
-
-def _create_backfill_job(tenant_id: str, aoi_id: str, days: int, db: Session):
-    """Helper to create and dispatch a backfill job for recent history"""
-    from datetime import date, timedelta
-    from app.config import settings
-    import json
-    
-    to_date = date.today().isoformat()
-    from_date = (date.today() - timedelta(days=days)).isoformat()
-    
-    job_key = hashlib.sha256(
-        f"{tenant_id}{aoi_id}{from_date}{to_date}BACKFILL{settings.pipeline_version}".encode()
-    ).hexdigest()
-    
-    sql = text("""
-        INSERT INTO jobs (tenant_id, aoi_id, job_type, job_key, status, payload_json)
-        VALUES (:tenant_id, :aoi_id, 'BACKFILL', :job_key, 'PENDING', :payload)
-        ON CONFLICT (tenant_id, job_key) DO UPDATE
-        SET status = 'PENDING', updated_at = now()
-        RETURNING id
-    """)
-    
-    payload = {
-        "tenant_id": tenant_id,
-        "aoi_id": aoi_id,
-        "from_date": from_date,
-        "to_date": to_date,
-        "cadence": "weekly"
-    }
-    
-    result = db.execute(sql, {
-        "tenant_id": tenant_id,
-        "aoi_id": aoi_id,
-        "job_key": job_key,
-        "payload": json.dumps(payload)
-    })
-    db.commit()
-    
-    job_id = result.fetchone()[0]
-    
-    # Send to SQS
-    from app.infrastructure.sqs_client import get_sqs_client
-    sqs = get_sqs_client()
-    
-    # Ensure correct format for worker
-    message_body = {
-        "job_id": str(job_id),
-        "job_type": "BACKFILL",
-        "payload": payload
-    }
-    
-    sqs.send_message(settings.sqs_queue_name, json.dumps(message_body))
 
 
 @router.patch("/aois/{aoi_id}", response_model=AOIView)
@@ -239,65 +172,40 @@ async def update_aoi(
     Update AOI (name, use_type, status, geometry).
     If geometry is updated, a backfill for the last 8 weeks is triggered.
     """
-    # Get current AOI
-    sql = text("""
-        SELECT name, use_type, status
-        FROM aois
-        WHERE id = :aoi_id AND tenant_id = :tenant_id
-    """)
-    
-    result = db.execute(sql, {
-        "aoi_id": str(aoi_id),
-        "tenant_id": str(membership.tenant_id)
-    }).fetchone()
-    
+    container = ApiContainer()
+    use_case = container.update_aoi_use_case(db)
+
+    if (
+        aoi_patch.name is None
+        and aoi_patch.use_type is None
+        and aoi_patch.status is None
+        and aoi_patch.geometry is None
+    ):
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    result = await use_case.execute(
+        UpdateAoiCommand(
+            tenant_id=TenantId(value=membership.tenant_id),
+            aoi_id=aoi_id,
+            name=aoi_patch.name,
+            use_type=aoi_patch.use_type,
+            status=aoi_patch.status,
+            geometry_wkt=aoi_patch.geometry,
+        )
+    )
+
     if not result:
         raise HTTPException(status_code=404, detail="AOI not found")
-    
-    # Build update
-    updates = []
-    params = {"aoi_id": str(aoi_id), "tenant_id": str(membership.tenant_id)}
+
     changes = {}
-    
     if aoi_patch.name is not None:
-        updates.append("name = :name")
-        params["name"] = aoi_patch.name
-        changes["name"] = {"before": result.name, "after": aoi_patch.name}
-    
+        changes["name"] = {"after": aoi_patch.name}
     if aoi_patch.use_type is not None:
-        updates.append("use_type = :use_type")
-        params["use_type"] = aoi_patch.use_type
-        changes["use_type"] = {"before": result.use_type, "after": aoi_patch.use_type}
-    
+        changes["use_type"] = {"after": aoi_patch.use_type}
     if aoi_patch.status is not None:
-        updates.append("status = :status")
-        params["status"] = aoi_patch.status
-        changes["status"] = {"before": result.status, "after": aoi_patch.status}
-        
-    trigger_reprocess = False
+        changes["status"] = {"after": aoi_patch.status}
     if aoi_patch.geometry is not None:
-        # Update geometry and recalculate area
-        # We assume input is WKT or valid GeoJSON string
-        updates.append("geom = ST_GeomFromText(:geom, 4326)")
-        updates.append("area_ha = ST_Area(ST_GeomFromText(:geom, 4326)::geography) / 10000")
-        params["geom"] = aoi_patch.geometry
         changes["geometry"] = "MODIFIED"
-        trigger_reprocess = True
-    
-    if not updates:
-        raise HTTPException(status_code=400, detail="No fields to update")
-    
-    sql = text(f"""
-        UPDATE aois
-        SET {', '.join(updates)}
-        WHERE id = :aoi_id AND tenant_id = :tenant_id
-        RETURNING id, farm_id, name, use_type, area_ha, status, created_at, ST_AsText(geom) as geometry
-    """)
-    
-    result = db.execute(sql, params)
-    db.commit()
-    
-    row = result.fetchone()
     
     # Audit log
     audit = get_audit_logger(db)
@@ -309,25 +217,32 @@ async def update_aoi(
         resource_id=str(aoi_id),
         changes=changes
     )
-    
-    if trigger_reprocess:
-        # Trigger backfill for last 8 weeks to refresh stats
+
+    if result.geometry_changed:
         logger.info("triggering_auto_backfill", aoi_id=str(aoi_id))
         try:
-            _create_backfill_job(str(membership.tenant_id), str(aoi_id), 56, db) # 8 weeks
+            backfill_use_case = container.request_backfill_use_case(db)
+            await backfill_use_case.execute(
+                RequestBackfillCommand(
+                    tenant_id=TenantId(value=membership.tenant_id),
+                    aoi_id=aoi_id,
+                    from_date=(datetime.utcnow() - timedelta(days=56)).date().isoformat(),
+                    to_date=datetime.utcnow().date().isoformat(),
+                    cadence="weekly",
+                )
+            )
         except Exception as e:
             logger.error("auto_backfill_failed", exc_info=e)
-            # Don't fail the request, just log
-    
+
     return AOIView(
-        id=row.id,
-        farm_id=row.farm_id,
-        name=row.name,
-        use_type=row.use_type,
-        area_ha=row.area_ha,
-        status=row.status,
-        geometry=row.geometry,
-        created_at=row.created_at
+        id=result.id,
+        farm_id=result.farm_id,
+        name=result.name,
+        use_type=result.use_type,
+        area_ha=result.area_ha,
+        status=result.status,
+        geometry=result.geometry,
+        created_at=result.created_at,
     )
 
 
@@ -343,14 +258,10 @@ async def request_backfill(
     Creates BACKFILL job that will orchestrate PROCESS_WEEK jobs.
     Enforces quota limits.
     """
-    # Verify AOI exists
-    sql = text("SELECT id FROM aois WHERE id = :aoi_id AND tenant_id = :tenant_id")
-    result = db.execute(sql, {
-        "aoi_id": str(aoi_id),
-        "tenant_id": str(membership.tenant_id)
-    }).fetchone()
-    
-    if not result:
+    container = ApiContainer()
+    aoi_repo = container.aoi_repository(db)
+    aoi = await aoi_repo.get_by_id(TenantId(value=membership.tenant_id), aoi_id)
+    if not aoi:
         raise HTTPException(status_code=404, detail="AOI not found")
     
     # Calculate weeks
@@ -367,36 +278,16 @@ async def request_backfill(
             detail=f"Backfill quota exceeded: {str(e)}"
         )
     
-    # Create job
-    from app.config import settings
-    job_key = hashlib.sha256(
-        f"{membership.tenant_id}{aoi_id}{backfill_data.from_date}{backfill_data.to_date}BACKFILL{settings.pipeline_version}".encode()
-    ).hexdigest()
-    
-    sql = text("""
-        INSERT INTO jobs (tenant_id, aoi_id, job_type, job_key, status, payload_json)
-        VALUES (:tenant_id, :aoi_id, 'BACKFILL', :job_key, 'PENDING', :payload)
-        ON CONFLICT (tenant_id, job_key) DO UPDATE
-        SET status = 'PENDING', updated_at = now()
-        RETURNING id
-    """)
-    
-    import json
-    result = db.execute(sql, {
-        "tenant_id": str(membership.tenant_id),
-        "aoi_id": str(aoi_id),
-        "job_key": job_key,
-        "payload": json.dumps({
-            "tenant_id": str(membership.tenant_id),
-            "aoi_id": str(aoi_id),
-            "from_date": backfill_data.from_date,
-            "to_date": backfill_data.to_date,
-            "cadence": backfill_data.cadence
-        })
-    })
-    db.commit()
-    
-    job_id = result.fetchone()[0]
+    backfill_use_case = container.request_backfill_use_case(db)
+    result = await backfill_use_case.execute(
+        RequestBackfillCommand(
+            tenant_id=TenantId(value=membership.tenant_id),
+            aoi_id=aoi_id,
+            from_date=backfill_data.from_date,
+            to_date=backfill_data.to_date,
+            cadence=backfill_data.cadence,
+        )
+    )
     
     # Audit log
     audit = get_audit_logger(db)
@@ -409,29 +300,11 @@ async def request_backfill(
         weeks_count=weeks_count
     )
     
-    # Send to SQS
-    from app.infrastructure.sqs_client import get_sqs_client
-    sqs = get_sqs_client()
-    
-    message_body = {
-        "job_id": str(job_id),
-        "job_type": "BACKFILL",
-        "payload": {
-            "tenant_id": str(membership.tenant_id),
-            "aoi_id": str(aoi_id),
-            "from_date": backfill_data.from_date,
-            "to_date": backfill_data.to_date,
-            "cadence": backfill_data.cadence
-        }
-    }
-    
-    sqs.send_message(settings.sqs_queue_name, json.dumps(message_body))
-    
     return {
-        "job_id": job_id,
-        "status": "PENDING",
-        "weeks_count": weeks_count,
-        "message": "Backfill job created successfully"
+        "job_id": result.job_id,
+        "status": result.status,
+        "weeks_count": result.weeks_count,
+        "message": result.message
     }
 
 
@@ -444,41 +317,14 @@ async def get_aoi_assets(
     """
     Get latest derived assets (NDVI, etc) for an AOI.
     """
-    sql = text("""
-        SELECT ndvi_s3_uri, anomaly_s3_uri, quicklook_s3_uri, 
-               ndwi_s3_uri, ndmi_s3_uri, savi_s3_uri, false_color_s3_uri, true_color_s3_uri,
-               
-               ndre_s3_uri, reci_s3_uri, gndvi_s3_uri, evi_s3_uri,
-               msi_s3_uri, nbr_s3_uri, bsi_s3_uri, ari_s3_uri, cri_s3_uri,
+    container = ApiContainer()
+    use_case = container.aoi_assets_use_case(db)
+    assets = await use_case.execute(
+        AoiAssetsCommand(tenant_id=TenantId(value=membership.tenant_id), aoi_id=aoi_id)
+    )
 
-               ndvi_mean, ndvi_min, ndvi_max, ndvi_std,
-               ndwi_mean, ndwi_min, ndwi_max, ndwi_std,
-               ndmi_mean, ndmi_min, ndmi_max, ndmi_std,
-               savi_mean, savi_min, savi_max, savi_std,
-               anomaly_mean, anomaly_std,
-               
-               ndre_mean, ndre_std, reci_mean, reci_std,
-               gndvi_mean, gndvi_std, evi_mean, evi_std,
-               msi_mean, msi_std, nbr_mean, nbr_std,
-               bsi_mean, bsi_std, ari_mean, ari_std,
-               cri_mean, cri_std,
-
-               year, week
-        FROM derived_assets
-        WHERE tenant_id = :tenant_id AND aoi_id = :aoi_id
-        ORDER BY year DESC, week DESC
-        LIMIT 1
-    """)
-    
-    result = db.execute(sql, {
-        "tenant_id": str(membership.tenant_id),
-        "aoi_id": str(aoi_id)
-    }).fetchone()
-    
-    if not result:
+    if not assets:
         return {}
-
-    assets = dict(result._mapping)
     s3_fields = [
         "ndvi_s3_uri",
         "anomaly_s3_uri",
@@ -511,27 +357,8 @@ async def get_aoi_history(
     """
     Get historical statistics for charts.
     """
-    sql = text("""
-        SELECT 
-            year, week,
-            ndvi_mean, ndvi_min, ndvi_max, ndvi_std,
-            ndwi_mean, ndwi_min, ndwi_max, ndwi_std,
-            ndmi_mean, ndmi_min, ndmi_max, ndmi_std,
-            savi_mean, savi_min, savi_max, savi_std,
-            anomaly_mean,
-            
-            ndre_mean, reci_mean, gndvi_mean, evi_mean,
-            msi_mean, nbr_mean, bsi_mean, ari_mean, cri_mean
-        FROM derived_assets
-        WHERE tenant_id = :tenant_id AND aoi_id = :aoi_id
-        ORDER BY year DESC, week DESC
-        LIMIT :limit
-    """)
-    
-    result = db.execute(sql, {
-        "tenant_id": str(membership.tenant_id),
-        "aoi_id": str(aoi_id),
-        "limit": limit
-    })
-    
-    return [dict(row._mapping) for row in result]
+    container = ApiContainer()
+    use_case = container.aoi_history_use_case(db)
+    return await use_case.execute(
+        AoiHistoryCommand(tenant_id=TenantId(value=membership.tenant_id), aoi_id=aoi_id, limit=limit)
+    )

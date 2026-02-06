@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     aws_endpoint_url: str | None = None  # For LocalStack
     aws_access_key_id: str | None = None
     aws_secret_access_key: str | None = None
+    aws_connect_timeout_seconds: int = 5
+    aws_read_timeout_seconds: int = 60
     s3_bucket: str
     s3_presign_expires_seconds: int = 900
     s3_force_path_style: bool = False
@@ -46,6 +48,11 @@ class Settings(BaseSettings):
     sqs_dlq_name: str
     sqs_visibility_timeout_seconds: int = 900
     sqs_max_receive_count: int = 3
+
+    # Fallbacks (Infrastructure)
+    use_local_queue: bool = False
+    use_local_storage: bool = False
+    local_storage_base: str = "storage/local"
     
     # Pipeline
     pipeline_version: str = "v1"

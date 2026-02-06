@@ -13,6 +13,10 @@ from jose import jwt
 ROOT = Path(__file__).resolve().parents[1]
 ENV_PATH = ROOT / "infra" / "docker" / "env" / ".env.local"
 
+worker_path = ROOT / "services" / "worker"
+if str(worker_path) not in sys.path:
+    sys.path.insert(0, str(worker_path))
+
 
 def _load_env_file(path: Path) -> dict[str, str]:
     env = {}
@@ -250,3 +254,29 @@ def system_admin_headers() -> dict[str, str]:
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
+
+
+def pytest_collection_modifyitems(config, items):
+    for item in items:
+        nodeid = item.nodeid.replace("\\", "/")
+        if "/tests/unit/" in nodeid:
+            item.add_marker(pytest.mark.unit)
+        elif "/tests/security/" in nodeid:
+            item.add_marker(pytest.mark.security)
+            item.add_marker(pytest.mark.integration)
+        elif "/tests/contract/" in nodeid:
+            item.add_marker(pytest.mark.contract)
+        elif nodeid.endswith("tests/test_e2e.py") or nodeid.endswith("tests/test_e2e.py::"):
+            item.add_marker(pytest.mark.e2e)
+        elif any(
+            name in nodeid
+            for name in (
+                "tests/test_integration_complete.py",
+                "tests/test_worker_jobs.py",
+                "tests/test_worker_aws_integration.py",
+                "tests/test_api_aws_integration.py",
+                "tests/test_integrations_p2.py",
+                "tests/test_rbac.py",
+            )
+        ):
+            item.add_marker(pytest.mark.integration)

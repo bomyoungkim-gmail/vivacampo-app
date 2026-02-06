@@ -10,76 +10,31 @@ Endpoints:
 - POST /tiles/aois/{aoi_id}/export - Export COG on-demand
 """
 
-from datetime import date, datetime
+from datetime import datetime
 from typing import Optional
-from urllib.parse import quote
 from uuid import UUID
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import RedirectResponse
+from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
 from sqlalchemy.orm import Session
-from sqlalchemy import text
 import structlog
 
-from app.config import settings
 from app.database import get_db
-from app.auth.dependencies import get_current_membership, CurrentMembership
+from app.auth.dependencies import get_current_membership, CurrentMembership, get_current_tenant_id
+from app.config import settings
+from app.application.dtos.tiles import (
+    TileExportCommand,
+    TileExportStatusCommand,
+    TileJsonCommand,
+    TileRequestCommand,
+)
+from app.application.tiles_config import EXPRESSIONS
+from app.domain.value_objects.tenant_id import TenantId
+from app.infrastructure.di_container import ApiContainer
 
 logger = structlog.get_logger()
-router = APIRouter()
-
-# TiTiler internal URL
-TILER_URL = getattr(settings, 'tiler_url', 'http://tiler:8080')
-
-# Vegetation index expressions (must match TiTiler expressions.py)
-# NOTE: Current MosaicJSON uses "visual" composite (RGB) which only supports
-# true_color display. For vegetation indices, implement TiTiler-STAC endpoint
-# that can resolve individual band COGs.
-EXPRESSIONS = {
-    "ndvi": "(B08-B04)/(B08+B04)",
-    "ndwi": "(B03-B08)/(B03+B08)",
-    "ndmi": "(B08-B11)/(B08+B11)",
-    "evi": "2.5*(B08-B04)/(B08+6*B04-7.5*B02+1)",
-    "savi": "1.5*(B08-B04)/(B08+B04+0.5)",
-    "ndre": "(B08-B05)/(B08+B05)",
-    "gndvi": "(B08-B03)/(B08+B03)",
-    "true_color": None,  # No expression, use RGB directly
-}
-
-COLORMAPS = {
-    "ndvi": "rdylgn",
-    "ndwi": "blues",
-    "ndmi": "blues",
-    "evi": "rdylgn",
-    "savi": "rdylgn",
-    "ndre": "rdylgn",
-    "gndvi": "rdylgn",
-    "true_color": None,  # No colormap for RGB
-}
-
-RESCALES = {
-    "ndvi": "-0.2,0.8",
-    "ndwi": "-0.5,0.5",
-    "ndmi": "-0.5,0.5",
-    "evi": "-0.2,0.8",
-    "savi": "-0.2,0.8",
-    "ndre": "-0.2,0.8",
-    "gndvi": "-0.2,0.8",
-    "true_color": None,  # No rescale for RGB
-}
-
-
-def get_current_iso_week() -> tuple[int, int]:
-    """Get current ISO year and week number."""
-    today = date.today()
-    iso_cal = today.isocalendar()
-    return iso_cal.year, iso_cal.week
-
-
-def get_mosaic_url(year: int, week: int, collection: str = "sentinel-2-l2a") -> str:
-    """Build S3 URL for MosaicJSON file."""
-    return f"s3://{settings.s3_bucket}/mosaics/{collection}/{year}/w{week:02d}.json"
+router = APIRouter(responses=DEFAULT_ERROR_RESPONSES, dependencies=[Depends(get_current_tenant_id)])
 
 
 @router.get("/tiles/aois/{aoi_id}/{z}/{x}/{y}.png")
@@ -105,72 +60,45 @@ async def get_aoi_tile(
     - **index**: Vegetation index (ndvi, ndwi, ndmi, evi, savi, ndre, gndvi)
     - **year/week**: ISO year and week number (default: current week)
     """
-    # Verify AOI belongs to tenant
-    result = db.execute(
-        text("SELECT id FROM aois WHERE id = :aoi_id AND tenant_id = :tenant_id"),
-        {"aoi_id": str(aoi_id), "tenant_id": str(membership.tenant_id)},
-    ).fetchone()
-
-    if not result:
-        raise HTTPException(status_code=404, detail="AOI not found")
-
-    # Validate index
-    if index.lower() not in EXPRESSIONS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid index '{index}'. Valid options: {', '.join(EXPRESSIONS.keys())}",
+    container = ApiContainer()
+    use_case = container.tile_use_case(db)
+    try:
+        result = await use_case.execute(
+            TileRequestCommand(
+                tenant_id=TenantId(value=membership.tenant_id),
+                aoi_id=aoi_id,
+                z=z,
+                x=x,
+                y=y,
+                index=index,
+                year=year,
+                week=week,
+            )
         )
-
-    index = index.lower()
-
-    # Default to current week
-    if not year or not week:
-        year, week = get_current_iso_week()
-
-    # Build mosaic URL
-    mosaic_url = get_mosaic_url(year, week)
-
-    # Get index configuration
-    expression = EXPRESSIONS.get(index)
-    colormap = COLORMAPS.get(index)
-    rescale = RESCALES.get(index)
-
-    # Route to appropriate TiTiler endpoint based on index type
-    if expression:
-        # Vegetation indices need multi-band access via STAC-mosaic endpoint
-        # This endpoint reads STAC item URLs from MosaicJSON and uses STACReader
-        # to access individual band COGs for expression computation
-        tiler_url = (
-            f"{TILER_URL}/stac-mosaic/tiles/{z}/{x}/{y}.png"
-            f"?url={quote(mosaic_url, safe='')}"
-            f"&expression={quote(expression, safe='')}"
-        )
-        if colormap:
-            tiler_url += f"&colormap_name={colormap}"
-        if rescale:
-            tiler_url += f"&rescale={rescale}"
-    else:
-        # true_color uses visual composite COG via standard mosaic endpoint
-        # For backwards compatibility with visual-based MosaicJSON
-        tiler_url = (
-            f"{TILER_URL}/mosaic/tiles/WebMercatorQuad/{z}/{x}/{y}.png"
-            f"?url={quote(mosaic_url, safe='')}"
-        )
+    except ValueError as exc:
+        if str(exc) == "AOI_NOT_FOUND":
+            raise HTTPException(status_code=404, detail="AOI not found")
+        if str(exc) == "INVALID_INDEX":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid index '{index}'. Valid options: {', '.join(EXPRESSIONS.keys())}",
+            )
+        raise
 
     logger.debug(
         "tile_request",
         aoi_id=str(aoi_id),
         z=z, x=x, y=y,
-        index=index,
-        year=year,
-        week=week,
+        index=result.index,
+        year=result.year,
+        week=result.week,
     )
 
     # Redirect to TiTiler (CDN will cache the response)
-    response = RedirectResponse(url=tiler_url, status_code=307)
+    response = RedirectResponse(url=result.url, status_code=307)
     response.headers["Cache-Control"] = "public, max-age=604800, immutable"  # 7 days
-    response.headers["X-VivaCampo-Index"] = index
-    response.headers["X-VivaCampo-Week"] = f"{year}-W{week:02d}"
+    response.headers["X-VivaCampo-Index"] = result.index
+    response.headers["X-VivaCampo-Week"] = f"{result.year}-W{result.week:02d}"
     return response
 
 
@@ -189,55 +117,22 @@ async def get_aoi_tilejson(
     Used by GIS tools (QGIS, ArcGIS, Mapbox) for layer configuration.
     Returns tile URL template, bounds, center, and zoom levels.
     """
-    # Verify AOI belongs to tenant
-    result = db.execute(
-        text("""
-            SELECT id, name,
-                   ST_XMin(geom) as minx, ST_YMin(geom) as miny,
-                   ST_XMax(geom) as maxx, ST_YMax(geom) as maxy,
-                   ST_X(ST_Centroid(geom)) as cx, ST_Y(ST_Centroid(geom)) as cy
-            FROM aois
-            WHERE id = :aoi_id AND tenant_id = :tenant_id
-        """),
-        {"aoi_id": str(aoi_id), "tenant_id": str(membership.tenant_id)},
-    ).fetchone()
-
-    if not result:
-        raise HTTPException(status_code=404, detail="AOI not found")
-
-    # Default to current week
-    if not year or not week:
-        year, week = get_current_iso_week()
-
-    index = index.lower()
-    if index not in EXPRESSIONS:
-        index = "ndvi"
-
-    # Build tile URL template
-    # Note: Using {z}/{x}/{y} placeholders for GIS tools
-    # Use CDN URL if enabled, otherwise use API base URL
-    if getattr(settings, 'cdn_enabled', False) and getattr(settings, 'cdn_tiles_url', None):
-        base_url = settings.cdn_tiles_url
-    else:
-        base_url = getattr(settings, 'api_base_url', 'http://localhost:8000')
-
-    tile_url = (
-        f"{base_url}/v1/tiles/aois/{aoi_id}/{{z}}/{{x}}/{{y}}.png"
-        f"?index={index}&year={year}&week={week}"
-    )
-
-    return {
-        "tilejson": "3.0.0",
-        "name": f"{result.name} - {index.upper()}",
-        "description": f"Vegetation index {index.upper()} for {result.name}, {year} week {week}",
-        "version": "1.0.0",
-        "attribution": "VivaCampo - Sentinel-2 via Planetary Computer",
-        "tiles": [tile_url],
-        "minzoom": 8,
-        "maxzoom": 16,
-        "bounds": [result.minx, result.miny, result.maxx, result.maxy],
-        "center": [result.cx, result.cy, 12],
-    }
+    container = ApiContainer()
+    use_case = container.tilejson_use_case(db)
+    try:
+        return await use_case.execute(
+            TileJsonCommand(
+                tenant_id=TenantId(value=membership.tenant_id),
+                aoi_id=aoi_id,
+                index=index,
+                year=year,
+                week=week,
+            )
+        )
+    except ValueError as exc:
+        if str(exc) == "AOI_NOT_FOUND":
+            raise HTTPException(status_code=404, detail="AOI not found")
+        raise
 
 
 @router.get("/tiles/config")
@@ -345,62 +240,42 @@ async def export_aoi_cog(
     Use this endpoint when you need to download the raster for local analysis
     in QGIS, ArcGIS, or other GIS software.
     """
-    # Verify AOI belongs to tenant
-    result = db.execute(
-        text("SELECT id, name FROM aois WHERE id = :aoi_id AND tenant_id = :tenant_id"),
-        {"aoi_id": str(aoi_id), "tenant_id": str(membership.tenant_id)},
-    ).fetchone()
+    container = ApiContainer()
+    use_case = container.tile_export_use_case(db)
+    try:
+        result = await use_case.execute(
+            TileExportCommand(
+                tenant_id=TenantId(value=membership.tenant_id),
+                aoi_id=aoi_id,
+                index=index,
+                year=year,
+                week=week,
+            )
+        )
+    except ValueError as exc:
+        if str(exc) == "AOI_NOT_FOUND":
+            raise HTTPException(status_code=404, detail="AOI not found")
+        if str(exc) == "INVALID_INDEX":
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid index '{index}'. Valid options: {', '.join(EXPRESSIONS.keys())}",
+            )
+        raise
 
-    if not result:
-        raise HTTPException(status_code=404, detail="AOI not found")
-
-    # Default to current week
-    if not year or not week:
-        year, week = get_current_iso_week()
-
-    index = index.lower()
-    if index not in EXPRESSIONS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid index '{index}'. Valid options: {', '.join(EXPRESSIONS.keys())}",
+    if result.status == "processing" and result.export_key:
+        if not year or not week:
+            year, week = datetime.utcnow().isocalendar().year, datetime.utcnow().isocalendar().week
+        background_tasks.add_task(
+            generate_cog_export,
+            tenant_id=str(membership.tenant_id),
+            aoi_id=str(aoi_id),
+            index=index.lower(),
+            year=year,
+            week=week,
+            export_key=result.export_key,
         )
 
-    # Generate export key
-    export_key = f"exports/{membership.tenant_id}/{aoi_id}/{index}-{year}-w{week:02d}.tif"
-
-    # Check if already exists in S3
-    from app.infrastructure.s3_client import S3Client
-    s3 = S3Client()
-
-    if s3.object_exists(export_key):
-        # Return existing file
-        presigned_url = s3.generate_presigned_url(export_key, expires_in=86400)
-        return {
-            "status": "ready",
-            "download_url": presigned_url,
-            "filename": f"{result.name}-{index}-{year}-w{week:02d}.tif",
-            "expires_in": 86400,
-            "cached": True,
-        }
-
-    # Queue background task to generate COG
-    background_tasks.add_task(
-        generate_cog_export,
-        tenant_id=str(membership.tenant_id),
-        aoi_id=str(aoi_id),
-        index=index,
-        year=year,
-        week=week,
-        export_key=export_key,
-    )
-
-    # Return processing status
-    return {
-        "status": "processing",
-        "message": "COG export is being generated. Check back in 1-2 minutes.",
-        "export_key": export_key,
-        "filename": f"{result.name}-{index}-{year}-w{week:02d}.tif",
-    }
+    return result.model_dump()
 
 
 async def generate_cog_export(
@@ -414,7 +289,6 @@ async def generate_cog_export(
     """
     Background task to generate COG export via TiTiler.
     """
-    from app.infrastructure.s3_client import S3Client
     from app.database import SessionLocal
 
     logger.info(
@@ -428,55 +302,16 @@ async def generate_cog_export(
 
     try:
         db = SessionLocal()
-
-        # Get AOI geometry
-        result = db.execute(
-            text("SELECT ST_AsGeoJSON(geom) as geojson FROM aois WHERE id = :aoi_id"),
-            {"aoi_id": aoi_id},
-        ).fetchone()
-
-        if not result:
-            logger.error("cog_export_aoi_not_found", aoi_id=aoi_id)
-            return
-
-        import json
-        geometry = json.loads(result.geojson)
-
-        # Build mosaic URL
-        mosaic_url = get_mosaic_url(year, week)
-        expression = EXPRESSIONS[index]
-
-        # Call TiTiler to generate COG
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            # Use TiTiler's crop endpoint to generate clipped COG
-            response = await client.post(
-                f"{TILER_URL}/mosaic/crop",
-                params={
-                    "url": mosaic_url,
-                    "expression": expression,
-                    "format": "tif",
-                },
-                json=geometry,
-            )
-
-            if response.status_code != 200:
-                logger.error(
-                    "cog_export_tiler_error",
-                    status_code=response.status_code,
-                    response=response.text[:500],
-                )
-                return
-
-            # Upload to S3
-            s3 = S3Client()
-            s3.upload_bytes(export_key, response.content, content_type="image/tiff")
-
-            logger.info(
-                "cog_export_complete",
-                aoi_id=aoi_id,
-                export_key=export_key,
-                size_bytes=len(response.content),
-            )
+        container = ApiContainer()
+        use_case = container.tile_export_generate_use_case(db)
+        await use_case.execute(
+            tenant_id=TenantId(value=UUID(tenant_id)),
+            aoi_id=UUID(aoi_id),
+            index=index,
+            year=year,
+            week=week,
+            export_key=export_key,
+        )
 
     except Exception as e:
         logger.error("cog_export_failed", error=str(e), exc_info=True)
@@ -495,24 +330,15 @@ async def get_export_status(
     """
     Check the status of a COG export request.
     """
-    if not year or not week:
-        year, week = get_current_iso_week()
-
-    index = index.lower()
-    export_key = f"exports/{membership.tenant_id}/{aoi_id}/{index}-{year}-w{week:02d}.tif"
-
-    from app.infrastructure.s3_client import S3Client
-    s3 = S3Client()
-
-    if s3.object_exists(export_key):
-        presigned_url = s3.generate_presigned_url(export_key, expires_in=86400)
-        return {
-            "status": "ready",
-            "download_url": presigned_url,
-            "expires_in": 86400,
-        }
-    else:
-        return {
-            "status": "processing",
-            "message": "Export is still being generated or has not been requested.",
-        }
+    container = ApiContainer()
+    use_case = container.tile_export_status_use_case()
+    result = await use_case.execute(
+        TileExportStatusCommand(
+            tenant_id=TenantId(value=membership.tenant_id),
+            aoi_id=aoi_id,
+            index=index,
+            year=year,
+            week=week,
+        )
+    )
+    return result.model_dump()

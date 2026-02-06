@@ -122,6 +122,37 @@ ALTER TABLE jobs DROP COLUMN IF EXISTS error_message;
 
 ---
 
+## Planned Migration — Enable RLS (Row-Level Security)
+
+**Goal:** Enforce tenant isolation at DB level for tenant-scoped tables.
+
+**Migration:** `infra/migrations/sql/005_enable_rls.sql`
+
+**Pre-req (code):**
+- API must set `app.tenant_id` per request (DB session).
+- System admin flow must set `app.is_system_admin=true` (bypass policy).
+- Worker must set `app.tenant_id` per job.
+
+**Notes:**
+- Tables without `tenant_id` (e.g., `tenants`, `memberships`, `identities`) are excluded.
+- Policies are additive: `tenant_isolation` OR `system_admin_bypass`.
+
+**Rollback (manual):**
+```sql
+ALTER TABLE farms DISABLE ROW LEVEL SECURITY;
+-- Repeat for each table in the migration.
+```
+
+**Rollout Checklist:**
+- [ ] Apply migration on staging
+- [ ] Verify `rowsecurity = t` for tenant tables
+- [ ] Verify system-admin endpoints still work (global queries)
+- [ ] Run `pytest tests/security -v`
+- [ ] Apply migration on production during low traffic window
+- [ ] Monitor DB errors and 403/401 spikes after rollout
+
+---
+
 ## Common Migration Patterns
 
 ### 1. Add Column (Safe)
@@ -289,7 +320,7 @@ END $$;
 ## Pending Migration Plans
 
 ### Add Timestamps to `derived_weather_daily`
-**Reason:** Worker upsert expects `updated_at`, but legacy table may not have the column.  
+**Reason:** Worker upsert expects `updated_at`, but older tables may not have the column.  
 **Plan:** Add columns if missing, with defaults.  
 **SQL (to be applied via migration):**
 ```sql
