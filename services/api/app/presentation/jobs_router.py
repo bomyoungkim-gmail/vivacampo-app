@@ -1,9 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
-from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
-from app.database import get_db
 from app.auth.dependencies import get_current_membership, CurrentMembership, require_role, get_current_tenant_id
 from app.domain.value_objects.tenant_id import TenantId
 from app.application.dtos.jobs import (
@@ -13,9 +11,8 @@ from app.application.dtos.jobs import (
     ListJobsCommand,
     RetryJobCommand,
 )
-from app.infrastructure.di_container import ApiContainer
+from app.infrastructure.di_container import ApiContainer, get_container
 from app.schemas import JobView, JobRunView
-from app.domain.audit import get_audit_logger
 import structlog
 
 logger = structlog.get_logger()
@@ -29,11 +26,10 @@ async def list_jobs(
     status: Optional[str] = None,
     limit: int = 50,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """List jobs for the current tenant"""
-    container = ApiContainer()
-    use_case = container.list_jobs_use_case(db)
+    use_case = container.list_jobs_use_case()
     jobs = await use_case.execute(
         ListJobsCommand(
             tenant_id=TenantId(value=membership.tenant_id),
@@ -61,11 +57,10 @@ async def list_jobs(
 async def get_job(
     job_id: UUID,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """Get job details"""
-    container = ApiContainer()
-    use_case = container.get_job_use_case(db)
+    use_case = container.get_job_use_case()
     job = await use_case.execute(GetJobCommand(tenant_id=TenantId(value=membership.tenant_id), job_id=job_id))
 
     if not job:
@@ -86,11 +81,10 @@ async def get_job(
 async def get_job_runs(
     job_id: UUID,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """Get job run history"""
-    container = ApiContainer()
-    use_case = container.list_job_runs_use_case(db)
+    use_case = container.list_job_runs_use_case()
     runs, job_exists = await use_case.execute(
         ListJobRunsCommand(tenant_id=TenantId(value=membership.tenant_id), job_id=job_id)
     )
@@ -116,15 +110,14 @@ async def get_job_runs(
 @router.post("/jobs/{job_id}/retry", status_code=status.HTTP_202_ACCEPTED)
 async def retry_job(
     job_id: UUID,
-    membership: CurrentMembership = Depends(require_role("OPERATOR")),
-    db: Session = Depends(get_db)
+    membership: CurrentMembership = Depends(require_role("EDITOR")),
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Retry a failed job.
-    Requires OPERATOR or TENANT_ADMIN role.
+    Requires EDITOR or TENANT_ADMIN role.
     """
-    container = ApiContainer()
-    use_case = container.retry_job_use_case(db)
+    use_case = container.retry_job_use_case()
     try:
         ok = await use_case.execute(
             RetryJobCommand(tenant_id=TenantId(value=membership.tenant_id), job_id=job_id)
@@ -136,7 +129,7 @@ async def retry_job(
         raise HTTPException(status_code=404, detail="Job not found")
     
     # Audit log
-    audit = get_audit_logger(db)
+    audit = container.audit_logger()
     audit.log_job_action(
         tenant_id=str(membership.tenant_id),
         actor_id=str(membership.membership_id),
@@ -152,15 +145,14 @@ async def retry_job(
 @router.post("/jobs/{job_id}/cancel", status_code=status.HTTP_202_ACCEPTED)
 async def cancel_job(
     job_id: UUID,
-    membership: CurrentMembership = Depends(require_role("OPERATOR")),
-    db: Session = Depends(get_db)
+    membership: CurrentMembership = Depends(require_role("EDITOR")),
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Cancel a pending or running job.
-    Requires OPERATOR or TENANT_ADMIN role.
+    Requires EDITOR or TENANT_ADMIN role.
     """
-    container = ApiContainer()
-    use_case = container.cancel_job_use_case(db)
+    use_case = container.cancel_job_use_case()
     try:
         ok = await use_case.execute(
             CancelJobCommand(tenant_id=TenantId(value=membership.tenant_id), job_id=job_id)
@@ -172,7 +164,7 @@ async def cancel_job(
         raise HTTPException(status_code=404, detail="Job not found")
     
     # Audit log
-    audit = get_audit_logger(db)
+    audit = container.audit_logger()
     audit.log_job_action(
         tenant_id=str(membership.tenant_id),
         actor_id=str(membership.membership_id),

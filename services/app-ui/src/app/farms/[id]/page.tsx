@@ -4,19 +4,23 @@ import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { farmAPI, aoiAPI, jobAPI, signalAPI } from '@/lib/api'
-import { useAuthProtection } from '@/lib/auth'
+import { useAuthProtection, useAuthRole } from '@/lib/auth'
 import MapComponent from '@/components/MapComponent'
 import { useErrorHandler } from '@/lib/errorHandler'
-import { Farm, AOI, Signal } from '@/lib/types'
+import { Farm, AOI, Signal, SplitMode } from '@/lib/types'
 import { ErrorToast } from '@/components/Toast'
 import AOIDetailsPanel from '@/components/AOIDetailsPanel'
 import AOIList from '@/components/AOIList'
 import MobileNav from '@/components/MobileNav'
 import { EmptyAOIs } from '@/components/EmptyState'
+import PaddockGridView from '@/components/PaddockGridView'
 import * as turf from '@turf/turf'
-import { PanelLeftClose, PanelLeft, Maximize2, Minimize2, Map, BarChart3 } from 'lucide-react'
+import { PanelLeftClose, PanelLeft, Maximize2, Minimize2, Map, BarChart3, Scissors, Wand2, Check, X, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { useUser } from '@/stores/useUserStore'
 
 // Skeleton for farm details loading
 function FarmDetailsSkeleton() {
@@ -51,6 +55,8 @@ export default function FarmDetailsPage() {
     const mapRef = useRef<any>(null)
 
     const { isAuthenticated, isLoading: authLoading } = useAuthProtection()
+    const role = useAuthRole()
+    const user = useUser()
     const { error, handleError, clearError } = useErrorHandler()
 
     const [farm, setFarm] = useState<Farm | null>(null)
@@ -66,6 +72,7 @@ export default function FarmDetailsPage() {
     // Split-view panel state
     const [panelSize, setPanelSize] = useState<'normal' | 'expanded' | 'collapsed'>('normal')
     const [focusMode, setFocusMode] = useState<'map' | 'data' | 'split'>('split')
+    const [panelView, setPanelView] = useState<'LIST' | 'GRID'>('LIST')
 
     // Drawing State
     const [isDrawing, setIsDrawing] = useState(false)
@@ -100,6 +107,26 @@ export default function FarmDetailsPage() {
     const [isEditingAOI, setIsEditingAOI] = useState(false)
     const [pendingGeometry, setPendingGeometry] = useState<any>(null)
 
+    // Split Mode State
+    const [splitModeActive, setSplitModeActive] = useState(false)
+    const [splitMode, setSplitMode] = useState<SplitMode>('voronoi')
+    const [splitTargetCount, setSplitTargetCount] = useState(8)
+    const [splitMaxAreaHa, setSplitMaxAreaHa] = useState(2000)
+    const [splitEnqueueJobs, setSplitEnqueueJobs] = useState(true)
+    const [splitPreview, setSplitPreview] = useState<Array<{ id: string; geometry_wkt: string; area_ha?: number; name?: string }>>([])
+    const [splitWarnings, setSplitWarnings] = useState<string[]>([])
+    const [splitLoading, setSplitLoading] = useState(false)
+    const [splitApplying, setSplitApplying] = useState(false)
+    const [splitSelectedIds, setSplitSelectedIds] = useState<string[]>([])
+    const [splitMultiSelect, setSplitMultiSelect] = useState(false)
+    const [splitError, setSplitError] = useState<string | null>(null)
+
+    // Merge Mode (AOIs)
+    const [mergeModeActive, setMergeModeActive] = useState(false)
+    const [mergeSelectedIds, setMergeSelectedIds] = useState<string[]>([])
+    const [mergeApplying, setMergeApplying] = useState(false)
+    const [mergeError, setMergeError] = useState<string | null>(null)
+
     // Confirm delete modal
     const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [showDeleteAOIModal, setShowDeleteAOIModal] = useState(false)
@@ -115,6 +142,10 @@ export default function FarmDetailsPage() {
         if (selectedAOI) {
             setIsEditingAOI(false) // Reset edit mode on selection change
             setPendingGeometry(null)
+            setSplitPreview([])
+            setSplitWarnings([])
+            setSplitSelectedIds([])
+            setMergeSelectedIds([])
 
             setNdviUrl(null)
             setNdwiUrl(null)
@@ -178,6 +209,11 @@ export default function FarmDetailsPage() {
         } else {
             setIsEditingAOI(false)
             setPendingGeometry(null)
+            setSplitModeActive(false)
+            setSplitPreview([])
+            setSplitWarnings([])
+            setSplitSelectedIds([])
+            setMergeSelectedIds([])
 
             setNdviUrl(null)
             setNdwiUrl(null)
@@ -189,39 +225,288 @@ export default function FarmDetailsPage() {
         }
     }, [selectedAOI])
 
-    // Poll for active jobs to update processing status
+    const makeSplitId = (index: number) => {
+        if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+            return crypto.randomUUID()
+        }
+        return `${Date.now()}-${index}`
+    }
+
+    const resetSplitState = () => {
+        setSplitModeActive(false)
+        setSplitPreview([])
+        setSplitWarnings([])
+        setSplitSelectedIds([])
+        setMergeSelectedIds([])
+        setSplitError(null)
+        setSplitLoading(false)
+        setSplitApplying(false)
+    }
+
+    const handleSimulateSplit = async () => {
+        if (!selectedAOI) return
+        setSplitLoading(true)
+        setSplitError(null)
+        try {
+            const response = await aoiAPI.simulateSplit({
+                geometry_wkt: selectedAOI.geometry,
+                mode: splitMode,
+                target_count: splitTargetCount,
+                max_area_ha: splitMaxAreaHa
+            })
+
+            const polygons = response.data.polygons.map((poly, idx) => ({
+                id: makeSplitId(idx),
+                geometry_wkt: poly.geometry_wkt,
+                area_ha: poly.area_ha,
+                name: `Talhão ${String(idx + 1).padStart(2, '0')}`,
+            }))
+
+            setSplitPreview(polygons)
+            setSplitWarnings(response.data.warnings ?? [])
+            setSplitSelectedIds(polygons[0]?.id ? [polygons[0].id] : [])
+        } catch (err) {
+            handleError(err, 'Erro ao simular divisão')
+            const status = (err as any)?.response?.status
+            if (status === 403) {
+                setSplitError('Sem permissão para simular divisão. Apenas administradores podem executar essa ação.')
+            } else if (status === 422) {
+                setSplitError('Geometria inválida ou parâmetros fora do limite. Ajuste e tente novamente.')
+            } else {
+                setSplitError('Não foi possível simular a divisão. Verifique a geometria e tente novamente.')
+            }
+        } finally {
+            setSplitLoading(false)
+        }
+    }
+
+    const handleApplySplit = async () => {
+        if (!selectedAOI || splitPreview.length === 0) return
+        setSplitApplying(true)
+        setSplitError(null)
+        try {
+            await aoiAPI.splitAois({
+                parent_aoi_id: selectedAOI.id,
+                polygons: splitPreview.map((poly) => ({
+                    geometry_wkt: poly.geometry_wkt,
+                    name: poly.name,
+                })),
+                enqueue_jobs: splitEnqueueJobs,
+                max_area_ha: splitMaxAreaHa
+            })
+
+            await loadData(false)
+            resetSplitState()
+        } catch (err) {
+            handleError(err, 'Erro ao confirmar split')
+            const status = (err as any)?.response?.status
+            if (status === 403) {
+                setSplitError('Sem permissão para confirmar split. Apenas administradores podem executar essa ação.')
+            } else if (status === 422) {
+                setSplitError('Alguns polígonos excedem o limite ou estão inválidos. Revise e tente novamente.')
+            } else {
+                setSplitError('Falha ao confirmar o split. Tente novamente ou revise os polígonos.')
+            }
+        } finally {
+            setSplitApplying(false)
+        }
+    }
+
+    const handleSplitPreviewUpdate = (id: string, geometryWkt: string, areaHa: number) => {
+        setSplitPreview((prev) =>
+            prev.map((item) => (item.id === id ? { ...item, geometry_wkt: geometryWkt, area_ha: areaHa } : item))
+        )
+    }
+
+    const handleSplitPreviewSelect = (id: string) => {
+        if (splitMultiSelect) {
+            setSplitSelectedIds((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]))
+            return
+        }
+        setSplitSelectedIds([id])
+    }
+
+    const wktToGeoJSON = (wkt: string) => {
+        const coordsMatch = wkt.match(/\([\d\s,.-]+\)/g)
+        if (!coordsMatch) return null
+        const rings = coordsMatch.map((polygonStr) => {
+            const cleanStr = polygonStr.replace(/[()]/g, '')
+            const pairs = cleanStr.split(',').map((pair) => {
+                const [lng, lat] = pair.trim().split(/\s+/).map(Number)
+                return [lng, lat]
+            })
+            return pairs
+        })
+
+        if (rings.length <= 1) {
+            return turf.polygon([rings[0]])
+        }
+        return turf.multiPolygon(rings.map((ring) => [ring]))
+    }
+
+    const geojsonToWkt = (geometry: any): string => {
+        if (!geometry) return ''
+        const toRing = (ring: number[][]) => ring.map((p) => `${p[0]} ${p[1]}`).join(', ')
+        if (geometry.type === 'Polygon') {
+            const ring = geometry.coordinates?.[0] ?? []
+            return `MULTIPOLYGON(((${toRing(ring)})))`
+        }
+        if (geometry.type === 'MultiPolygon') {
+            const parts = geometry.coordinates.map((poly: number[][][]) => `((${toRing(poly[0] ?? [])}))`).join(', ')
+            return `MULTIPOLYGON(${parts})`
+        }
+        return ''
+    }
+
+    const handleMergeSelected = () => {
+        if (splitSelectedIds.length < 2) return
+        const selected = splitPreview.filter((item) => splitSelectedIds.includes(item.id))
+        let merged: any = null
+
+        selected.forEach((item) => {
+            const geo = wktToGeoJSON(item.geometry_wkt)
+            if (!geo) return
+            if (!merged) {
+                merged = geo
+            } else {
+                merged = turf.union(merged, geo)
+            }
+        })
+
+        if (!merged) return
+
+        const wkt = geojsonToWkt(merged.geometry ?? merged)
+        const areaHa = turf.area(merged) / 10000
+        const newId = makeSplitId(splitPreview.length + 1)
+
+        setSplitPreview((prev) => {
+            const filtered = prev.filter((item) => !splitSelectedIds.includes(item.id))
+            return [
+                ...filtered,
+                {
+                    id: newId,
+                    geometry_wkt: wkt,
+                    area_ha: areaHa,
+                    name: `Talhão Merge`,
+                },
+            ]
+        })
+        setSplitSelectedIds([newId])
+    }
+
+    const toggleMergeMode = () => {
+        setMergeModeActive((prev) => {
+            const next = !prev
+            if (next) {
+                setSplitModeActive(false)
+                setSplitPreview([])
+                setSplitWarnings([])
+                setSplitSelectedIds([])
+                setSplitMultiSelect(false)
+                setIsDrawing(false)
+                setDrawingPoints([])
+                setMergeError(null)
+            } else {
+                setMergeSelectedIds([])
+            }
+            return next
+        })
+    }
+
+    const handleMergeSelect = (id: string) => {
+        if (!mergeModeActive) return
+        setMergeSelectedIds((prev) => (prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]))
+    }
+
+    const handleMergeAois = async () => {
+        if (!farm || mergeSelectedIds.length < 2) return
+        setMergeApplying(true)
+        setMergeError(null)
+        try {
+            const selected = aois.filter((aoi) => mergeSelectedIds.includes(aoi.id))
+            let merged: any = null
+
+            selected.forEach((aoi) => {
+                const geo = wktToGeoJSON(aoi.geometry)
+                if (!geo) return
+                if (!merged) merged = geo
+                else merged = turf.union(merged, geo)
+            })
+
+            if (!merged) return
+
+            const areaHa = turf.area(merged) / 10000
+            if (areaHa > splitMaxAreaHa) {
+                alert(`Área total (${areaHa.toFixed(1)} ha) excede o limite de ${splitMaxAreaHa} ha.`)
+                return
+            }
+
+            const geometryWkt = geojsonToWkt(merged.geometry ?? merged)
+            const name = `Merge ${selected.map((aoi) => aoi.name).join(' + ')}`.slice(0, 64)
+            const useType = selected[0]?.use_type ?? 'PASTURE'
+
+            const created = await aoiAPI.create({
+                farm_id: farm.id,
+                name,
+                use_type: useType as any,
+                geometry: geometryWkt
+            })
+
+            await Promise.all(selected.map((aoi) => aoiAPI.delete(aoi.id)))
+
+            setSelectedAOI(created.data)
+            setMergeSelectedIds([])
+            setMergeModeActive(false)
+            await loadData(false)
+        } catch (err) {
+            handleError(err, 'Erro ao consolidar talhões')
+            const status = (err as any)?.response?.status
+            if (status === 403) {
+                setMergeError('Sem permissão para consolidar talhões. Apenas administradores podem executar essa ação.')
+            } else if (status === 422) {
+                setMergeError('Não foi possível consolidar. Verifique o limite de área e tente novamente.')
+            } else {
+                setMergeError('Não foi possível consolidar os talhões selecionados.')
+            }
+        } finally {
+            setMergeApplying(false)
+        }
+    }
+
+    // Poll for AOI status to update processing status
     useEffect(() => {
         if (!isAuthenticated || !farmId) return
 
-        const fetchJobs = async () => {
+        const fetchStatus = async () => {
             try {
-                // Fetch PENDING and RUNNING jobs
-                // Note: ideally backend would support list of statuses, but parallel requests are fine for now
-                const [pendingRes, runningRes] = await Promise.all([
-                    jobAPI.list({ status: 'PENDING', limit: 100 }),
-                    jobAPI.list({ status: 'RUNNING', limit: 100 })
-                ])
-
-                const activeJobs = [...pendingRes.data, ...runningRes.data]
-
                 const processingSet = new Set<string>()
-                activeJobs.forEach(job => {
-                    if (job.aoi_id) {
-                        processingSet.add(job.aoi_id)
-                    }
-                })
+                if (aois.length > 0) {
+                    const res = await aoiAPI.getStatus({ aoi_ids: aois.map((aoi) => aoi.id) })
+                    res.data.items.forEach((item) => {
+                        if (item.status === 'PROCESSING' || item.latest_job_status === 'PENDING' || item.latest_job_status === 'RUNNING') {
+                            processingSet.add(item.aoi_id)
+                        }
+                    })
+
+                    setAois((prev) =>
+                        prev.map((aoi) => {
+                            const match = res.data.items.find((item) => item.aoi_id === aoi.id)
+                            return match ? { ...aoi, status: match.status } : aoi
+                        })
+                    )
+                }
 
                 setProcessingAois(processingSet)
             } catch (err) {
-                console.error('Error fetching jobs', err)
+                console.error('Error fetching aois status', err)
             }
         }
 
-        fetchJobs() // Initial fetch
-        const interval = setInterval(fetchJobs, 10000) // Poll every 10s
+        fetchStatus() // Initial fetch
+        const interval = setInterval(fetchStatus, 10000) // Poll every 10s
 
         return () => clearInterval(interval)
-    }, [isAuthenticated, farmId])
+    }, [isAuthenticated, farmId, aois.length])
 
     const [signals, setSignals] = useState<Signal[]>([])
 
@@ -338,6 +623,12 @@ export default function FarmDetailsPage() {
     }
 
     const handleDeleteFarm = async () => {
+        const isOwner = farm?.created_by_user_id && user?.id ? farm.created_by_user_id === user.id : false
+        const canDelete = role === 'tenant_admin' || role === 'system_admin' || (role === 'editor' && isOwner)
+        if (!canDelete) {
+            handleError(null, 'Sem permissão para excluir esta fazenda')
+            return
+        }
         if (!farm) return
         try {
             await farmAPI.delete(farm.id)
@@ -447,6 +738,11 @@ export default function FarmDetailsPage() {
         )
     }
 
+    const canDeleteFarm =
+        role === 'tenant_admin' ||
+        role === 'system_admin' ||
+        (role === 'editor' && farm.created_by_user_id && user?.id === farm.created_by_user_id)
+
     return (
         <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
             <ErrorToast error={error} onClose={clearError} />
@@ -487,8 +783,12 @@ export default function FarmDetailsPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => setShowDeleteModal(true)}
-                        className="h-9 w-9 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        title="Excluir Fazenda"
+                        disabled={!canDeleteFarm}
+                        className={`h-9 w-9 p-0 ${canDeleteFarm
+                                ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+                                : 'text-muted-foreground/40 cursor-not-allowed'
+                            }`}
+                        title={canDeleteFarm ? 'Excluir Fazenda' : 'Sem permissão para excluir'}
                     >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -556,6 +856,21 @@ export default function FarmDetailsPage() {
                                     <TooltipContent>Foco no Mapa</TooltipContent>
                                 </Tooltip>
                             </TooltipProvider>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant={mergeModeActive ? 'default' : 'ghost'}
+                                            size="sm"
+                                            onClick={toggleMergeMode}
+                                            className="h-8 w-8 p-0"
+                                        >
+                                            <Scissors className="h-4 w-4" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Modo Merge</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
                         </div>
                         <TooltipProvider>
                             <Tooltip>
@@ -574,43 +889,88 @@ export default function FarmDetailsPage() {
                         </TooltipProvider>
                     </div>
                     {viewMode === 'LIST' ? (
-                        <AOIList
-                            aois={aois}
-                            selectedAOI={selectedAOI}
-                            onSelect={(aoi) => {
-                                setSelectedAOI(aoi)
-                                // Note: useEffect will switch to DETAIL view
-                            }}
-                            processingAois={processingAois}
-                            signals={signals}
-                            onAddAOI={() => {
-                                startDrawing()
-                                if (window.innerWidth < 1024) setShowSidebar(false)
-                            }}
-                            onEdit={(aoi) => {
-                                setSelectedAOI(aoi)
-                                setTimeout(() => {
-                                    if (mapRef.current) {
-                                        const layer = mapRef.current.getLayers().find((l: any) => l.feature?.properties?.id === aoi.id);
-                                        if (layer && (layer as any).pm) {
-                                            if (window.innerWidth < 1024) setShowSidebar(false);
-                                            (layer as any).pm.enable({ allowSelfIntersection: false });
-                                            setEditingAOIId(aoi.id);
-                                        }
-                                    }
-                                }, 100)
-                            }}
-                            onDelete={(aoi) => {
-                                setSelectedAOI(aoi)
-                                setShowDeleteAOIModal(true)
-                            }}
-                        />
+                        <>
+                            <div className="border-b border-border bg-muted/20 px-3 py-2">
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        variant={panelView === 'LIST' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setPanelView('LIST')}
+                                    >
+                                        Lista
+                                    </Button>
+                                    <Button
+                                        variant={panelView === 'GRID' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setPanelView('GRID')}
+                                    >
+                                        Grid
+                                    </Button>
+                                </div>
+                            </div>
+                            {aois.length === 0 ? (
+                                <div className="p-6">
+                                    <EmptyAOIs />
+                                    <div className="mt-4 flex justify-center">
+                                        <Button onClick={startDrawing}>Desenhar talhão</Button>
+                                    </div>
+                                </div>
+                            ) : panelView === 'LIST' ? (
+                                <AOIList
+                                    aois={aois}
+                                    selectedAOI={selectedAOI}
+                                    onSelect={(aoi) => {
+                                        setSelectedAOI(aoi)
+                                    }}
+                                    processingAois={processingAois}
+                                    signals={signals}
+                                    onAddAOI={() => {
+                                        startDrawing()
+                                        if (window.innerWidth < 1024) setShowSidebar(false)
+                                    }}
+                                    onEdit={(aoi) => {
+                                        setSelectedAOI(aoi)
+                                        setTimeout(() => {
+                                            if (mapRef.current) {
+                                                const layer = mapRef.current.getLayers().find((l: any) => l.feature?.properties?.id === aoi.id);
+                                                if (layer && (layer as any).pm) {
+                                                    if (window.innerWidth < 1024) setShowSidebar(false);
+                                                    (layer as any).pm.enable({ allowSelfIntersection: false });
+                                                    setEditingAOIId(aoi.id);
+                                                }
+                                            }
+                                        }, 100)
+                                    }}
+                                    onDelete={(aoi) => {
+                                        setSelectedAOI(aoi)
+                                        setShowDeleteAOIModal(true)
+                                    }}
+                                />
+                            ) : (
+                                <PaddockGridView
+                                    aois={aois}
+                                    processingAois={processingAois}
+                                    signals={signals}
+                                    onSelect={(aoi) => {
+                                        setSelectedAOI(aoi)
+                                    }}
+                                    onAddAOI={startDrawing}
+                                />
+                            )}
+                        </>
                     ) : (
                         selectedAOI ? (
                             <AOIDetailsPanel
                                 aoi={selectedAOI}
                                 onClose={handleBackToList}
                                 onDelete={() => setShowDeleteAOIModal(true)}
+                                onSplit={() => {
+                                    setSplitModeActive(true)
+                                    setFocusMode('map')
+                                    setIsDrawing(false)
+                                    setDrawingPoints([])
+                                    if (window.innerWidth < 1024) setShowSidebar(false)
+                                }}
                                 onEdit={() => {
                                     // Start editing geometry
                                     if (mapRef.current) {
@@ -696,6 +1056,184 @@ export default function FarmDetailsPage() {
                             <PanelLeft className="h-4 w-4 mr-2" />
                             Talhões ({aois.length})
                         </Button>
+                    )}
+
+                    {/* Split Controls */}
+                    {splitModeActive && selectedAOI && (
+                        <div className="absolute top-4 right-4 z-[1000] w-[320px] rounded-2xl border border-border bg-card p-4 shadow-xl">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                                        <Scissors className="h-4 w-4" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-foreground">Dividir talhão</p>
+                                        <p className="text-xs text-muted-foreground">{selectedAOI.name}</p>
+                                    </div>
+                                </div>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={resetSplitState}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+
+                            <div className="space-y-3">
+                                {splitError && (
+                                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                                        {splitError}
+                                    </div>
+                                )}
+                                <div className="space-y-2">
+                                    <Label className="text-xs uppercase text-muted-foreground">Modo</Label>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant={splitMode === 'voronoi' ? 'default' : 'outline'}
+                                            size="sm"
+                                            className="flex-1"
+                                            onClick={() => setSplitMode('voronoi')}
+                                        >
+                                            Voronoi
+                                        </Button>
+                                        <Button
+                                            variant={splitMode === 'grid' ? 'default' : 'outline'}
+                                            size="sm"
+                                            className="flex-1"
+                                            onClick={() => setSplitMode('grid')}
+                                        >
+                                            Grid
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-2">
+                                        <Label className="text-xs uppercase text-muted-foreground">Talhões alvo</Label>
+                                        <Input
+                                            type="number"
+                                            min={2}
+                                            max={50}
+                                            value={splitTargetCount}
+                                            onChange={(e) => setSplitTargetCount(Number(e.target.value))}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label className="text-xs uppercase text-muted-foreground">Max área (ha)</Label>
+                                        <Input
+                                            type="number"
+                                            min={100}
+                                            max={10000}
+                                            value={splitMaxAreaHa}
+                                            onChange={(e) => setSplitMaxAreaHa(Number(e.target.value))}
+                                        />
+                                    </div>
+                                </div>
+
+                                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <input
+                                        type="checkbox"
+                                        checked={splitEnqueueJobs}
+                                        onChange={(e) => setSplitEnqueueJobs(e.target.checked)}
+                                        className="h-4 w-4 rounded border-input"
+                                    />
+                                    Enfileirar processamento após criar talhões
+                                </label>
+
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="secondary"
+                                        className="flex-1 gap-2"
+                                        onClick={handleSimulateSplit}
+                                        disabled={splitLoading}
+                                    >
+                                        <Wand2 className="h-4 w-4" />
+                                        {splitLoading ? 'Simulando...' : 'Simular'}
+                                    </Button>
+                                    <Button
+                                        className="flex-1 gap-2"
+                                        onClick={handleApplySplit}
+                                        disabled={splitApplying || splitPreview.length === 0}
+                                    >
+                                        <Check className="h-4 w-4" />
+                                        {splitApplying ? 'Aplicando...' : 'Confirmar'}
+                                    </Button>
+                                </div>
+
+                                {splitPreview.length > 0 && (
+                                    <div className="rounded-xl border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span>{splitPreview.length} talhões em prévia</span>
+                                            <Button variant="ghost" size="sm" className="h-auto px-2 py-1" onClick={() => setSplitPreview([])}>
+                                                Limpar
+                                            </Button>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-2 mb-2">
+                                            <label className="flex items-center gap-2 text-[11px]">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={splitMultiSelect}
+                                                    onChange={(e) => setSplitMultiSelect(e.target.checked)}
+                                                    className="h-3.5 w-3.5 rounded border-input"
+                                                />
+                                                Selecionar múltiplos
+                                            </label>
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={handleMergeSelected}
+                                                disabled={splitSelectedIds.length < 2}
+                                                className="h-7 px-2 text-[11px]"
+                                            >
+                                                Merge ({splitSelectedIds.length})
+                                            </Button>
+                                        </div>
+                                        {splitWarnings.length > 0 && (
+                                            <div className="flex items-start gap-2 text-amber-600">
+                                                <AlertTriangle className="h-4 w-4 mt-0.5" />
+                                                <span>Existem talhões acima do limite.</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Merge Controls */}
+                    {mergeModeActive && (
+                        <div className="absolute top-4 right-4 z-[1000] w-[320px] rounded-2xl border border-border bg-card p-4 shadow-xl">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-9 w-9 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center">
+                                        <Scissors className="h-4 w-4" />
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold text-foreground">Merge de talhões</p>
+                                        <p className="text-xs text-muted-foreground">Selecione 2+ polígonos</p>
+                                    </div>
+                                </div>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={toggleMergeMode}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            <div className="space-y-3 text-xs text-muted-foreground">
+                                {mergeError && (
+                                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                                        {mergeError}
+                                    </div>
+                                )}
+                                <div className="flex items-center justify-between">
+                                    <span>Selecionados: {mergeSelectedIds.length}</span>
+                                    <span>Limite: {splitMaxAreaHa} ha</span>
+                                </div>
+                                <Button
+                                    className="w-full gap-2"
+                                    onClick={handleMergeAois}
+                                    disabled={mergeSelectedIds.length < 2 || mergeApplying}
+                                >
+                                    <Check className="h-4 w-4" />
+                                    {mergeApplying ? 'Consolidando...' : 'Consolidar Talhões'}
+                                </Button>
+                            </div>
+                        </div>
                     )}
 
                     {/* Drawing Controls */}
@@ -784,6 +1322,15 @@ export default function FarmDetailsPage() {
                             showAOIs={showAOIs}
                             processingAois={processingAois}
                             signals={signals}
+                            splitPreviewPolygons={splitPreview}
+                            splitSelectedIds={splitSelectedIds}
+                            splitEditableId={splitSelectedIds.length === 1 ? splitSelectedIds[0] : null}
+                            splitMaxAreaHa={splitMaxAreaHa}
+                            onSplitPreviewUpdate={handleSplitPreviewUpdate}
+                            onSplitPreviewSelect={handleSplitPreviewSelect}
+                            mergeModeActive={mergeModeActive}
+                            mergeSelectedIds={mergeSelectedIds}
+                            onMergeSelect={handleMergeSelect}
                             // Pass map ref handling or use Context?
                             // Currently MapComponent manages its own ref, but exposing it for Editing would require ref forwarding.
                             // For MVP v1, we might rely on global window map or just context if we set it up.

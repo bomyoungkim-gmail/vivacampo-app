@@ -33,6 +33,12 @@ job_failures_total = Counter(
     ['job_type', 'error_type']
 )
 
+field_calibration_total = Counter(
+    'vivacampo_field_calibration_total',
+    'Field calibration submissions',
+    ['metric_type']
+)
+
 
 def get_metrics():
     """

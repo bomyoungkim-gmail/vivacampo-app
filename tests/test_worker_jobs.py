@@ -84,6 +84,17 @@ def _ensure_worker_tables(db) -> None:
     """))
 
     db.execute(text("""
+        CREATE TABLE IF NOT EXISTS tenant_settings (
+            tenant_id uuid PRIMARY KEY,
+            min_valid_pixel_ratio double precision NOT NULL DEFAULT 0.15,
+            alert_thresholds jsonb NOT NULL DEFAULT '{}'::jsonb,
+            notifications jsonb NOT NULL DEFAULT '{}'::jsonb,
+            updated_at timestamptz NOT NULL DEFAULT now(),
+            updated_by_membership_id uuid NULL
+        )
+    """))
+
+    db.execute(text("""
         CREATE TABLE IF NOT EXISTS yield_forecasts (
             id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
             tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -251,11 +262,20 @@ async def test_backfill_creates_child_jobs_and_marks_done(db_session, tenant_far
 
     created_messages = []
 
-    class DummySQS:
-        def send_message(self, message_body, queue_url=None):  # noqa: ANN001
-            created_messages.append(message_body)
+    class DummyQueue:
+        def enqueue(self, job_id, job_type, payload):  # noqa: ANN001
+            created_messages.append(
+                {
+                    "job_id": job_id,
+                    "job_type": job_type,
+                    "payload": payload,
+                }
+            )
 
-    monkeypatch.setattr("worker.shared.aws_clients.SQSClient", lambda: DummySQS())
+    monkeypatch.setattr(
+        "worker.infrastructure.di_container.WorkerContainer.job_queue",
+        lambda self: DummyQueue(),
+    )
     monkeypatch.setattr(settings, "signals_enabled", True)
 
     db_session.execute(
@@ -284,11 +304,17 @@ async def test_backfill_creates_child_jobs_and_marks_done(db_session, tenant_far
     payload = {
         "tenant_id": tenant_farm_aoi["tenant_id"],
         "aoi_id": tenant_farm_aoi["aoi_id"],
+        "from_date": date(2024, 1, 1),
+        "to_date": date(2024, 1, 8),
+    }
+    payload_db = {
+        "tenant_id": tenant_farm_aoi["tenant_id"],
+        "aoi_id": tenant_farm_aoi["aoi_id"],
         "from_date": "2024-01-01",
         "to_date": "2024-01-08",
     }
 
-    job_id = _insert_job(db_session, tenant_farm_aoi["tenant_id"], tenant_farm_aoi["aoi_id"], "BACKFILL", payload)
+    job_id = _insert_job(db_session, tenant_farm_aoi["tenant_id"], tenant_farm_aoi["aoi_id"], "BACKFILL", payload_db)
 
     result = await backfill_job.handle_backfill(
         {
@@ -301,8 +327,8 @@ async def test_backfill_creates_child_jobs_and_marks_done(db_session, tenant_far
     )
 
     assert result["weeks_processed"] == 2
-    assert result["total_jobs"] == 8
-    assert len(created_messages) == 8
+    assert result["total_jobs"] == 12
+    assert len(created_messages) == 12
 
     status = db_session.execute(
         text("SELECT status FROM jobs WHERE id = :job_id"),
@@ -321,9 +347,12 @@ async def test_backfill_creates_child_jobs_and_marks_done(db_session, tenant_far
     ).fetchall()
     created_map = {row[0]: row[1] for row in created}
     assert created_map.get("PROCESS_WEEK") == 2
+    assert created_map.get("PROCESS_RADAR_WEEK") == 2
     assert created_map.get("ALERTS_WEEK") == 2
     assert created_map.get("SIGNALS_WEEK") == 2
     assert created_map.get("FORECAST_WEEK") == 2
+    assert created_map.get("PROCESS_WEATHER") == 1
+    assert created_map.get("PROCESS_TOPOGRAPHY") == 1
 
 
 def test_process_week_handler_updates_status_and_observation(db_session, tenant_farm_aoi, monkeypatch):
@@ -337,7 +366,7 @@ def test_process_week_handler_updates_status_and_observation(db_session, tenant_
     }
     job_id = _insert_job(db_session, tenant_farm_aoi["tenant_id"], tenant_farm_aoi["aoi_id"], "PROCESS_WEEK", payload)
 
-    async def fake_process_week_async(job_id_arg, payload_arg, db):  # noqa: ANN001
+    def fake_dynamic_processor(job_id_arg, payload_arg, db):  # noqa: ANN001
         db.execute(
             text("""
                 INSERT INTO observations_weekly
@@ -355,9 +384,9 @@ def test_process_week_handler_updates_status_and_observation(db_session, tenant_
             },
         )
         db.commit()
-        process_week_job.update_job_status(job_id_arg, "DONE", db)
+        return {"observations_written": 1}
 
-    monkeypatch.setattr(process_week_job, "process_week_async", fake_process_week_async)
+    monkeypatch.setattr(process_week_job, "_dynamic_processor", fake_dynamic_processor)
 
     process_week_job.process_week_handler(job_id, payload, db_session)
 
@@ -378,8 +407,7 @@ def test_process_week_handler_updates_status_and_observation(db_session, tenant_
     assert obs_count == 1
 
 
-@pytest.mark.asyncio
-async def test_alerts_week_creates_alerts(db_session, tenant_farm_aoi):
+def test_alerts_week_creates_alerts(db_session, tenant_farm_aoi):
     from worker.jobs import alerts_week as alerts_job
 
     db_session.execute(
@@ -414,7 +442,7 @@ async def test_alerts_week_creates_alerts(db_session, tenant_farm_aoi):
         {"tenant_id": tenant_farm_aoi["tenant_id"], "aoi_id": tenant_farm_aoi["aoi_id"], "year": 2024, "week": 2},
     )
 
-    result = await alerts_job.handle_alerts_week(
+    result = alerts_job.handle_alerts_week(
         {
             "id": job_id,
             "tenant_id": tenant_farm_aoi["tenant_id"],
@@ -441,22 +469,28 @@ async def test_alerts_week_creates_alerts(db_session, tenant_farm_aoi):
 
 def test_signals_week_creates_signal(db_session, tenant_farm_aoi, monkeypatch):
     from worker.jobs import signals_week as signals_job
+    from worker.application.use_cases import signals_week as signals_use_case
     from worker.config import settings
 
     monkeypatch.setattr(settings, "signals_min_history_weeks", 2)
     monkeypatch.setattr(settings, "signals_score_threshold", 0.0)
     monkeypatch.setattr(settings, "signals_change_detection", "Simple")
+    monkeypatch.setattr(signals_use_case.settings, "signals_min_history_weeks", 2)
+    monkeypatch.setattr(signals_use_case.settings, "signals_score_threshold", 0.0)
+    monkeypatch.setattr(signals_use_case.settings, "signals_change_detection", "Simple")
+    assert settings.signals_min_history_weeks == 2
+    assert signals_use_case.settings.signals_min_history_weeks == 2
 
-    monkeypatch.setattr(signals_job, "extract_features", lambda observations: {"trend": 0.1})
-    monkeypatch.setattr(signals_job, "calculate_rule_score", lambda features, use_type: 0.8)
-    monkeypatch.setattr(signals_job, "calculate_ml_score", lambda features: 0.8)
-    monkeypatch.setattr(signals_job, "calculate_change_score", lambda change: 0.8)
-    monkeypatch.setattr(signals_job, "calculate_final_score", lambda r, c, m: 0.9)
-    monkeypatch.setattr(signals_job, "determine_severity", lambda score: "HIGH")
-    monkeypatch.setattr(signals_job, "determine_confidence", lambda score, vpr, count: "HIGH")
-    monkeypatch.setattr(signals_job, "determine_signal_type", lambda use_type, features, change: "VIGOR_DROP")
-    monkeypatch.setattr(signals_job, "get_recommended_actions", lambda signal_type: ["IRRIGATE"])
-    monkeypatch.setattr(signals_job, "detect_change_simple", lambda observations: {"change": 0.2})
+    monkeypatch.setattr(signals_use_case, "extract_features", lambda observations: {"trend": 0.1})
+    monkeypatch.setattr(signals_use_case, "calculate_rule_score", lambda features, use_type: 0.8)
+    monkeypatch.setattr(signals_use_case, "calculate_ml_score", lambda features: 0.8)
+    monkeypatch.setattr(signals_use_case, "calculate_change_score", lambda change: 0.8)
+    monkeypatch.setattr(signals_use_case, "calculate_final_score", lambda r, c, m: 0.9)
+    monkeypatch.setattr(signals_use_case, "determine_severity", lambda score: "HIGH")
+    monkeypatch.setattr(signals_use_case, "determine_confidence", lambda score, vpr, count: "HIGH")
+    monkeypatch.setattr(signals_use_case, "determine_signal_type", lambda use_type, features, change: "VIGOR_DROP")
+    monkeypatch.setattr(signals_use_case, "get_recommended_actions", lambda signal_type: ["IRRIGATE"])
+    monkeypatch.setattr(signals_use_case, "detect_change_simple", lambda observations: {"change": 0.2})
 
     db_session.execute(
         text("""
@@ -467,6 +501,10 @@ def test_signals_week_creates_signal(db_session, tenant_farm_aoi, monkeypatch):
             (:tenant_id, :aoi_id, 2024, 1, 'v1', 'OK', 0.8,
              0.6, 0.5, 0.6, 0.7, 0.05, 0.6, 0.01),
             (:tenant_id, :aoi_id, 2024, 2, 'v1', 'OK', 0.8,
+             0.58, 0.48, 0.58, 0.68, 0.05, 0.59, 0.0),
+            (:tenant_id, :aoi_id, 2024, 3, 'v1', 'OK', 0.8,
+             0.56, 0.46, 0.56, 0.66, 0.05, 0.58, -0.01),
+            (:tenant_id, :aoi_id, 2024, 4, 'v1', 'OK', 0.8,
              0.55, 0.45, 0.55, 0.65, 0.05, 0.58, -0.02)
         """),
         {"tenant_id": tenant_farm_aoi["tenant_id"], "aoi_id": tenant_farm_aoi["aoi_id"]},
@@ -478,14 +516,15 @@ def test_signals_week_creates_signal(db_session, tenant_farm_aoi, monkeypatch):
         tenant_farm_aoi["tenant_id"],
         tenant_farm_aoi["aoi_id"],
         "SIGNALS_WEEK",
-        {"tenant_id": tenant_farm_aoi["tenant_id"], "aoi_id": tenant_farm_aoi["aoi_id"], "year": 2024, "week": 2},
+        {"tenant_id": tenant_farm_aoi["tenant_id"], "aoi_id": tenant_farm_aoi["aoi_id"], "year": 2024, "week": 4},
     )
 
-    signals_job.signals_week_handler(
+    result = signals_job.signals_week_handler(
         job_id,
-        {"tenant_id": tenant_farm_aoi["tenant_id"], "aoi_id": tenant_farm_aoi["aoi_id"], "year": 2024, "week": 2},
+        {"tenant_id": tenant_farm_aoi["tenant_id"], "aoi_id": tenant_farm_aoi["aoi_id"], "year": 2024, "week": 4},
         db_session,
     )
+    assert result["status"] == "OK"
 
     status = db_session.execute(
         text("SELECT status FROM jobs WHERE id = :job_id"),
@@ -497,7 +536,7 @@ def test_signals_week_creates_signal(db_session, tenant_farm_aoi, monkeypatch):
         text("""
             SELECT COUNT(*)
             FROM opportunity_signals
-            WHERE tenant_id = :tenant_id AND aoi_id = :aoi_id AND year = 2024 AND week = 2
+            WHERE tenant_id = :tenant_id AND aoi_id = :aoi_id AND year = 2024 AND week = 4
         """),
         {"tenant_id": tenant_farm_aoi["tenant_id"], "aoi_id": tenant_farm_aoi["aoi_id"]},
     ).scalar_one()

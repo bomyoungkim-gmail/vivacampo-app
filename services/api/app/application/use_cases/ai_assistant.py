@@ -1,6 +1,7 @@
 """AI assistant use cases."""
 from __future__ import annotations
 
+from app.application.decorators import require_tenant
 from app.application.dtos.ai_assistant import (
     CreateThreadCommand,
     GetApprovalThreadCommand,
@@ -15,6 +16,7 @@ class CreateThreadUseCase:
     def __init__(self, repo: IAiAssistantRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: CreateThreadCommand) -> dict:
         return await self.repo.create_thread(
             tenant_id=command.tenant_id,
@@ -30,6 +32,7 @@ class ListThreadsUseCase:
     def __init__(self, repo: IAiAssistantRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: ListThreadsCommand) -> list[dict]:
         return await self.repo.list_threads(command.tenant_id, command.limit)
 
@@ -38,6 +41,7 @@ class GetMessagesUseCase:
     def __init__(self, repo: IAiAssistantRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: GetMessagesCommand) -> list[dict]:
         state_json = await self.repo.get_latest_state(command.tenant_id, command.thread_id)
         if not state_json:
@@ -53,6 +57,7 @@ class ListApprovalsUseCase:
     def __init__(self, repo: IAiAssistantRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: ListApprovalsCommand) -> list[dict]:
         return await self.repo.list_approvals(command.tenant_id, command.pending_only)
 
@@ -61,5 +66,6 @@ class GetApprovalThreadUseCase:
     def __init__(self, repo: IAiAssistantRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: GetApprovalThreadCommand):
         return await self.repo.get_approval_thread_id(command.tenant_id, command.approval_id)

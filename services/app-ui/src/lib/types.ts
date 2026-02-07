@@ -32,6 +32,7 @@ export interface Farm {
     name: string
     timezone: string
     aoi_count?: number
+    created_by_user_id?: string | null
     created_at?: string
     updated_at?: string
 }
@@ -59,6 +60,8 @@ export interface AOI {
     use_type: AOIUseType
     geometry: string  // WKT format
     area_ha?: number
+    status?: string
+    ndvi_mean?: number | null
     created_at?: string
     updated_at?: string
 }
@@ -82,6 +85,55 @@ export interface AOIBackfillRequest {
     end_date: string    // ISO 8601 format
 }
 
+export type SplitMode = 'voronoi' | 'grid'
+
+export interface AoiSplitPolygon {
+    geometry_wkt: string
+    area_ha?: number
+    name?: string
+}
+
+export interface AoiSplitSimulationRequest {
+    geometry_wkt: string
+    mode: SplitMode
+    target_count: number
+    max_area_ha?: number
+}
+
+export interface AoiSplitSimulationResponse {
+    polygons: AoiSplitPolygon[]
+    warnings: string[]
+}
+
+export interface AoiSplitCreateRequest {
+    parent_aoi_id: string
+    polygons: AoiSplitPolygon[]
+    enqueue_jobs?: boolean
+    max_area_ha?: number
+}
+
+export interface AoiSplitCreateResponse {
+    created: number
+    job_ids: string[]
+    warnings: string[]
+}
+
+export interface AoiStatusRequest {
+    aoi_ids: string[]
+}
+
+export interface AoiStatusItem {
+    aoi_id: string
+    status: string
+    latest_job_id?: string | null
+    latest_job_status?: string | null
+    updated_at?: string | null
+}
+
+export interface AoiStatusResponse {
+    items: AoiStatusItem[]
+}
+
 // =============================================================================
 // Intelligence Types
 // =============================================================================
@@ -94,6 +146,28 @@ export interface NitrogenStatus {
     reci_mean: number | null
     recommendation: string
     zone_map_url: string | null
+}
+
+export interface FieldCalibrationCreateRequest {
+    aoi_id: string
+    date: string
+    metric_type: 'biomass' | 'yield'
+    value: number
+    unit: 'kg_ha' | 'sc_ha'
+}
+
+export interface FieldCalibrationCreateResponse {
+    id: string
+    status: string
+}
+
+export interface PredictionResponse {
+    p10: number
+    p50: number
+    p90: number
+    unit: 'kg_ha'
+    confidence: number
+    source: string
 }
 
 // =============================================================================
@@ -489,6 +563,30 @@ export interface DashboardData {
 // =============================================================================
 // Admin Types (for admin-ui)
 // =============================================================================
+
+export interface InviteMemberRequest {
+    email: string
+    name: string
+    role: 'EDITOR' | 'VIEWER'
+}
+
+export interface InviteMemberResponse {
+    membership_id: string
+    email: string
+    role: 'EDITOR' | 'VIEWER'
+    status: 'INVITED'
+    message: string
+}
+
+export interface Membership {
+    id: string
+    identity_id: string
+    email: string
+    name: string
+    role: string
+    status: string
+    created_at: string
+}
 
 export interface Tenant {
     id: string

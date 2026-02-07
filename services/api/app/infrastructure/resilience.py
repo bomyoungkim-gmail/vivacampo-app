@@ -5,7 +5,7 @@ from functools import wraps
 from typing import Callable, Any
 import time
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import structlog
 
 logger = structlog.get_logger()
@@ -72,7 +72,7 @@ class CircuitBreaker:
         if self.last_failure_time is None:
             return True
         
-        return (datetime.utcnow() - self.last_failure_time).seconds >= self.recovery_timeout
+        return (datetime.now(timezone.utc) - self.last_failure_time).seconds >= self.recovery_timeout
     
     def _on_success(self):
         """Reset circuit breaker on successful call"""
@@ -82,7 +82,7 @@ class CircuitBreaker:
     def _on_failure(self):
         """Increment failure count and open circuit if threshold reached"""
         self.failure_count += 1
-        self.last_failure_time = datetime.utcnow()
+        self.last_failure_time = datetime.now(timezone.utc)
         
         if self.failure_count >= self.failure_threshold:
             self.state = "OPEN"
@@ -108,6 +108,21 @@ def circuit(failure_threshold: int = 5, recovery_timeout: int = 60):
             return await breaker.call_async(func, *args, **kwargs)
         return wrapper
     
+    return decorator
+
+
+def circuit_sync(failure_threshold: int = 5, recovery_timeout: int = 60):
+    """
+    Sync decorator for circuit breaker pattern.
+    """
+    breaker = CircuitBreaker(failure_threshold, recovery_timeout)
+
+    def decorator(func: Callable):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return breaker.call(func, *args, **kwargs)
+        return wrapper
+
     return decorator
 
 
@@ -154,6 +169,49 @@ def retry_with_backoff(
         
         return wrapper
     
+    return decorator
+
+
+def retry_with_backoff_sync(
+    max_attempts: int = 3,
+    initial_delay: float = 1.0,
+    max_delay: float = 10.0,
+    exponential_base: float = 2.0,
+    exceptions: tuple = (Exception,),
+):
+    """
+    Sync decorator for retry with exponential backoff.
+    """
+    def decorator(func: Callable):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            delay = initial_delay
+
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    return func(*args, **kwargs)
+                except exceptions as e:
+                    if attempt == max_attempts:
+                        logger.error(
+                            "retry_exhausted",
+                            func=func.__name__,
+                            attempts=attempt,
+                            exc_info=e,
+                        )
+                        raise
+
+                    logger.warning(
+                        "retry_attempt",
+                        func=func.__name__,
+                        attempt=attempt,
+                        delay=delay,
+                        error=str(e),
+                    )
+                    time.sleep(delay)
+                    delay = min(delay * exponential_base, max_delay)
+
+        return wrapper
+
     return decorator
 
 

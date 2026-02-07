@@ -1,14 +1,18 @@
 import asyncio
-import tempfile
 from pathlib import Path
+import shutil
 
 from app.infrastructure.adapters.storage.local_fs_adapter import LocalFileSystemAdapter
 
 
 def test_local_storage_contract_upload_download_exists():
-    with tempfile.TemporaryDirectory() as tmpdir:
-        storage = LocalFileSystemAdapter(tmpdir)
-        key = "contract/test.bin"
+    base_dir = Path(".tmp") / "tests" / "local_fs_contract"
+    if base_dir.exists():
+        shutil.rmtree(base_dir, ignore_errors=True)
+    base_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        storage = LocalFileSystemAdapter(base_dir)
+        key = "contract_test.bin"
         payload = b"local-storage"
 
         async def run():
@@ -19,3 +23,5 @@ def test_local_storage_contract_upload_download_exists():
             assert data == payload
 
         asyncio.run(run())
+    finally:
+        shutil.rmtree(base_dir, ignore_errors=True)

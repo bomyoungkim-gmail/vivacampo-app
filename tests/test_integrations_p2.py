@@ -113,7 +113,7 @@ def tenant_id(db_session):
 @pytest.mark.asyncio
 async def test_stac_search_scenes_maps_assets(monkeypatch):
     _ensure_optional_modules()
-    from worker.pipeline import stac_client as stac
+    from worker.pipeline.providers import planetary_computer as pc
 
     class Asset:
         def __init__(self, href):
@@ -146,11 +146,21 @@ async def test_stac_search_scenes_maps_assets(monkeypatch):
         def search(self, **kwargs):  # noqa: ANN001
             return FakeSearch()
 
-    monkeypatch.setattr(stac.Client, "open", lambda *args, **kwargs: FakeClient())
-    monkeypatch.setattr(stac, "shape", lambda geom: geom)
-    monkeypatch.setattr(stac, "mapping", lambda geom: geom)
+    class DummyClient:
+        @staticmethod
+        def open(*args, **kwargs):  # noqa: ANN001
+            return FakeClient()
 
-    client = stac.STACClient(catalog_url="http://example.com")
+    class FakeGeom:
+        def __init__(self, geom):
+            self._geom = geom
+            self.bounds = (-1, -1, 1, 1)
+
+    monkeypatch.setattr(pc, "Client", DummyClient)
+    monkeypatch.setattr(pc, "shape", lambda geom: FakeGeom(geom))
+    monkeypatch.setattr(pc, "mapping", lambda geom: geom._geom if hasattr(geom, "_geom") else geom)
+
+    client = pc.PlanetaryComputerProvider(catalog_url="http://example.com")
     scenes = await client.search_scenes(
         aoi_geom={"type": "Polygon", "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 0]]]},
         start_date=datetime(2024, 1, 1),

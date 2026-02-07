@@ -7,6 +7,561 @@ Fase 5 em andamento: routers restantes (tiles/system_admin/tenant_admin/ai_assis
 
 ## Progress Log
 
+- 2026-02-07: **TASK-PERM-0217 + TASK-AUTH-0218 (parcial)**
+  - App-ui: criada página `Settings` com lista de membros e modal de convite (EDITOR/VIEWER).
+  - App-ui: guards de UI para criação/exclusão de fazendas por role + badge “Criada por você”.
+  - API: `FarmView` agora inclui `created_by_user_id` para suportar UX de ownership.
+  - Tests: `pytest tests/unit/application/test_auth_use_cases.py tests/unit/application/test_farm_use_cases.py tests/unit/application/test_tenant_admin_use_cases.py -q` → **6 passed** (2 warnings de deps).
+  - Fix deps: `bcrypt<4` fixado em `services/api/requirements.txt` + rebuild API.
+  - Fix backend: `auth_repository.create_tenant` agora envia `quotas` como JSON (json.dumps) para `jsonb`.
+  - Smoke tests (local): `/v1/auth/signup` **201** + `Set-Cookie` ok; `/v1/auth/login` **200** + `Set-Cookie` ok.
+  - Próxima ação: nenhuma (TASK-AUTH-0218 concluída).
+
+- 2026-02-07: **Warnings/Deprecations — verificação**
+  - `pytest tests -q`: **154 passed, 2 skipped, 42 warnings**.
+  - Warnings restantes vêm de dependências (`starlette`/`python-multipart`, `planetary_computer` pydantic v2, `python-jose`, `botocore`, `pydantic`, `rasterio`).
+  - Confirmado: não há `datetime.utcnow()` no repo (uso local já atualizado).
+  - Decisão: manter warnings como backlog por ora (sem mudanças de dependências).
+  - Próxima ação: opcional — avaliar atualização de dependências ou filtros de warnings quando fizer upgrade.
+
+- 2026-02-07: **Tests — correções e suíte verde**
+  - Corrigidos testes de storage local (diretório estável em `.tmp`), correlation service (repo correto), E2E workspace switch (auth header/skip seguro).
+  - Ajustados testes de farms e worker jobs (backfill com datas `date`, alerts/signal handlers sync, sinais com dataset >=4 semanas + patch de settings).
+  - Adicionado `has_season` ao `SqlSeasonRepository` de `forecast_adapters` (evita conflito do DI em backfill).
+  - `pytest tests -q`: **154 passed, 2 skipped** (warnings deprecations permanecem).
+  - Próxima ação: decidir se vamos atacar warnings/deprecations (datetime.utcnow, pydantic) ou manter como backlog.
+
+- 2026-02-07: **Deprecation warnings — datetime + deps**
+  - Troquei `datetime.utcnow()` por `datetime.now(timezone.utc)` em código e testes.
+  - Atualizei mínimos de `python-multipart` e `planetary-computer`.
+  - Próxima ação: decidir se vamos rodar `pip/conda` para atualizar deps locais e revalidar warnings.
+
+- 2026-02-06: **Env — dependencias locais (tentativa)**
+  - `conda` no modo elevado: instalado Python 3.11 + pip no env `vivacampo`.
+  - Instalados `planetary-computer` e `hypothesis` via `conda-forge`.
+  - `pip install -r ...` falhou por falta de acesso ao PyPI (sem index configurado).
+  - Próxima ação: fornecer `PIP_INDEX_URL`/proxy interno para concluir installs e rodar a suíte local.
+
+- 2026-02-06: **Env — conda somente (parcial)**
+  - Instalei via conda: fastapi/uvicorn/sqlalchemy/geoalchemy2/pydantic(+settings), python-jose/passlib/bcrypt, boto3, redis/tenacity/bleach/structlog, prometheus_client, opentelemetry (api/sdk/exporter/instrumentation), slowapi, aiohttp, numpy (OpenBLAS), shapely, mercantile, pytest(+cov/+asyncio), psycopg.
+  - `aioboto3` não resolveu (timeout) e `rasterio` não instalou mesmo com timeout longo.
+  - `pytest tests` ainda falha por falta de `rasterio` (e antes por `psycopg` já resolvido).
+  - Próxima ação: instalar `rasterio` (talvez via mamba/conda em sessão local) e retentar `pytest tests`.
+
+- 2026-02-07: **Tests — suíte local executada**
+  - `pytest tests` executado após instalação manual de deps; resultado: 11 falhas, 140 passed, 6 skipped.
+  - Falhas principais: temp dir sem permissão em `LocalFileSystemAdapter`; FK em `test_correlation_service` (membership antes de identity); E2E workspace switch 401; STAC/integrações; nitrogen/worker jobs (atributos faltando); stubs de farm repo com métodos abstratos não implementados.
+  - OTel: `Exception while exporting Span` no teardown (stdout fechado).
+  - Próxima ação: decidir se corrigimos as falhas (tests/fixtures) ou se marcamos skips/ajustamos env para E2E/integrações.
+
+- 2026-02-06: **Docs — Plano Auth/Landing**
+  - Criado plano detalhado com tasks auditáveis em `ai/IMPLEMENTATION_PLAN_AUTH_LANDING.md`.
+  - Próxima ação: revisar e aprovar o plano para iniciar implementação da Fase 1 (backend auth).
+
+- 2026-02-06: **Docs — Plano Auth/Landing (cobertura total)**
+  - Atualizado o plano em `ai/IMPLEMENTATION_PLAN_AUTH_LANDING.md` para cobrir 100% do `ai/AUTHENTICATION_AND_LANDING_PAGE_PLAN.md` (contact/terms/privacy, design tokens, navbar, auto-login, basePath).
+  - Próxima ação: revisar a versão atualizada e aprovar início da implementação.
+
+- 2026-02-06: **Docs — Permissões/Roles incluídos na Fase 2**
+  - Lido `ai/PERMISSIONS_AND_ROLES_ARCHITECTURE.md`.
+  - Incluídas tasks de permissões/roles na Fase 2 do plano em `ai/IMPLEMENTATION_PLAN_AUTH_LANDING.md`.
+  - Próxima ação: revisar a seção “Phase 2 — Permissions & Roles (Included)”.
+
+- 2026-02-06: **Docs — Ordem de execução ajustada**
+  - Atualizada a ordem de execução para explicitar Phase 2 (Frontend Auth) em paralelo com Phase 2 Permissions & Roles.
+  - Próxima ação: confirmar aprovação do plano completo.
+
+- 2026-02-06: **Docs — Tasks adicionadas**
+  - Adicionadas tasks de Auth/Landing/Permissions em `ai/tasks.md` (seção P1 — Soon).
+  - Próxima ação: revisar prioridades e iniciar execução da TASK-AUTH-0200.
+
+- 2026-02-06: **Docs — TASK-AUTH-0200 iniciada**
+  - Contrato de auth (draft) e política de senha adicionados ao plano em `ai/IMPLEMENTATION_PLAN_AUTH_LANDING.md`.
+  - Próxima ação: validar o contrato com o time e marcar TASK-AUTH-0200 como concluída.
+
+- 2026-02-06: **Docs — Decisões do contrato**
+  - Registradas decisões: OPERATOR→EDITOR, DTOs em `app/presentation/dtos/auth_dtos.py`, cookie `secure` por ambiente, error shape padrão, access_token em body+cookie, reset JWT TTL 15min.
+  - Próxima ação: aplicar os próximos passos do “Contract Closeout”.
+
+- 2026-02-06: **Tasks — TASK-AUTH-0200 concluída**
+  - Marquei a TASK-AUTH-0200 como concluída em `ai/tasks.md`.
+  - Próxima ação: iniciar TASK-AUTH-0201 (migration local credentials).
+
+- 2026-02-06: **Tasks — TASK-AUTH-0201 concluída**
+  - Migration criada: `infra/migrations/sql/011_add_identity_local_credentials.sql`.
+  - Runbook atualizado com rollback: `docs/runbooks/migrations.md`.
+  - TASK-AUTH-0201 marcada como concluída em `ai/tasks.md`.
+  - Próxima ação: iniciar TASK-AUTH-0202 (use cases de auth).
+
+- 2026-02-06: **Tasks — TASK-AUTH-0202 (iniciado)**
+  - Criados DTOs e use cases de auth (signup/login/forgot/reset).
+  - Adicionado port `IAuthRepository` e adapter SQLAlchemy para auth.
+  - Atualizado `auth/utils.py` com JWT de reset (TTL 15min).
+  - Atualizado modelo `Identity` com campos de senha/reset.
+  - Próxima ação: revisar wiring dos endpoints e validar fluxos (TASK-AUTH-0203).
+
+- 2026-02-06: **Tasks — TASK-AUTH-0202 concluída**
+  - Use cases e DTOs de auth finalizados.
+  - TASK-AUTH-0202 marcada como concluída em `ai/tasks.md`.
+  - Próxima ação: finalizar TASK-AUTH-0203 (routers/cookies).
+
+- 2026-02-06: **Tasks — TASK-AUTH-0203 concluída**
+  - Endpoints `/v1/auth/*` adicionados no `auth_router` com DTOs e cookies httpOnly.
+  - `cookie_secure` adicionado em `settings`.
+  - TASK-AUTH-0203 marcada como concluída em `ai/tasks.md`.
+  - Próxima ação: iniciar TASK-AUTH-0204 (frontend auth pages).
+
+- 2026-02-06: **Tasks — TASK-AUTH-0204 concluída**
+  - Atualizado `/login` para autenticação por email/senha.
+  - Criadas páginas `/signup`, `/forgot-password`, `/reset-password/[token]`.
+  - TASK-AUTH-0204 marcada como concluída em `ai/tasks.md`.
+  - Próxima ação: iniciar TASK-AUTH-0205 (terms/privacy).
+
+- 2026-02-06: **Tasks — TASK-AUTH-0205 concluída**
+  - Criadas páginas `/terms` e `/privacy` no app-ui.
+  - TASK-AUTH-0205 marcada como concluída em `ai/tasks.md`.
+  - Próxima ação: iniciar TASK-AUTH-0206 (middleware + route protection).
+
+- 2026-02-06: **Tasks — TASK-AUTH-0206 concluída**
+  - Middleware atualizado para cookie `access_token`, rotas públicas e guards de role.
+  - `setAuthCookie` agora usa httpOnly e nome `access_token`.
+  - Login/signup passam a setar cookie via server action.
+  - TASK-AUTH-0206 marcada como concluída em `ai/tasks.md`.
+  - Próxima ação: iniciar TASK-AUTH-0207 (URL simplification).
+
+- 2026-02-06: **Tasks — TASK-AUTH-0207 concluída**
+  - `basePath` removido e rewrites adicionados para `/app/*` em `services/app-ui/next.config.js`.
+  - Manifest e metadata ajustados para URLs sem `/app`.
+  - `NEXT_PUBLIC_BASE_PATH` default atualizado para vazio.
+  - TASK-AUTH-0207 marcada como concluída em `ai/tasks.md`.
+  - Próxima ação: iniciar TASK-LANDING-0210 (landing page).
+
+- 2026-02-06: **Tasks — Landing Page concluída**
+  - Landing page implementada em `services/app-ui/src/app/page.tsx` com hero, features, pricing, testimonials, contact e footer.
+  - Design tokens aplicados (Poppins/Open Sans, cores do plano).
+  - Página de contato criada em `services/app-ui/src/app/contact/page.tsx`.
+  - TASK-LANDING-0210/0211/0212 marcadas como concluídas em `ai/tasks.md`.
+  - Próxima ação: iniciar TASK-PERM-0213 (roles + ownership).
+
+- 2026-02-06: **Tasks — TASK-PERM-0213 concluída**
+  - Criado `UserRole` em `services/api/app/domain/entities/user.py`.
+  - `Farm` agora inclui `created_by_user_id` e `can_edit()` com regras de role.
+  - TASK-PERM-0213 marcada como concluída em `ai/tasks.md`.
+  - Próxima ação: iniciar TASK-PERM-0214 (use cases permissions).
+
+- 2026-02-06: **Tasks — TASK-PERM-0214 concluída**
+  - Use cases de farm atualizados com regras de role/ownership.
+  - Criados comandos Update/Delete e métodos update/delete no repo.
+  - TASK-PERM-0214 marcada como concluída em `ai/tasks.md`.
+  - Próxima ação: iniciar TASK-PERM-0215 (migration farm ownership).
+
+- 2026-02-06: **Tasks — TASK-PERM-0215 concluída**
+  - Migration criada: `infra/migrations/sql/012_add_farm_created_by_user.sql` com backfill.
+  - Runbook atualizado: `docs/runbooks/migrations.md`.
+  - ORM atualizado com `created_by_user_id` e índice.
+  - Farm repo passa a mapear `created_by_user_id`.
+  - TASK-PERM-0215 marcada como concluída em `ai/tasks.md`.
+  - Próxima ação: iniciar TASK-PERM-0216 (guards + invite API).
+
+- 2026-02-06: **Tasks — TASK-PERM-0216 concluída**
+  - Guards atualizados para `EDITOR` (routers AOI/Jobs/Weather/Farms) e compatibilidade com OPERATOR mantida em `require_role`.
+  - Invite API reforçada para aceitar apenas `EDITOR`/`VIEWER` e retornar 400 para roles inválidas.
+  - Testes ajustados para `EDITOR` (rbac, tenant isolation, tenant_admin use cases).
+  - Comentários e docs atualizados para refletir `EDITOR`.
+  - TASK-PERM-0216 marcada como concluída em `ai/tasks.md`.
+  - Próxima ação: iniciar TASK-PERM-0217 (frontend invite UI + role UX).
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-005 (UI Map View, parcial)**
+  - Adicionados controles de split no mapa (simulação, confirmação, preview).
+  - Polígonos agora usam bordas por status e fill por NDVI (se disponível).
+  - Ícones centrais por status (alerta/processing/warning) e preview de split.
+  - Alerta visual quando talhão > 2.000 ha.
+  - Status: em andamento (merge/ajuste avançado pendente).
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-005 (UI Map View, merge)**
+  - Multi-select de talhões em preview + ação de merge via Turf.
+  - Ajuste fino permitido em preview com Geoman (edit/drag) no talhão selecionado.
+  - Task marcada como concluída em `ai/tasks.md`.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-018 (UI Merge de talhões)**
+  - Modo Merge no mapa: seleção multi-AOI e consolidação via Turf union.
+  - Persistência: cria AOI consolidado e remove AOIs originais (com validação de área máxima).
+  - Task marcada como concluída em `ai/tasks.md`.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-006 (Grid View + batch calibration)**
+  - Grid view com filtros de status, coluna editável para valor real e ação de salvar em lote.
+  - Controles de data/métrica/unidade e carregamento opcional de estimativas.
+  - Task marcada como concluída em `ai/tasks.md`.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-019 (Badges por tipo de alerta)**
+  - Badges visuais por tipo (water/disease/yield) no mapa, lista e grid.
+  - Tooltip com descrição do risco em badges.
+  - Task marcada como concluída em `ai/tasks.md`.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-017 (UX estados vazios/erros)**
+  - Empty states para lista/grid e CTA para criar talhão.
+  - Mensagens de erro amigáveis para 403/422 em split/merge.
+  - Task marcada como concluída em `ai/tasks.md`.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-007 (UI polling de status)**
+  - Polling via `/v1/app/aois/status` para atualizar estados de processamento.
+  - `processingAois` agora reflete status do backend sem polling de jobs.
+  - Task marcada como concluída em `ai/tasks.md`.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-008 (testes, parcial)**
+  - Dependências instaladas no container `api` (hypothesis, planetary-computer).
+  - `docker compose exec api pytest -q`: 3 passed, 1 warning.
+  - Observação: container não possui `tests/unit` completos; suite total não executada.
+  - OTel: erro "Exception while exporting Span" após execução (stdout fechado).
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-008 (testes completos)**
+  - `docker compose run --rm -v C:\projects\vivacampo-app:/workspace worker ... pytest /workspace/tests/unit -q`
+  - Resultado: 92 passed, 2 warnings (NotGeoreferencedWarning).
+  - Correções de testes: async marker + TenantId UUID + mock de provider STAC.
+  - Task marcada como concluída em `ai/tasks.md`.
+
+- 2026-02-06: **Arquitetura — TASK-ARCH-TEST-001**
+  - `docker compose run ... pytest /workspace/tests/unit/domain/test_value_objects_property.py -q`
+  - Resultado: 5 passed.
+  - Dependências instaladas no container (hypothesis, python-jose).
+  - Task marcada como concluída em `ai/tasks.md`.
+
+- 2026-02-06: **Arquitetura — TASK-ARCH-OBS-001**
+  - Validado OpenTelemetry no container `api` (imports OK: opentelemetry sdk/exporter/instrumentation).
+  - `OTEL_ENDPOINT` não definido em `.env.local` — mantendo console exporter padrão.
+  - Task marcada como concluída em `ai/tasks.md`.
+
+- 2026-02-06: **Arquitetura — TASK-ARCH-INDEX-001 (parcial)**
+  - Índices compostos confirmados no DB local (`pg_indexes`): jobs/aois/opportunity_signals.
+  - Staging/prod pendentes.
+
+- 2026-02-06: **Sessão — encerramento**
+  - Log criado em `ai/sessions/2026-02-06-1845.md`.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-012 (RBAC)**
+  - Confirmado RBAC `TENANT_ADMIN` em endpoints de split, calibração e feedback (403 padronizado).
+  - Task marcada como concluída em `ai/tasks.md`.
+
+- 2026-02-06: **Docs — roadmap/context atualizados**
+  - `ai/roadmap.md` atualizado com status do Interactive Paddock (backend completo; frontend pendente) e observabilidade parcial.
+  - `ai/context.md` atualizado com capacidades do paddock (APIs backend), gaps de frontend/RBAC e entidades adicionais.
+
+- 2026-02-06: **Planejamento — Interactive Paddock**
+  - Revisado plano e adicionadas tasks `TASK-PADDOCK-001` a `TASK-PADDOCK-008` em `ai/tasks.md`.
+  - Próxima ação: priorizar tasks e iniciar pela modelagem de dados (migrations/DTOs).
+
+- 2026-02-06: **Planejamento — Interactive Paddock (complemento)**
+  - Adicionadas tasks `TASK-PADDOCK-009` (confirmar split + batch create) e `TASK-PADDOCK-010` (feedback de campo) em `ai/tasks.md`.
+  - Prioridade confirmada: P1 para todas as tasks PADDOCK.
+
+- 2026-02-06: **Planejamento — Interactive Paddock (contratos)**
+  - Atualizados drafts de request/response para `simulate-split`, `field-data`, `analytics/calibration`, `analytics/prediction`, `aois/split`, `field-feedback` em `ai/tasks.md`.
+
+- 2026-02-06: **Planejamento — Interactive Paddock (gaps adicionados)**
+  - Adicionadas tasks `TASK-PADDOCK-011` a `TASK-PADDOCK-017` cobrindo governanca, RBAC, idempotencia, validacao geoespacial, observabilidade, unidades e UX de estados vazios.
+
+- 2026-02-06: **Planejamento — Interactive Paddock (sequencia e regras)**
+  - Reordenadas tasks PADDOCK em `ai/tasks.md` para sequencia de execucao.
+  - RBAC atualizado para `TENANT_ADMIN` e unidade padrao definida como kg/ha.
+
+- 2026-02-06: **Planejamento — Interactive Paddock (dependencias)**
+  - Adicionadas dependencias explicitas para todas as tasks PADDOCK em `ai/tasks.md`.
+
+- 2026-02-06: **Planejamento — Interactive Paddock (UX completos)**
+  - Adicionadas tasks `TASK-PADDOCK-018` (merge de talhoes) e `TASK-PADDOCK-019` (badges por tipo) em `ai/tasks.md`.
+
+- 2026-02-06: **Planejamento — Interactive Paddock (ordem de execucao)**
+  - Ordem P1 registrada em `ai/tasks.md` (Execution Order).
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-001 (data model) iniciado**
+  - Migration criada: `infra/migrations/sql/008_add_aoi_parent_and_field_calibrations.sql`.
+  - Modelos atualizados: `services/api/app/infrastructure/models.py` (parent_aoi_id + FieldCalibration).
+  - Runbook atualizado: `docs/runbooks/migrations.md`.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-014 (validacao geoespacial)**
+  - Normalizacao de geometria no AOI repo (make valid + simplify) e rejeicao de geometria invalida.
+  - Router de AOI agora retorna 422 em erros de geometria.
+  - Teste unitario adicionado em `tests/unit/infrastructure/test_aoi_repository_geometry.py`.
+  - Changelog interno atualizado.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-002 (simulate split)**
+  - Endpoint `POST /v1/app/aois/simulate-split` implementado (voronoi/grid) com RBAC TENANT_ADMIN.
+  - Spatial repo agora gera split via PostGIS (Voronoi/Grid) com retorno de area_ha.
+  - Use case e DTOs adicionados + teste unitario de warnings.
+  - Changelog interno atualizado.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-009 (confirmar split)**
+  - Endpoint `POST /v1/app/aois/split` criado para persistir AOIs filhos com parent_aoi_id.
+  - Use case de split + DTOs adicionados; validacao de area maxima e parent.
+  - Backfill opcional por AOI criado no router (8 semanas).
+  - Changelog interno atualizado.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-013 (idempotencia)**
+  - Adicionado header `Idempotency-Key` para split e fallback via hash do payload.
+  - Criada tabela `split_batches` e repositorio de idempotencia.
+  - Use case de split retorna batch existente quando chave ja usada.
+  - Backfill nao reexecuta quando request idempotente.
+  - Changelog interno e runbook de migracoes atualizados.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-007 (status polling, parcial)**
+  - Endpoint `POST /v1/app/aois/status` para polling de status por AOI.
+  - Use case `AoiStatusUseCase` + method `latest_status_by_aois` no job repo.
+  - Teste unitario adicionado para status.
+  - Changelog interno atualizado.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-003 (calibracao)**
+  - Endpoints `POST /v1/app/field-data` e `GET /v1/app/analytics/calibration`.
+  - Repositorio de calibracao + uso de NDVI semanal para regressao linear (r2/slope/intercept).
+  - Use cases e testes unitarios adicionados.
+  - Changelog interno atualizado.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-011 (governanca de calibracao)**
+  - Calibracoes versionadas com apenas 1 ativa por data/metric_type.
+  - Repositorio agora cria nova versao e desativa anterior.
+  - Migracao 008 atualizada com indices ativos/versao.
+  - Changelog interno atualizado.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-004 (predicao)**
+  - Endpoint `GET /v1/app/analytics/prediction` implementado.
+  - Usa yield_forecasts do AOI e fallback por media do tenant.
+  - Use case + repositorio + testes adicionados.
+  - Changelog interno atualizado.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-016 (unidades)**
+  - Conversao de `sc_ha` para `kg_ha` (padrao) em calibrações.
+  - Schema agora aceita `kg_ha` e `sc_ha`.
+  - Teste unitario cobre conversao.
+  - Changelog interno atualizado.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-015 (observabilidade/auditoria)**
+  - Log de auditoria para calibracao (field_calibration).
+  - Contador Prometheus para submissões de calibracao.
+  - Changelog interno atualizado.
+
+- 2026-02-06: **Paddock — TASK-PADDOCK-010 (feedback)**
+  - Endpoint `POST /v1/app/field-feedback` implementado.
+  - Persistencia em `field_feedback` + auditoria basica.
+  - Use case + repositorio + testes adicionados.
+  - Changelog interno atualizado.
+
+- 2026-02-06: **API — fix OIDC login duplicate email**
+  - `auth_router.oidc_login` agora reutiliza Identity existente por email, atualiza `name` e tenta alinhar `provider/subject` quando seguro.
+  - Tratado `IntegrityError` na criação de Identity para evitar falha por `identities_email_key`.
+  - Restante: rebuild/restart do `api` e validar login; adicionar/ajustar teste para login com email duplicado.
+  - Próxima ação: `docker compose build api && docker compose up -d api`, depois repetir login com `test@vivacampo.com`.
+  - Testes não executados nesta etapa.
+
+- 2026-02-06: **E2E manual — criação de fazenda (API)**
+  - Health check OK: `GET /health` -> 200.
+  - Autenticação mock do doc falhou (endpoint `/api/v1/auth/mock-login` não existe).
+  - Login via OIDC local: `POST /v1/auth/oidc/login` com JWT HS256 (ENV local).
+  - Endpoints reais: `/v1/app/farms` (não `/api/v1/farms`).
+  - Criadas 3 fazendas com sucesso (201); quota não bloqueou (tenant `COMPANY`/`ENTERPRISE`, quotas vazias).
+  - Divergências encontradas no `ai/FARM_CREATION_TEST.md`: paths e payload (`location` vs `timezone`) estão desatualizados.
+
+- 2026-02-06: **Arquitetura — Fase 1 validada**
+  - Verificado que refactors de quotas/audit/routers e fallback SQS/S3 já estão aplicados no código.
+  - `python scripts/validate_architecture.py` (com `PYTHONIOENCODING=utf-8`): PASS.
+
+- 2026-02-06: **Arquitetura — Fase 2 verificada**
+  - SRRE já está implementado via TiTiler (`services/tiler/tiler/expressions.py`) e usado no Nitrogen API.
+  - Harvest detection já existe como job `DETECT_HARVEST` no worker (use case + handler + adapters).
+  - Frost risk não foi encontrado no código; requer definição do escopo antes de implementar.
+
+- 2026-02-06: **Arquitetura — Fase 2 (presentation cleanup) executada**
+  - Routers agora usam `ApiContainer` via `Depends(get_container)` e não importam `get_db`.
+  - `ApiContainer` passou a aceitar `db` opcional e resolve sessão internamente.
+  - `auth_router` usa `container.db_session()` para operações diretas de ORM.
+  - `tiles_router` corrigido para background task criar container com `SessionLocal`.
+  - Testes não executados nesta etapa.
+
+- 2026-02-06: **Arquitetura — Fase 3 (DI wiring) verificada**
+  - `ApiContainer` já expõe repos/services e resolve sessão via `db` opcional.
+  - Não há use cases usando `check_*_quota` diretamente; quotas continuam aplicadas nos routers.
+  - Nenhuma alteração adicional necessária nesta fase.
+
+- 2026-02-06: **Sessão — log registrado**
+  - Criado log de sessão em `ai/sessions/2026-02-06-1620.md`.
+
+- 2026-02-06: **Data Provider Resilience — Fase 1 (parcial)**
+  - Criados `SatelliteDataProvider`/`WeatherDataProvider` em `services/worker/worker/pipeline/providers/base.py`.
+  - Adicionado `IndexCalculator` em `services/worker/worker/pipeline/index_calculator.py` + testes `tests/test_index_calculator.py`.
+  - Implementados `PlanetaryComputerProvider` e `OpenMeteoProvider` + registry inicial em `services/worker/worker/pipeline/providers/`.
+  - `StacTopographyProvider` agora usa `get_satellite_provider()` (sem `stac_client`).
+  - Testes nao executados nesta etapa.
+
+- 2026-02-06: **Data Provider Resilience — migracao radar**
+  - `StacRadarProvider` agora usa `get_satellite_provider()` em `services/worker/worker/infrastructure/adapters/jobs/radar_adapters.py`.
+  - Testes nao executados nesta etapa.
+
+- 2026-02-06: **Data Provider Resilience — migracao weather**
+  - `WeatherProvider` agora retorna lista normalizada; adapter usa `get_weather_provider()` do registry.
+  - `ProcessWeatherUseCase` aceita lista e mantem compatibilidade com payload antigo.
+  - Teste ajustado em `tests/unit/worker/test_process_weather_use_case.py`.
+  - Testes nao executados nesta etapa.
+
+- 2026-02-06: **Data Provider Resilience — migracao create_mosaic**
+  - `PlanetaryComputerMosaicProvider` agora usa `get_satellite_provider().search_raw_items()` via registry.
+  - Testes nao executados nesta etapa.
+
+- 2026-02-06: **Data Provider Resilience — limpeza stac_client**
+  - `planetary_computer_adapter` agora usa `get_satellite_provider()` (sem `stac_client`).
+  - `services/worker/worker/pipeline/stac_client.py` removido apos migrações e grep sem referencias.
+
+- 2026-02-06: **Data Provider Resilience — Fase 4 (parcial)**
+  - Adicionados `FallbackChainProvider` + `ProviderCircuitBreaker` e `ProviderMetrics` em `services/worker/worker/pipeline/providers/`.
+  - Registry agora monta chain com fallbacks via `satellite_fallback_providers`.
+  - Endpoint `/admin/providers/status` adicionado (retorna status/metricas como `unknown` ate fase 3).
+  - Configs adicionadas em `services/worker/worker/config.py` e `services/api/app/config.py`.
+
+- 2026-02-06: **Data Provider Resilience — Fase 3 (parcial)**
+  - Migration `infra/migrations/sql/007_add_stac_scene_cache.sql` criada (cache STAC).
+  - `SceneCacheRepository` e `CachedSatelliteProvider` adicionados.
+  - Registry agora envolve provider com cache (`CachedSatelliteProvider`).
+  - Endpoint admin `/admin/jobs/reprocess` criado para reprocessar jobs.
+
+- 2026-02-06: **Data Provider Resilience — Fase 2 (providers alternativos)**
+  - Adicionados providers `AWSEarthSearchProvider` e `CDSEProvider` em `services/worker/worker/pipeline/providers/`.
+  - Registry já suporta fallbacks via `satellite_fallback_providers`.
+
+- 2026-02-06: **API — fix quota/audit repository init**
+  - `SQLAlchemyQuotaRepository` e `SQLAlchemyAuditRepository` agora chamam `BaseSQLAlchemyRepository.__init__` explicitamente para garantir `self.db` em runtime.
+
+- 2026-02-06: **API — fix BaseSQLAlchemyRepository**
+  - `_execute_query` agora aceita `str` ou `TextClause` (evita `text(text(...))`).
+
+- 2026-02-06: **Sessão — encerramento**
+  - Data Provider Resilience Fases 1–4 concluídas (com cache STAC e fallbacks configuráveis).
+  - API corrigida para quota/audit repos e `_execute_query`.
+  - Changelog interno atualizado.
+  - Próximo: rodar build/testes completos em Docker e validar endpoints admin.
+
+- 2026-02-06: **API — fix JobResult aoi_id**
+  - `JobResult.aoi_id` agora é opcional para suportar jobs globais (ex: CREATE_MOSAIC).
+
+- 2026-02-06: **Arquitetura — Fase 1 (parte) quotas/audit**
+  - `domain/quotas.py` e `domain/audit.py` refatorados para usar ports (sem SQLAlchemy).
+  - Adicionados ports e adapters SQLAlchemy: `quota_repository.py`, `audit_repository.py`.
+  - DI container agora expõe `quota_service` e `audit_logger`; routers atualizados para usar via container.
+  - Testes não executados nesta etapa.
+
+- 2026-02-06: **Arquitetura — Fase 2 (presentation cleanup)**
+  - Removidos imports `Session` e anotações `db: Session` dos routers em `services/api/app/presentation`.
+  - Mantido `db = Depends(get_db)` para injeção sem acoplamento à SQLAlchemy.
+  - Testes não executados nesta etapa.
+
+- 2026-02-06: **Arquitetura — Fase 3 (infra)**
+  - Criado `BaseSQLAlchemyRepository` com helpers comuns.
+  - Adicionados circuit breaker + retry síncronos em `sqs_client.py` e métodos do `S3Client`.
+  - Utilitários sync adicionados em `infrastructure/resilience.py`.
+  - Testes não executados nesta etapa.
+
+- 2026-02-06: **Validação — arquitetura**
+  - `python scripts/validate_architecture.py` falhou por Unicode (cp1252); rerodado com `PYTHONIOENCODING=utf-8`.
+  - Resultado: 2 erros (imports `sqlalchemy.orm` em `services/api/app/application/correlation.py` e `services/api/app/application/nitrogen.py`).
+
+- 2026-02-06: **Arquitetura — correção application imports**
+  - Removidos imports de `sqlalchemy.orm` de `application/correlation.py` e `application/nitrogen.py`.
+  - Wrappers agora recebem repository por injeção (sem `Session`).
+  - `python scripts/validate_architecture.py` passou com `PYTHONIOENCODING=utf-8`.
+
+- 2026-02-06: **Testes — unit**
+  - `pytest tests\unit -q --ignore=scripts/poc`: 67 passed, 2 skipped, 39 warnings.
+
+- 2026-02-06: **Arquitetura — validação tenant_id**
+  - DTOs já usam `ImmutableDTO` (frozen) via `domain/base.py`.
+  - Adicionado decorator `require_tenant` em `application/decorators.py` e aplicado nos use cases com `tenant_id`.
+
+- 2026-02-06: **Validação — arquitetura**
+  - `python scripts/validate_architecture.py` passou com `PYTHONIOENCODING=utf-8`.
+
+- 2026-02-06: **Testes — unit + security**
+  - `pytest tests\unit -q --ignore=scripts/poc`: 67 passed, 2 skipped, 39 warnings.
+  - `pytest tests\unit\application -q`: 29 passed, 18 warnings.
+  - `pytest tests\security -v`: 7 passed, 6 warnings.
+
+- 2026-02-06: **Arquitetura — índices compostos**
+  - Criada migration `infra/migrations/sql/006_add_tenant_query_indexes.sql` (jobs, aois, opportunity_signals).
+  - Runbook atualizado com plano/rollback em `docs/runbooks/migrations.md`.
+
+- 2026-02-06: **Migrations — validação local**
+  - Índices aplicados no DB local via `CREATE INDEX CONCURRENTLY` (jobs, aois, opportunity_signals).
+  - Comandos de `psql` levaram >120s e estouraram timeout do shell, mas os índices foram criados com sucesso (verificado em `pg_indexes`).
+
+- 2026-02-06: **Arquitetura — BaseSQLAlchemyRepository (lote 1)**
+  - `ai_assistant_repository`, `correlation_repository`, `nitrogen_repository` agora usam `BaseSQLAlchemyRepository`.
+  - Normalizada leitura de rows via `_execute_query` (mapeamento por dict).
+
+- 2026-02-06: **Arquitetura — BaseSQLAlchemyRepository (lote 2)**
+  - `aoi_data_repository`, `radar_data_repository`, `weather_data_repository` agora usam `BaseSQLAlchemyRepository`.
+
+- 2026-02-06: **Testes — unit (application)**
+  - `pytest tests\unit\application -q`: 29 passed, 18 warnings.
+
+- 2026-02-06: **Arquitetura — BaseSQLAlchemyRepository (lote 5)**
+  - `quota_repository` e `audit_repository` agora usam `BaseSQLAlchemyRepository`.
+
+- 2026-02-06: **Testes — unit (application)**
+  - `pytest tests\unit\application -q`: 29 passed, 18 warnings.
+
+- 2026-02-06: **Testes — unit + security**
+  - `pytest tests\unit -q --ignore=scripts/poc`: 67 passed, 2 skipped, 39 warnings.
+  - `pytest tests\security -v`: 7 passed, 6 warnings.
+
+- 2026-02-06: **Validação — arquitetura + unit**
+  - `python scripts/validate_architecture.py` (com `PYTHONIOENCODING=utf-8`): PASS.
+  - `pytest tests\unit -q --ignore=scripts/poc`: 67 passed, 2 skipped, 39 warnings.
+
+- 2026-02-06: **Fase 3 — property-based tests**
+  - Adicionado Hypothesis em `services/api/requirements.txt`.
+  - Criado `tests/unit/domain/test_value_objects_property.py` para AreaHectares/GeometryWkt/TenantId.
+
+- 2026-02-06: **Testes — property-based (falha)**
+  - `pytest tests/unit/domain/test_value_objects_property.py -q` falhou: `ModuleNotFoundError: hypothesis`.
+  - `python -m pip install hypothesis` falhou (sem distribuição disponível no ambiente).
+
+- 2026-02-06: **Fase 3 — OpenTelemetry**
+  - Adicionado setup de tracing em `app/observability.py` e ligação no `app/main.py`.
+  - Novas settings: `otel_enabled`, `otel_endpoint`, `otel_service_name`.
+  - Dependencias adicionadas em `services/api/requirements.txt`.
+
+- 2026-02-06: **Fase 3 — Documentação DI**
+  - Adicionadas instruções de uso/overrides no docstring do `ApiContainer`.
+
+- 2026-02-06: **Fase 3 — Rate limiting por tenant**
+  - Limiter usa `tenant_id` quando disponível (fallback para IP).
+  - `get_current_membership` agora registra `request.state.tenant_id`.
+
+- 2026-02-06: **Observability — fallback + testes**
+  - `app/observability.py` agora ignora tracing se OpenTelemetry não estiver instalado.
+  - Ajustado `get_current_membership`/`get_current_system_admin` para aceitar `Request` opcional sem erro de FastAPI.
+  - `pytest tests/security -v`: 7 passed, 6 warnings.
+
+- 2026-02-06: **Observability — tracing ativado**
+  - `otel_enabled` agora default `True` (usa console exporter se `otel_endpoint` ausente).
+
+- 2026-02-06: **Tasks — pendências adicionadas**
+  - `TASK-ARCH-OBS-001`: instalar deps OTel e validar tracing em runtime.
+  - `TASK-ARCH-TEST-001`: instalar Hypothesis e rodar property-based tests.
+
+- 2026-02-06: **Plano — fase 3 encerrada + fase 4 aberta**
+  - `ai/ARCHITECTURE_IMPLEMENTATION_PLAN.md`: Phase 3 marcada como concluída; Phase 4 adicionada (follow-up operacional).
+
+- 2026-02-06: **Tasks — checklist índices**
+  - Adicionada task `TASK-ARCH-INDEX-001` em `ai/tasks.md` para aplicar/validar índices compostos em staging/prod.
+
+- 2026-02-06: **Plano — fase 2 marcada**
+  - `ai/ARCHITECTURE_IMPLEMENTATION_PLAN.md`: Phase 2 (Presentation cleanup) marcada como concluída.
+- 2026-02-06: **Arquitetura — BaseSQLAlchemyRepository (lote 4)**
+  - `aoi_spatial_repository`, `aoi_repository`, `system_admin_repository` agora usam `BaseSQLAlchemyRepository`.
+
+- 2026-02-06: **Testes — unit (application)**
+  - `pytest tests\unit\application -q`: 29 passed, 18 warnings.
+- 2026-02-06: **Arquitetura — BaseSQLAlchemyRepository (lote 3)**
+  - `job_repository`, `signal_repository`, `tenant_admin_repository` agora usam `BaseSQLAlchemyRepository`.
+
+- 2026-02-06: **Testes — unit (application)**
+  - `pytest tests\unit\application -q`: 29 passed, 18 warnings.
 - 2026-02-06: **Fase 8 (Limpeza legado) — app-ui tiles**
   - Removido suporte a legacy tiles no frontend.
   - `DynamicTileLayer` agora usa apenas tiling dinamico; removidos `legacyTileUrl`, colormap/rescale legacy e constantes.

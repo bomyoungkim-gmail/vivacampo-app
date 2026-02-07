@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    basePath: '/app',
+    basePath: '',
     output: 'standalone',
     reactStrictMode: true,
     env: {
@@ -46,6 +46,14 @@ const nextConfig = {
     },
     async rewrites() {
         return [
+            {
+                source: '/app/login',
+                destination: '/login',
+            },
+            {
+                source: '/app/:path*',
+                destination: '/:path*',
+            },
             {
                 source: '/api/cog/:path*',
                 destination: 'http://tiler:8080/cog/:path*',

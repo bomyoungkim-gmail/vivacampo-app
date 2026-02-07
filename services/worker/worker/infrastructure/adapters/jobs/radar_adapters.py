@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from worker.config import settings
 from worker.domain.ports.radar_provider import ObjectStorage, RadarRepository, RadarSceneProvider
-from worker.pipeline.stac_client import get_stac_client
+from worker.pipeline.providers.registry import get_satellite_provider
 from worker.shared.aws_clients import S3Client
 
 
@@ -20,8 +20,8 @@ class StacRadarProvider(RadarSceneProvider):
         collections: list[str],
         max_cloud_cover: float,
     ) -> list[dict]:
-        client = get_stac_client()
-        return await client.search_scenes(
+        provider = get_satellite_provider()
+        return await provider.search_scenes(
             aoi_geometry,
             start_date,
             end_date,
@@ -30,8 +30,8 @@ class StacRadarProvider(RadarSceneProvider):
         )
 
     async def download_and_clip_band(self, href: str, geometry: dict, output_path: str) -> None:
-        client = get_stac_client()
-        await client.download_and_clip_band(href, geometry, output_path)
+        provider = get_satellite_provider()
+        await provider.download_and_clip_band(href, geometry, output_path)
 
 
 class S3ObjectStorage(ObjectStorage):

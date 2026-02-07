@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 
+from app.application.decorators import require_tenant
 from app.application.dtos.weather import WeatherHistoryCommand, WeatherSyncCommand, WeatherSyncResult
 from app.domain.ports.job_repository import IJobRepository
 from app.domain.ports.message_queue import IMessageQueue
@@ -14,6 +15,7 @@ class GetWeatherHistoryUseCase:
     def __init__(self, repo: IWeatherDataRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: WeatherHistoryCommand) -> list[dict]:
         return await self.repo.get_history(
             tenant_id=command.tenant_id,
@@ -30,6 +32,7 @@ class RequestWeatherSyncUseCase:
         self.queue = queue
         self.queue_name = queue_name
 
+    @require_tenant
     async def execute(self, command: WeatherSyncCommand) -> WeatherSyncResult:
         job_key = hashlib.sha256(
             f"{command.tenant_id.value}{command.aoi_id}WEATHER_SYNC".encode()

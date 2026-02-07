@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { clearAuthCookie } from '@/app/actions/auth';
 import { routes } from './navigation';
@@ -47,7 +47,7 @@ export async function logout() {
     // Clear server-side cookie
     await clearAuthCookie();
 
-    window.location.href = '/app' + routes.login;
+    window.location.href = routes.login;
 }
 
 /**
@@ -58,6 +58,23 @@ export async function logout() {
  */
 export function setAuthData(token: string, user: User) {
     useUserStore.getState().actions.login(user, token);
+}
+
+export function decodeRoleFromToken(token?: string): string | null {
+    if (!token) return null;
+    try {
+        const payload = token.split('.')[1];
+        const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+        const decoded = JSON.parse(atob(base64));
+        return decoded.role || null;
+    } catch {
+        return null;
+    }
+}
+
+export function useAuthRole(): string | null {
+    const token = useAuthToken();
+    return useMemo(() => decodeRoleFromToken(token ?? undefined), [token]);
 }
 
 /**

@@ -38,16 +38,23 @@ class FakeWeatherRepository(WeatherRepository):
 
 
 class FakeWeatherProvider(WeatherProvider):
-    async def fetch_history(self, *, lat: float, lon: float, start_date: date, end_date: date) -> dict:
-        return {
-            "daily": {
-                "time": ["2025-01-01", "2025-01-02"],
-                "temperature_2m_max": [30, None],
-                "temperature_2m_min": [20, 18],
-                "precipitation_sum": [1.5, None],
-                "et0_fao_evapotranspiration": [2.0, 1.9],
-            }
-        }
+    async def fetch_history(self, *, lat: float, lon: float, start_date: date, end_date: date) -> list[dict]:
+        return [
+            {
+                "date": "2025-01-01",
+                "temp_max": 30,
+                "temp_min": 20,
+                "precip_sum": 1.5,
+                "et0_fao": 2.0,
+            },
+            {
+                "date": "2025-01-02",
+                "temp_max": 0,
+                "temp_min": 18,
+                "precip_sum": 0,
+                "et0_fao": 1.9,
+            },
+        ]
 
 
 def _run(command: ProcessWeatherCommand):

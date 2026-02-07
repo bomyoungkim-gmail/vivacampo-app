@@ -6,14 +6,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 
 from app.application.dtos.correlation import CorrelationCommand, YearOverYearCommand
 from app.application.use_cases.correlation import CorrelationUseCase, YearOverYearUseCase
 from app.auth.dependencies import CurrentMembership, get_current_membership, get_current_tenant_id
-from app.database import get_db
 from app.domain.value_objects.tenant_id import TenantId
-from app.infrastructure.di_container import ApiContainer
+from app.infrastructure.di_container import ApiContainer, get_container
 
 logger = logging.getLogger(__name__)
 router = APIRouter(responses=DEFAULT_ERROR_RESPONSES, dependencies=[Depends(get_current_tenant_id)])
@@ -55,11 +53,10 @@ def get_vigor_climate_correlation(
     aoi_id: UUID,
     weeks: int = Query(default=12, ge=4, le=52),
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db),
+    container: ApiContainer = Depends(get_container),
 ):
     """Get correlation data between vegetation vigor and climate."""
-    container = ApiContainer()
-    use_case = container.correlation_use_case(db)
+    use_case = container.correlation_use_case()
     result = use_case.execute(
         CorrelationCommand(
             tenant_id=TenantId(value=membership.tenant_id),
@@ -79,11 +76,10 @@ def get_vigor_climate_correlation(
 def get_year_over_year(
     aoi_id: UUID,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db),
+    container: ApiContainer = Depends(get_container),
 ):
     """Get year-over-year NDVI comparison for an AOI."""
-    container = ApiContainer()
-    use_case = container.year_over_year_use_case(db)
+    use_case = container.year_over_year_use_case()
     result = use_case.execute(
         YearOverYearCommand(
             tenant_id=TenantId(value=membership.tenant_id),

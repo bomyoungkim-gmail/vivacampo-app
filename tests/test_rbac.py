@@ -18,7 +18,7 @@ def _decode_tenant_id_from_headers(headers: dict[str, str]) -> UUID:
 
 
 @pytest.fixture
-def viewer_headers(auth_headers: dict[str, str]) -> dict[str, str]:
+async def viewer_headers(auth_headers: dict[str, str]) -> dict[str, str]:
     tenant_id = _decode_tenant_id_from_headers(auth_headers)
 
     with SessionLocal() as db:
@@ -58,7 +58,7 @@ def viewer_headers(auth_headers: dict[str, str]) -> dict[str, str]:
 
 
 @pytest.fixture
-def other_tenant_operator_headers() -> dict[str, str]:
+def other_tenant_EDITOR_headers() -> dict[str, str]:
     with SessionLocal() as db:
         other_tenant = Tenant(
             type="COMPANY",
@@ -74,7 +74,7 @@ def other_tenant_operator_headers() -> dict[str, str]:
             provider="local",
             subject=f"rbac-cross-{uuid.uuid4()}",
             email=f"rbac-cross-{uuid.uuid4()}@example.com",
-            name="Cross Tenant Operator",
+            name="Cross Tenant EDITOR",
             status="ACTIVE",
         )
         db.add(identity)
@@ -83,7 +83,7 @@ def other_tenant_operator_headers() -> dict[str, str]:
         membership = Membership(
             tenant_id=other_tenant.id,
             identity_id=identity.id,
-            role="OPERATOR",
+            role="EDITOR",
             status="ACTIVE",
         )
         db.add(membership)
@@ -97,7 +97,7 @@ def other_tenant_operator_headers() -> dict[str, str]:
         tenant_id=tenant_id,
         membership_id=membership_id,
         identity_id=identity_id,
-        role="OPERATOR",
+        role="EDITOR",
     )
 
     return {
@@ -125,7 +125,7 @@ async def tenant_a_aoi(auth_headers: dict[str, str]) -> dict[str, str]:
             "farm_id": farm_id,
             "name": f"RBAC AOI {uuid.uuid4()}",
             "use_type": "PASTURE",
-            "geometry": "MULTIPOLYGON(((-47.0 -23.0, -47.0 -23.1, -47.1 -23.1, -47.1 -23.0, -47.0 -23.0)))",
+            "geometry": "MULTIPOLYGON(((-47.0 -23.0, -47.0 -23.001, -47.001 -23.001, -47.001 -23.0, -47.0 -23.0)))",
         }
         aoi_response = await client.post(
             f"{API_BASE}/v1/app/aois",
@@ -147,17 +147,17 @@ class TestRBAC:
             )
 
         assert response.status_code == 403, response.text
-        assert response.json()["detail"].startswith("Insufficient permissions")
+        assert response.json()["error"]["message"].startswith("Insufficient permissions")
 
-    async def test_cross_tenant_operator_cannot_backfill_other_aoi(
+    async def test_cross_tenant_EDITOR_cannot_backfill_other_aoi(
         self,
-        other_tenant_operator_headers: dict[str, str],
+        other_tenant_EDITOR_headers: dict[str, str],
         tenant_a_aoi: dict[str, str],
     ) -> None:
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{API_BASE}/v1/app/aois/{tenant_a_aoi['aoi_id']}/backfill",
-                headers=other_tenant_operator_headers,
+                headers=other_tenant_EDITOR_headers,
                 json={
                     "from_date": "2024-01-01",
                     "to_date": "2024-01-08",
@@ -166,4 +166,4 @@ class TestRBAC:
             )
 
         assert response.status_code == 404, response.text
-        assert response.json()["detail"] == "AOI not found"
+        assert response.json()["error"]["message"] == "AOI not found"

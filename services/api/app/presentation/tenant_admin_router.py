@@ -1,18 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
-from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
 
-from app.database import get_db
 from app.auth.dependencies import get_current_membership, CurrentMembership, require_role, get_current_tenant_id
 from app.schemas import (
     InviteMemberRequest, MembershipView, MembershipRolePatch,
     MembershipStatusPatch, TenantSettingsView, TenantSettingsPatch,
     AuditLogView
 )
-from app.domain.quotas import check_member_quota, QuotaExceededError
-from app.domain.audit import get_audit_logger
+from app.domain.quotas import QuotaExceededError
 from app.application.dtos.tenant_admin import (
     GetTenantAuditLogCommand,
     GetTenantSettingsCommand,
@@ -23,7 +20,7 @@ from app.application.dtos.tenant_admin import (
     UpdateTenantSettingsCommand,
 )
 from app.domain.value_objects.tenant_id import TenantId
-from app.infrastructure.di_container import ApiContainer
+from app.infrastructure.di_container import ApiContainer, get_container
 import structlog
 
 logger = structlog.get_logger()
@@ -33,14 +30,13 @@ router = APIRouter(responses=DEFAULT_ERROR_RESPONSES, dependencies=[Depends(get_
 @router.get("/admin/tenant/members", response_model=List[MembershipView])
 async def list_members(
     membership: CurrentMembership = Depends(require_role("TENANT_ADMIN")),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     List all members of the current tenant.
     Requires TENANT_ADMIN role.
     """
-    container = ApiContainer()
-    use_case = container.list_tenant_members_use_case(db)
+    use_case = container.list_tenant_members_use_case()
     rows = await use_case.execute(
         ListMembersCommand(tenant_id=TenantId(value=membership.tenant_id))
     )
@@ -62,24 +58,25 @@ async def list_members(
 async def invite_member(
     invite_data: InviteMemberRequest,
     membership: CurrentMembership = Depends(require_role("TENANT_ADMIN")),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Invite a new member to the tenant.
     Requires TENANT_ADMIN role.
     Enforces member quota.
     """
+    quota_service = container.quota_service()
+
     # Check quota
     try:
-        check_member_quota(str(membership.tenant_id), db)
+        quota_service.check_member_quota(str(membership.tenant_id))
     except QuotaExceededError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Member quota exceeded: {e.current}/{e.limit}"
         )
     
-    container = ApiContainer()
-    use_case = container.invite_tenant_member_use_case(db)
+    use_case = container.invite_tenant_member_use_case()
     try:
         row = await use_case.execute(
             InviteMemberCommand(
@@ -95,10 +92,15 @@ async def invite_member(
                 status_code=400,
                 detail="User is already a member of this tenant"
             )
+        if str(exc) == "INVALID_ROLE":
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid role. Choose EDITOR or VIEWER."
+            )
         raise
     
     # Audit log
-    audit = get_audit_logger(db)
+    audit = container.audit_logger()
     audit.log_membership_invite(
         tenant_id=str(membership.tenant_id),
         actor_id=str(membership.membership_id),
@@ -122,15 +124,14 @@ async def update_member_role(
     membership_id: UUID,
     role_patch: MembershipRolePatch,
     membership: CurrentMembership = Depends(require_role("TENANT_ADMIN")),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Update member role.
     Requires TENANT_ADMIN role.
     Cannot demote the last TENANT_ADMIN.
     """
-    container = ApiContainer()
-    use_case = container.update_member_role_use_case(db)
+    use_case = container.update_member_role_use_case()
     try:
         result = await use_case.execute(
             UpdateMemberRoleCommand(
@@ -153,7 +154,7 @@ async def update_member_role(
     old_role = result["old_role"]
     
     # Audit log
-    audit = get_audit_logger(db)
+    audit = container.audit_logger()
     audit.log_membership_role_change(
         tenant_id=str(membership.tenant_id),
         actor_id=str(membership.membership_id),
@@ -170,15 +171,14 @@ async def update_member_status(
     membership_id: UUID,
     status_patch: MembershipStatusPatch,
     membership: CurrentMembership = Depends(require_role("TENANT_ADMIN")),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Update member status (ACTIVE/SUSPENDED).
     Requires TENANT_ADMIN role.
     Cannot suspend the last TENANT_ADMIN.
     """
-    container = ApiContainer()
-    use_case = container.update_member_status_use_case(db)
+    use_case = container.update_member_status_use_case()
     try:
         result = await use_case.execute(
             UpdateMemberStatusCommand(
@@ -201,7 +201,7 @@ async def update_member_status(
     old_status = result["old_status"]
     
     # Audit log
-    audit = get_audit_logger(db)
+    audit = container.audit_logger()
     audit.log_membership_status_change(
         tenant_id=str(membership.tenant_id),
         actor_id=str(membership.membership_id),
@@ -216,11 +216,10 @@ async def update_member_status(
 @router.get("/admin/tenant/settings", response_model=TenantSettingsView)
 async def get_tenant_settings(
     membership: CurrentMembership = Depends(require_role("TENANT_ADMIN")),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """Get tenant settings"""
-    container = ApiContainer()
-    use_case = container.get_tenant_settings_use_case(db)
+    use_case = container.get_tenant_settings_use_case()
     result = await use_case.execute(
         GetTenantSettingsCommand(tenant_id=TenantId(value=membership.tenant_id))
     )
@@ -244,14 +243,13 @@ async def get_tenant_settings(
 async def update_tenant_settings(
     settings_patch: TenantSettingsPatch,
     membership: CurrentMembership = Depends(require_role("TENANT_ADMIN")),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Update tenant settings.
     Requires TENANT_ADMIN role.
     """
-    container = ApiContainer()
-    get_use_case = container.get_tenant_settings_use_case(db)
+    get_use_case = container.get_tenant_settings_use_case()
     current = await get_use_case.execute(
         GetTenantSettingsCommand(tenant_id=TenantId(value=membership.tenant_id))
     )
@@ -263,7 +261,7 @@ async def update_tenant_settings(
             "after": settings_patch.min_valid_pixel_ratio,
         }
 
-    update_use_case = container.update_tenant_settings_use_case(db)
+    update_use_case = container.update_tenant_settings_use_case()
     await update_use_case.execute(
         UpdateTenantSettingsCommand(
             tenant_id=TenantId(value=membership.tenant_id),
@@ -274,7 +272,7 @@ async def update_tenant_settings(
     
     # Audit log
     if changes:
-        audit = get_audit_logger(db)
+        audit = container.audit_logger()
         audit.log_tenant_settings_change(
             tenant_id=str(membership.tenant_id),
             actor_id=str(membership.membership_id),
@@ -288,14 +286,13 @@ async def update_tenant_settings(
 async def get_audit_log(
     limit: int = 50,
     membership: CurrentMembership = Depends(require_role("TENANT_ADMIN")),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Get audit log for the tenant.
     Requires TENANT_ADMIN role.
     """
-    container = ApiContainer()
-    use_case = container.tenant_audit_log_use_case(db)
+    use_case = container.tenant_audit_log_use_case()
     rows = await use_case.execute(
         GetTenantAuditLogCommand(
             tenant_id=TenantId(value=membership.tenant_id),
@@ -311,7 +308,7 @@ async def get_audit_log(
                 id=row["id"],
                 action=row["action"],
                 resource_type=row["resource_type"],
-                resource_id=row["resource_id"],
+                resource_id=str(row["resource_id"]) if row["resource_id"] else None,
                 changes=json.loads(row["changes_json"]) if row["changes_json"] else None,
                 metadata=json.loads(row["metadata_json"]) if row["metadata_json"] else None,
                 created_at=row["created_at"],

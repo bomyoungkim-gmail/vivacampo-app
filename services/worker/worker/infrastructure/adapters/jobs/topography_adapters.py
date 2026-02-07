@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from worker.config import settings
 from worker.domain.ports.topography_provider import TopographyRepository, TopographySceneProvider
-from worker.pipeline.stac_client import get_stac_client
+from worker.pipeline.providers.registry import get_satellite_provider
 
 
 class StacTopographyProvider(TopographySceneProvider):
@@ -20,8 +20,8 @@ class StacTopographyProvider(TopographySceneProvider):
         *,
         collections: list[str],
     ) -> list[dict]:
-        client = get_stac_client()
-        return await client.search_scenes(
+        provider = get_satellite_provider()
+        return await provider.search_scenes(
             aoi_geometry,
             start_date,
             end_date,
@@ -29,8 +29,8 @@ class StacTopographyProvider(TopographySceneProvider):
         )
 
     async def download_and_clip_band(self, href: str, geometry: dict, output_path: str) -> None:
-        client = get_stac_client()
-        await client.download_and_clip_band(href, geometry, output_path)
+        provider = get_satellite_provider()
+        await provider.download_and_clip_band(href, geometry, output_path)
 
 
 class SqlTopographyRepository(TopographyRepository):

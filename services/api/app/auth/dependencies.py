@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status, Header
+from fastapi import Depends, HTTPException, status, Header, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -30,7 +30,8 @@ class CurrentMembership:
 
 def get_current_membership(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    request: Request = None,
 ) -> CurrentMembership:
     """
     Extract and validate current membership from session token.
@@ -60,6 +61,8 @@ def get_current_membership(
         text("SELECT set_config('app.tenant_id', :tenant_id, true)"),
         {"tenant_id": str(tenant_id)},
     )
+    if request is not None:
+        request.state.tenant_id = str(tenant_id)
     
     # Verify membership still exists and is ACTIVE (and matches token claims)
     membership = db.query(Membership).filter(
@@ -97,13 +100,16 @@ def require_role(required_role: str):
     def role_checker(
         membership: CurrentMembership = Depends(get_current_membership)
     ):
+        normalized_role = membership.role
+        if normalized_role == "OPERATOR":
+            normalized_role = "EDITOR"
         role_hierarchy = {
             "TENANT_ADMIN": 3,
-            "OPERATOR": 2,
+            "EDITOR": 2,
             "VIEWER": 1
         }
         
-        user_level = role_hierarchy.get(membership.role, 0)
+        user_level = role_hierarchy.get(normalized_role, 0)
         required_level = role_hierarchy.get(required_role, 999)
         
         if user_level < required_level:
@@ -129,7 +135,8 @@ def get_current_tenant_id(
 
 def get_current_system_admin(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    request: Request = None,
 ) -> SystemAdmin:
     """
     Verify current user is a system admin.
@@ -160,6 +167,8 @@ def get_current_system_admin(
     # Set system admin context for RLS in this transaction
     db.execute(text("SELECT set_config('app.is_system_admin', 'true', true)"))
     db.execute(text("SELECT set_config('app.tenant_id', '', true)"))
+    if request is not None:
+        request.state.is_system_admin = True
     
     # Verify system admin exists and is ACTIVE
     system_admin = db.query(SystemAdmin).join(Identity).filter(

@@ -50,6 +50,19 @@ Keep it short (1–2 pages). Update it weekly or after major changes.
 - ✅ Authentication (OIDC + Mock for dev)
 - ✅ Security suite for tenant isolation (`tests/security/`)
 - ✅ RLS context wiring + migration available (set_config + SQL)
+- ✅ Interactive paddock backend APIs:
+- ✅ AOI geometry normalization (make valid + simplify)
+- ✅ AOI split simulation + split create with idempotency + parent-child AOIs
+- ✅ AOI status polling (backend API)
+- ✅ Field calibration API (versioned, single active per metric/date)
+- ✅ Yield prediction API (current rule-based)
+- ✅ Field feedback API (tenant admin only, audit logged)
+- ✅ Units normalization (sc/ha -> kg/ha, stored as kg/ha)
+- ✅ Interactive paddock UI:
+- ✅ Split/merge no mapa, preview e ajuste fino
+- ✅ Grid view + batch calibration
+- ✅ Badges por tipo de alerta (mapa/lista/grid)
+- ✅ Status polling UI para processamento
 
 **What is missing:**
 - ✅ TiTiler security (presigned URLs; raw S3 URIs not exposed)
@@ -63,6 +76,8 @@ Keep it short (1–2 pages). Update it weekly or after major changes.
 - ⚠️ Request ID propagation across services
 - ⚠️ Production deployment (staging + CI/CD workflows ready; pending credentials)
 - ⚠️ Alert delivery (email/SMS/push notifications)
+- ⚠️ Aplicar índices compostos de queries tenant-scoped em staging/prod (`006_add_tenant_query_indexes.sql`)
+- ⚠️ Prometheus baseline metrics (beyond field_calibration_total)
 
 ## Core Domain
 **Entities:**
@@ -75,12 +90,16 @@ Keep it short (1–2 pages). Update it weekly or after major changes.
 - **DerivedAssets:** Processed Sentinel-2 indices (NDVI, NDRE, EVI, etc + stats)
 - **DerivedRadarAssets:** Processed Sentinel-1 data (RVI, Ratio, S3 URIs)
 - **DerivedWeatherDaily:** Localized weather per AOI (temp, precip, ET0)
+- **FieldCalibration:** Versioned calibration points (active by metric/date)
+- **FieldFeedback:** Ground-truth feedback from field (tenant admin only)
+- **SplitBatch:** Idempotent split requests
 
 **Critical Flows:**
 1. **AOI Creation:** User draws polygon → API validates + saves to PostGIS → Auto-triggers 8-week backfill (PROCESS_WEEK, PROCESS_RADAR_WEEK, PROCESS_WEATHER, PROCESS_TOPOGRAPHY)
 2. **Weekly Processing:** Worker fetches Sentinel data → Calculates 14 indices → Stores GeoTIFFs in S3 + stats in DB
 3. **Map Rendering:** Frontend requests `/v1/tiles/aois/{id}/{z}/{x}/{y}.png?index=ndvi` → API redirects to TiTiler → TiTiler reads MosaicJSON → Fetches bands from Planetary Computer → Computes vegetation index → Returns PNG tile → Leaflet displays (CDN caches for 7 days)
 4. **Anomaly Detection:** Worker runs change detection → Creates OpportunitySignal → AI Copilot suggests actions
+5. **Interactive Paddock:** User simulates split → Creates split AOIs → Backfill → Polls status → Calibrates yield → Checks prediction
 
 **Non-goals:**
 - Real-time monitoring (<1 day latency) - Sentinel revisit is 5 days

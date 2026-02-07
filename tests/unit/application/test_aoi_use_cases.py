@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.application.dtos.aois import CreateAoiCommand, ListAoisCommand
@@ -57,6 +57,9 @@ class _StubAoiRepo(IAOIRepository):
     async def list_by_tenant(self, tenant_id, farm_id=None, status=None, limit=100):
         return self.created
 
+    async def normalize_geometry(self, geometry_wkt: str):
+        return geometry_wkt, 1.0
+
 
 def test_create_aoi_use_case_returns_result():
     repo = _StubAoiRepo()
@@ -93,7 +96,7 @@ def test_list_aoi_use_case_returns_results():
             status="ACTIVE",
             geometry_wkt=GeometryWkt(value="POLYGON ((0 0, 0 1, 1 1, 0 0))"),
             area_hectares=AreaHectares(value=10.0),
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
         )
     )
 

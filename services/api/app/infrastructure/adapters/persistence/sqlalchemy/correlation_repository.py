@@ -4,20 +4,19 @@ from __future__ import annotations
 from datetime import datetime
 from typing import List
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.domain.ports.correlation_repository import ICorrelationRepository
 from app.domain.value_objects.tenant_id import TenantId
+from app.infrastructure.adapters.persistence.sqlalchemy.base_repository import BaseSQLAlchemyRepository
 
 
-class SQLAlchemyCorrelationRepository(ICorrelationRepository):
+class SQLAlchemyCorrelationRepository(ICorrelationRepository, BaseSQLAlchemyRepository):
     def __init__(self, db: Session):
-        self.db = db
+        super().__init__(db)
 
     def fetch_correlation_data(self, aoi_id: str, tenant_id: TenantId, start_date: datetime) -> List[dict]:
-        sql = text(
-            """
+        sql = """
             WITH weeks AS (
                 SELECT da.year, da.week, da.ndvi_mean AS ndvi, da.created_at
                 FROM derived_assets da
@@ -49,66 +48,57 @@ class SQLAlchemyCorrelationRepository(ICorrelationRepository):
             LEFT JOIN weather wt ON w.year = wt.year AND w.week = wt.week
             ORDER BY w.year, w.week
             """
-        )
-
-        result = self.db.execute(
+        result = self._execute_query(
             sql,
-            {
-                "aoi_id": aoi_id,
-                "tenant_id": str(tenant_id.value),
-                "start_date": start_date,
-            },
+            {"aoi_id": aoi_id, "tenant_id": str(tenant_id.value), "start_date": start_date},
         )
 
         return [
             {
-                "date": f"{row.year}-W{row.week:02d}",
-                "ndvi": row.ndvi,
-                "rvi": row.rvi,
-                "rain_mm": float(row.rain_mm) if row.rain_mm is not None else None,
-                "temp_avg": float(row.temp_avg) if row.temp_avg is not None else None,
+                "date": f"{row['year']}-W{row['week']:02d}",
+                "ndvi": row["ndvi"],
+                "rvi": row["rvi"],
+                "rain_mm": float(row["rain_mm"]) if row["rain_mm"] is not None else None,
+                "temp_avg": float(row["temp_avg"]) if row["temp_avg"] is not None else None,
             }
             for row in result
         ]
 
     def fetch_year_over_year(self, aoi_id: str, tenant_id: TenantId) -> dict:
-        latest_year_sql = text(
-            """
+        latest_year_sql = """
             SELECT MAX(year) AS year
             FROM derived_assets
             WHERE aoi_id = :aoi_id AND tenant_id = :tenant_id
             """
-        )
-        latest = self.db.execute(
+        latest = self._execute_query(
             latest_year_sql,
             {"aoi_id": aoi_id, "tenant_id": str(tenant_id.value)},
-        ).first()
-        if not latest or latest.year is None:
+            fetch_one=True,
+        )
+        if not latest or latest["year"] is None:
             return {}
 
-        current_year = int(latest.year)
+        current_year = int(latest["year"])
         previous_year = current_year - 1
 
-        series_sql = text(
-            """
+        series_sql = """
             SELECT week, ndvi_mean
             FROM derived_assets
             WHERE aoi_id = :aoi_id AND tenant_id = :tenant_id AND year = :year
             ORDER BY week
             """
-        )
 
-        current_rows = self.db.execute(
+        current_rows = self._execute_query(
             series_sql,
             {"aoi_id": aoi_id, "tenant_id": str(tenant_id.value), "year": current_year},
         )
-        previous_rows = self.db.execute(
+        previous_rows = self._execute_query(
             series_sql,
             {"aoi_id": aoi_id, "tenant_id": str(tenant_id.value), "year": previous_year},
         )
 
-        current_series = [{"week": row.week, "ndvi": row.ndvi_mean} for row in current_rows]
-        previous_series = [{"week": row.week, "ndvi": row.ndvi_mean} for row in previous_rows]
+        current_series = [{"week": row["week"], "ndvi": row["ndvi_mean"]} for row in current_rows]
+        previous_series = [{"week": row["week"], "ndvi": row["ndvi_mean"]} for row in previous_rows]
 
         return {
             "current_year": current_year,

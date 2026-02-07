@@ -28,7 +28,8 @@
       "Bash(.venv-poc/Scripts/pip install:*)",
       "Bash(.venv-poc/Scripts/python:*)",
       "Bash(python scripts/search.py:*)",
-      "Bash(npx next build:*)"
+      "Bash(npx next build:*)",
+      "Bash(python .claude/skills/ui-ux-pro-max/scripts/search.py:*)"
     ]
   }
 }

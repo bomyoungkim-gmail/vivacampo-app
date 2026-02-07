@@ -4,19 +4,19 @@ from __future__ import annotations
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.domain.ports.radar_data_repository import IRadarDataRepository
 from app.domain.value_objects.tenant_id import TenantId
+from app.infrastructure.adapters.persistence.sqlalchemy.base_repository import BaseSQLAlchemyRepository
 import structlog
 
 logger = structlog.get_logger()
 
 
-class SQLAlchemyRadarDataRepository(IRadarDataRepository):
+class SQLAlchemyRadarDataRepository(IRadarDataRepository, BaseSQLAlchemyRepository):
     def __init__(self, db: Session):
-        self.db = db
+        super().__init__(db)
 
     async def get_history(
         self,
@@ -38,19 +38,16 @@ class SQLAlchemyRadarDataRepository(IRadarDataRepository):
 
         where_clause = " AND ".join(conditions)
 
-        sql = text(
-            f"""
+        sql = f"""
             SELECT year, week, rvi_mean, rvi_std, ratio_mean, ratio_std, rvi_s3_uri, ratio_s3_uri
             FROM derived_radar_assets
             WHERE {where_clause}
             ORDER BY year DESC, week DESC
             LIMIT :limit
             """
-        )
 
         try:
-            result = self.db.execute(sql, params)
-            return [dict(row._mapping) for row in result]
+            return self._execute_query(sql, params)
         except Exception as exc:
             logger.warning("radar_table_query_failed", exc_info=exc)
             return []

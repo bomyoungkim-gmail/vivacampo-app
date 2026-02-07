@@ -6,6 +6,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import structlog
 from app.config import settings
 import uuid
+from app.observability import setup_tracing
 
 # Configure structured logging
 structlog.configure(
@@ -61,6 +62,7 @@ app = FastAPI(
 )
 
 app.openapi = _custom_openapi
+setup_tracing(app)
 
 # CORS middleware
 app.add_middleware(
@@ -183,7 +185,7 @@ async def metrics():
 from app.presentation import (
     auth_router, farms_router, aois_router, jobs_router,
     signals_router, ai_assistant_router, tenant_admin_router,
-    system_admin_router, weather_router, radar_router, tiles_router, nitrogen_router, correlation_router
+    system_admin_router, weather_router, radar_router, tiles_router, nitrogen_router, correlation_router, analytics_router
 )
 
 app.include_router(auth_router.router, prefix="/v1", tags=["auth"])
@@ -195,6 +197,7 @@ app.include_router(weather_router.router, prefix="/v1/app", tags=["weather"])
 app.include_router(radar_router.router, prefix="/v1/app", tags=["radar"])
 app.include_router(nitrogen_router.router, prefix="/v1/app", tags=["nitrogen"])
 app.include_router(correlation_router.router, prefix="/v1/app", tags=["correlation"])
+app.include_router(analytics_router.router, prefix="/v1/app", tags=["analytics"])
 app.include_router(ai_assistant_router.router, prefix="/v1/app", tags=["ai-assistant"])
 app.include_router(tenant_admin_router.router, prefix="/v1/app", tags=["tenant-admin"])
 app.include_router(system_admin_router.router, prefix="/v1", tags=["system-admin"])

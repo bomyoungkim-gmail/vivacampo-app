@@ -1,7 +1,7 @@
 """Use case for CREATE_MOSAIC job."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Iterable
 
 import structlog
@@ -65,7 +65,7 @@ class CreateMosaicUseCase:
                     "tiles": {},
                     "metadata": {
                         "status": "NO_DATA",
-                        "created_at": datetime.utcnow().isoformat(),
+                        "created_at": datetime.now(timezone.utc).isoformat(),
                     },
                 }
                 key = _mosaic_key(command.collection, command.year, command.week)

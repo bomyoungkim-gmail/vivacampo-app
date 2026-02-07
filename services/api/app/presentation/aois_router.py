@@ -1,16 +1,31 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
-from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
-from datetime import datetime, timedelta
-from app.database import get_db
+from datetime import datetime, timedelta, timezone
 from app.auth.dependencies import get_current_membership, CurrentMembership, require_role, get_current_tenant_id
-from app.schemas import AOICreate, AOIView, AOIPatch, BackfillRequest
-from app.domain.quotas import check_aoi_quota, check_backfill_quota, QuotaExceededError
-from app.domain.audit import get_audit_logger
+from app.schemas import (
+    AOICreate,
+    AOIView,
+    AOIPatch,
+    BackfillRequest,
+    AoiSplitSimulationRequest,
+    AoiSplitSimulationResponse,
+    AoiSplitCreateRequest,
+    AoiSplitCreateResponse,
+    AoiStatusRequest,
+    AoiStatusResponse,
+)
+from app.domain.quotas import QuotaExceededError
 from app.domain.value_objects.tenant_id import TenantId
-from app.application.dtos.aois import CreateAoiCommand, ListAoisCommand
+from app.application.dtos.aois import (
+    CreateAoiCommand,
+    ListAoisCommand,
+    SimulateSplitCommand,
+    SplitAoiCommand,
+    SplitPolygonInput,
+    AoiStatusCommand,
+)
 from app.application.dtos.aoi_management import (
     AoiAssetsCommand,
     AoiHistoryCommand,
@@ -18,7 +33,7 @@ from app.application.dtos.aoi_management import (
     RequestBackfillCommand,
     UpdateAoiCommand,
 )
-from app.infrastructure.di_container import ApiContainer
+from app.infrastructure.di_container import ApiContainer, get_container
 from app.infrastructure.s3_client import presign_row_s3_fields
 import structlog
 
@@ -29,17 +44,19 @@ router = APIRouter(responses=DEFAULT_ERROR_RESPONSES, dependencies=[Depends(get_
 @router.post("/aois", response_model=AOIView, status_code=status.HTTP_201_CREATED)
 async def create_aoi(
     aoi_data: AOICreate,
-    membership: CurrentMembership = Depends(require_role("OPERATOR")),
-    db: Session = Depends(get_db)
+    membership: CurrentMembership = Depends(require_role("EDITOR")),
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Create a new Area of Interest (AOI).
-    Requires OPERATOR or TENANT_ADMIN role.
+    Requires EDITOR or TENANT_ADMIN role.
     Enforces quota limits.
     """
+    quota_service = container.quota_service()
+
     # Check quota
     try:
-        check_aoi_quota(str(membership.tenant_id), db)
+        quota_service.check_aoi_quota(str(membership.tenant_id))
     except QuotaExceededError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -48,20 +65,22 @@ async def create_aoi(
     
     geom_wkt = aoi_data.geometry  # Expect fully formed WKT from client
 
-    container = ApiContainer()
-    use_case = container.create_aoi_use_case(db)
-    aoi = await use_case.execute(
-        CreateAoiCommand(
-            tenant_id=TenantId(value=membership.tenant_id),
-            farm_id=aoi_data.farm_id,
-            name=aoi_data.name,
-            use_type=aoi_data.use_type,
-            geometry_wkt=geom_wkt,
+    use_case = container.create_aoi_use_case()
+    try:
+        aoi = await use_case.execute(
+            CreateAoiCommand(
+                tenant_id=TenantId(value=membership.tenant_id),
+                farm_id=aoi_data.farm_id,
+                name=aoi_data.name,
+                use_type=aoi_data.use_type,
+                geometry_wkt=geom_wkt,
+            )
         )
-    )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     
     # Audit log
-    audit = get_audit_logger(db)
+    audit = container.audit_logger()
     audit.log(
         tenant_id=str(membership.tenant_id),
         actor_membership_id=str(membership.membership_id),
@@ -73,13 +92,13 @@ async def create_aoi(
 
     # Trigger initial backfill for last 8 weeks on creation
     try:
-        backfill_use_case = container.request_backfill_use_case(db)
+        backfill_use_case = container.request_backfill_use_case()
         await backfill_use_case.execute(
             RequestBackfillCommand(
                 tenant_id=TenantId(value=membership.tenant_id),
                 aoi_id=aoi.id,
-                from_date=(datetime.utcnow() - timedelta(days=56)).date().isoformat(),
-                to_date=datetime.utcnow().date().isoformat(),
+                from_date=(datetime.now(timezone.utc) - timedelta(days=56)).date().isoformat(),
+                to_date=datetime.now(timezone.utc).date().isoformat(),
                 cadence="weekly",
             )
         )
@@ -98,16 +117,130 @@ async def create_aoi(
     )
 
 
+@router.post("/aois/simulate-split", response_model=AoiSplitSimulationResponse)
+async def simulate_split(
+    payload: AoiSplitSimulationRequest,
+    membership: CurrentMembership = Depends(require_role("TENANT_ADMIN")),
+    container: ApiContainer = Depends(get_container),
+):
+    """
+    Simulate split of a macro polygon into paddocks (voronoi or grid).
+    """
+    use_case = container.simulate_split_use_case()
+    try:
+        result = await use_case.execute(
+            SimulateSplitCommand(
+                tenant_id=TenantId(value=membership.tenant_id),
+                geometry_wkt=payload.geometry_wkt,
+                mode=payload.mode,
+                target_count=payload.target_count,
+                max_area_ha=payload.max_area_ha,
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    return AoiSplitSimulationResponse(
+        polygons=[
+            {"geometry_wkt": poly.geometry_wkt, "area_ha": poly.area_ha}
+            for poly in result.polygons
+        ],
+        warnings=result.warnings,
+    )
+
+
+@router.post("/aois/split", response_model=AoiSplitCreateResponse)
+async def split_aois(
+    payload: AoiSplitCreateRequest,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    membership: CurrentMembership = Depends(require_role("TENANT_ADMIN")),
+    container: ApiContainer = Depends(get_container),
+):
+    """
+    Persist split polygons as AOIs and optionally enqueue backfill jobs.
+    """
+    use_case = container.split_aoi_use_case()
+    if not idempotency_key:
+        import hashlib
+
+        serialized = "|".join(
+            [str(payload.parent_aoi_id)]
+            + [f"{poly.geometry_wkt}:{poly.name or ''}" for poly in payload.polygons]
+        )
+        idempotency_key = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+    try:
+        result = await use_case.execute(
+            SplitAoiCommand(
+                tenant_id=TenantId(value=membership.tenant_id),
+                parent_aoi_id=payload.parent_aoi_id,
+                polygons=[
+                    SplitPolygonInput(
+                        geometry_wkt=poly.geometry_wkt,
+                        name=poly.name,
+                    )
+                    for poly in payload.polygons
+                ],
+                max_area_ha=payload.max_area_ha,
+                idempotency_key=idempotency_key,
+            )
+        )
+    except ValueError as exc:
+        message = str(exc)
+        if message == "PARENT_AOI_NOT_FOUND":
+            raise HTTPException(status_code=404, detail="Parent AOI not found")
+        if message == "POLYGONS_REQUIRED":
+            raise HTTPException(status_code=422, detail="Polygons are required")
+        if message.startswith("TALHAO_") and message.endswith("_EXCEEDS_MAX_AREA"):
+            raise HTTPException(status_code=422, detail="AOI exceeds max area")
+        raise HTTPException(status_code=422, detail=message)
+
+    job_ids = []
+    if payload.enqueue_jobs and not result.idempotent:
+        backfill_use_case = container.request_backfill_use_case()
+        for aoi_id in result.created_ids:
+            response = await backfill_use_case.execute(
+                RequestBackfillCommand(
+                    tenant_id=TenantId(value=membership.tenant_id),
+                    aoi_id=aoi_id,
+                    from_date=(datetime.now(timezone.utc) - timedelta(days=56)).date().isoformat(),
+                    to_date=datetime.now(timezone.utc).date().isoformat(),
+                    cadence="weekly",
+                )
+            )
+            job_ids.append(response.job_id)
+
+    return AoiSplitCreateResponse(created=len(result.created_ids), job_ids=job_ids, warnings=[])
+
+
+@router.post("/aois/status", response_model=AoiStatusResponse)
+async def get_aois_status(
+    payload: AoiStatusRequest,
+    membership: CurrentMembership = Depends(get_current_membership),
+    container: ApiContainer = Depends(get_container),
+):
+    """
+    Return processing status for a list of AOIs.
+    """
+    use_case = container.aoi_status_use_case()
+    result = await use_case.execute(
+        AoiStatusCommand(
+            tenant_id=TenantId(value=membership.tenant_id),
+            aoi_ids=payload.aoi_ids,
+        )
+    )
+    return AoiStatusResponse(items=[item.model_dump() for item in result.items])
+
+
 @router.get("/aois", response_model=List[AOIView])
 async def list_aois(
     farm_id: Optional[UUID] = None,
     status: Optional[str] = None,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """List all AOIs for the current tenant"""
-    container = ApiContainer()
-    use_case = container.list_aois_use_case(db)
+    use_case = container.list_aois_use_case()
     aois = await use_case.execute(
         ListAoisCommand(
             tenant_id=TenantId(value=membership.tenant_id),
@@ -134,22 +267,21 @@ async def list_aois(
 @router.delete("/aois/{aoi_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_aoi(
     aoi_id: UUID,
-    membership: CurrentMembership = Depends(require_role("OPERATOR")),
-    db: Session = Depends(get_db)
+    membership: CurrentMembership = Depends(require_role("EDITOR")),
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Delete an AOI.
     Cascades to derived_assets and observations via DB constraints.
     """
-    container = ApiContainer()
-    use_case = container.delete_aoi_use_case(db)
+    use_case = container.delete_aoi_use_case()
     deleted = await use_case.execute(DeleteAoiCommand(tenant_id=TenantId(value=membership.tenant_id), aoi_id=aoi_id))
 
     if not deleted:
         raise HTTPException(status_code=404, detail="AOI not found")
 
     # Audit log
-    audit = get_audit_logger(db)
+    audit = container.audit_logger()
     audit.log(
         tenant_id=str(membership.tenant_id),
         actor_membership_id=str(membership.membership_id),
@@ -165,15 +297,14 @@ async def delete_aoi(
 async def update_aoi(
     aoi_id: UUID,
     aoi_patch: AOIPatch,
-    membership: CurrentMembership = Depends(require_role("OPERATOR")),
-    db: Session = Depends(get_db)
+    membership: CurrentMembership = Depends(require_role("EDITOR")),
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Update AOI (name, use_type, status, geometry).
     If geometry is updated, a backfill for the last 8 weeks is triggered.
     """
-    container = ApiContainer()
-    use_case = container.update_aoi_use_case(db)
+    use_case = container.update_aoi_use_case()
 
     if (
         aoi_patch.name is None
@@ -183,16 +314,19 @@ async def update_aoi(
     ):
         raise HTTPException(status_code=400, detail="No fields to update")
 
-    result = await use_case.execute(
-        UpdateAoiCommand(
-            tenant_id=TenantId(value=membership.tenant_id),
-            aoi_id=aoi_id,
-            name=aoi_patch.name,
-            use_type=aoi_patch.use_type,
-            status=aoi_patch.status,
-            geometry_wkt=aoi_patch.geometry,
+    try:
+        result = await use_case.execute(
+            UpdateAoiCommand(
+                tenant_id=TenantId(value=membership.tenant_id),
+                aoi_id=aoi_id,
+                name=aoi_patch.name,
+                use_type=aoi_patch.use_type,
+                status=aoi_patch.status,
+                geometry_wkt=aoi_patch.geometry,
+            )
         )
-    )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
     if not result:
         raise HTTPException(status_code=404, detail="AOI not found")
@@ -208,7 +342,7 @@ async def update_aoi(
         changes["geometry"] = "MODIFIED"
     
     # Audit log
-    audit = get_audit_logger(db)
+    audit = container.audit_logger()
     audit.log(
         tenant_id=str(membership.tenant_id),
         actor_membership_id=str(membership.membership_id),
@@ -221,13 +355,13 @@ async def update_aoi(
     if result.geometry_changed:
         logger.info("triggering_auto_backfill", aoi_id=str(aoi_id))
         try:
-            backfill_use_case = container.request_backfill_use_case(db)
+            backfill_use_case = container.request_backfill_use_case()
             await backfill_use_case.execute(
                 RequestBackfillCommand(
                     tenant_id=TenantId(value=membership.tenant_id),
                     aoi_id=aoi_id,
-                    from_date=(datetime.utcnow() - timedelta(days=56)).date().isoformat(),
-                    to_date=datetime.utcnow().date().isoformat(),
+                    from_date=(datetime.now(timezone.utc) - timedelta(days=56)).date().isoformat(),
+                    to_date=datetime.now(timezone.utc).date().isoformat(),
                     cadence="weekly",
                 )
             )
@@ -250,16 +384,16 @@ async def update_aoi(
 async def request_backfill(
     aoi_id: UUID,
     backfill_data: BackfillRequest,
-    membership: CurrentMembership = Depends(require_role("OPERATOR")),
-    db: Session = Depends(get_db)
+    membership: CurrentMembership = Depends(require_role("EDITOR")),
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Request backfill processing for an AOI.
     Creates BACKFILL job that will orchestrate PROCESS_WEEK jobs.
     Enforces quota limits.
     """
-    container = ApiContainer()
-    aoi_repo = container.aoi_repository(db)
+    quota_service = container.quota_service()
+    aoi_repo = container.aoi_repository()
     aoi = await aoi_repo.get_by_id(TenantId(value=membership.tenant_id), aoi_id)
     if not aoi:
         raise HTTPException(status_code=404, detail="AOI not found")
@@ -271,14 +405,14 @@ async def request_backfill(
     
     # Check quota
     try:
-        check_backfill_quota(str(membership.tenant_id), weeks_count, db)
+        quota_service.check_backfill_quota(str(membership.tenant_id), weeks_count)
     except QuotaExceededError as e:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Backfill quota exceeded: {str(e)}"
         )
     
-    backfill_use_case = container.request_backfill_use_case(db)
+    backfill_use_case = container.request_backfill_use_case()
     result = await backfill_use_case.execute(
         RequestBackfillCommand(
             tenant_id=TenantId(value=membership.tenant_id),
@@ -290,7 +424,7 @@ async def request_backfill(
     )
     
     # Audit log
-    audit = get_audit_logger(db)
+    audit = container.audit_logger()
     audit.log_backfill_request(
         tenant_id=str(membership.tenant_id),
         actor_id=str(membership.membership_id),
@@ -312,13 +446,12 @@ async def request_backfill(
 async def get_aoi_assets(
     aoi_id: UUID,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Get latest derived assets (NDVI, etc) for an AOI.
     """
-    container = ApiContainer()
-    use_case = container.aoi_assets_use_case(db)
+    use_case = container.aoi_assets_use_case()
     assets = await use_case.execute(
         AoiAssetsCommand(tenant_id=TenantId(value=membership.tenant_id), aoi_id=aoi_id)
     )
@@ -352,13 +485,12 @@ async def get_aoi_history(
     aoi_id: UUID,
     limit: int = 52,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Get historical statistics for charts.
     """
-    container = ApiContainer()
-    use_case = container.aoi_history_use_case(db)
+    use_case = container.aoi_history_use_case()
     return await use_case.execute(
         AoiHistoryCommand(tenant_id=TenantId(value=membership.tenant_id), aoi_id=aoi_id, limit=limit)
     )

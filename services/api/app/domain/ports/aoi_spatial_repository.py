@@ -22,3 +22,14 @@ class IAoiSpatialRepository(ABC):
     async def get_geojson(self, tenant_id: TenantId, aoi_id: UUID) -> Optional[dict]:
         """Return AOI geometry as GeoJSON dict."""
         raise NotImplementedError
+
+    @abstractmethod
+    async def simulate_split(
+        self,
+        tenant_id: TenantId,
+        geometry_wkt: str,
+        mode: str,
+        target_count: int,
+    ) -> list[dict]:
+        """Return list of polygons with area for split simulation."""
+        raise NotImplementedError

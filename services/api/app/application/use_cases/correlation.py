@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import List
 
+from app.application.decorators import require_tenant
 from app.application.dtos.correlation import (
     CorrelationCommand,
     CorrelationDataPoint,
@@ -20,6 +21,7 @@ class CorrelationUseCase:
     def __init__(self, repo: ICorrelationRepository):
         self.repo = repo
 
+    @require_tenant
     def execute(self, command: CorrelationCommand) -> CorrelationResult:
         end_date = datetime.now()
         start_date = end_date - timedelta(weeks=command.weeks)
@@ -86,6 +88,7 @@ class YearOverYearUseCase:
     def __init__(self, repo: ICorrelationRepository):
         self.repo = repo
 
+    @require_tenant
     def execute(self, command: YearOverYearCommand) -> YearOverYearResult | None:
         result = self.repo.fetch_year_over_year(command.aoi_id, command.tenant_id)
         if not result:

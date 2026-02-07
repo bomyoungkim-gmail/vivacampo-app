@@ -1,15 +1,13 @@
 from fastapi import APIRouter, Depends
 from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
-from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
 
-from app.database import get_db
 from app.auth.dependencies import get_current_membership, CurrentMembership, get_current_tenant_id
 from app.infrastructure.s3_client import presign_row_s3_fields
 from app.application.dtos.radar import RadarHistoryCommand
 from app.domain.value_objects.tenant_id import TenantId
-from app.infrastructure.di_container import ApiContainer
+from app.infrastructure.di_container import ApiContainer, get_container
 
 router = APIRouter(responses=DEFAULT_ERROR_RESPONSES, dependencies=[Depends(get_current_tenant_id)])
 
@@ -19,13 +17,12 @@ async def get_radar_history(
     year: Optional[int] = None,
     limit: int = 52,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Get historical Radar (Sentinel-1) data (RVI, Ratio).
     """
-    container = ApiContainer()
-    use_case = container.radar_history_use_case(db)
+    use_case = container.radar_history_use_case()
     history = await use_case.execute(
         RadarHistoryCommand(
             tenant_id=TenantId(value=membership.tenant_id),

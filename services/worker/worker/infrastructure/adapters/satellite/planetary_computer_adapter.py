@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 import structlog
 
 from worker.domain.ports.satellite_provider import ISatelliteProvider, SatelliteScene
-from worker.pipeline.stac_client import get_stac_client
+from worker.pipeline.providers.registry import get_satellite_provider
 
 logger = structlog.get_logger()
 
@@ -48,11 +48,11 @@ class PlanetaryComputerAdapter(ISatelliteProvider):
         collections: Optional[List[str]] = None,
         max_cloud_cover: float = 60.0,
     ) -> List[SatelliteScene]:
-        stac = get_stac_client()
-        raw_items = await stac.search_scenes(
-            aoi_geom=geometry,
-            start_date=start_date,
-            end_date=end_date,
+        provider = get_satellite_provider()
+        raw_items = await provider.search_scenes(
+            geometry,
+            start_date,
+            end_date,
             max_cloud_cover=max_cloud_cover,
             collections=collections,
         )
@@ -83,14 +83,9 @@ class PlanetaryComputerAdapter(ISatelliteProvider):
         return scenes
 
     async def download_band(self, asset_href: str, geometry: Dict[str, Any], output_path: str) -> str:
-        stac = get_stac_client()
-        return await stac.download_band(asset_href=asset_href, geometry=geometry, output_path=output_path)
+        provider = get_satellite_provider()
+        await provider.download_and_clip_band(asset_href, geometry, output_path)
+        return output_path
 
     async def health_check(self) -> bool:
-        # Simple health check by ensuring client can be created
-        try:
-            _ = get_stac_client()
-            return True
-        except Exception as exc:
-            logger.warning("planetary_computer_health_failed", exc_info=exc)
-            return False
+        return await get_satellite_provider().health_check()

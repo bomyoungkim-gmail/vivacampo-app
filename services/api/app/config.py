@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     jwt_audience: str
     system_admin_issuer: str
     system_admin_audience: str
+    cookie_secure: bool = False
     
     tenant_claim_key: str = "custom:tenantID"
     roles_claim_key: str = "custom:roles"
@@ -58,6 +59,10 @@ class Settings(BaseSettings):
     pipeline_version: str = "v1"
     max_cloud_cover: int = 60
     min_valid_pixel_ratio: float = 0.15
+
+    # Providers (for admin status visibility)
+    satellite_provider: str = "planetary_computer"
+    satellite_fallback_providers: str = ""
     
     # Signals
     signals_enabled: bool = True
@@ -88,6 +93,11 @@ class Settings(BaseSettings):
 
     # UI
     ui_min_touch_target_px: int = 44
+
+    # OpenTelemetry
+    otel_enabled: bool = True
+    otel_endpoint: str | None = None
+    otel_service_name: str = "vivacampo-api"
 
     @model_validator(mode="after")
     def apply_database_overrides(self) -> "Settings":

@@ -10,11 +10,12 @@ from sqlalchemy.orm import Session
 
 from app.domain.ports.signal_repository import ISignalRepository
 from app.domain.value_objects.tenant_id import TenantId
+from app.infrastructure.adapters.persistence.sqlalchemy.base_repository import BaseSQLAlchemyRepository
 
 
-class SQLAlchemySignalRepository(ISignalRepository):
+class SQLAlchemySignalRepository(ISignalRepository, BaseSQLAlchemyRepository):
     def __init__(self, db: Session):
-        self.db = db
+        super().__init__(db)
 
     async def list_signals(
         self,
@@ -54,8 +55,7 @@ class SQLAlchemySignalRepository(ISignalRepository):
             conditions.append("a.farm_id = :farm_id")
             params["farm_id"] = str(farm_id)
 
-        sql = text(
-            f"""
+        sql = f"""
             SELECT s.id, s.aoi_id, a.name as aoi_name, s.year, s.week, s.signal_type, s.status, s.severity,
                    s.confidence, s.score, s.model_version, s.change_method,
                    s.evidence_json, s.recommended_actions, s.created_at
@@ -65,42 +65,40 @@ class SQLAlchemySignalRepository(ISignalRepository):
             ORDER BY s.created_at DESC, s.id DESC
             LIMIT :limit + 1
             """
-        )
 
-        result = self.db.execute(sql, params)
+        result = self._execute_query(sql, params)
         rows = list(result)
         has_more = len(rows) > limit
         rows = rows[:limit]
 
         signals = []
         for row in rows:
-            evidence = row.evidence_json
-            actions = row.recommended_actions
+            evidence = row["evidence_json"]
+            actions = row["recommended_actions"]
             signals.append(
                 {
-                    "id": row.id,
-                    "aoi_id": row.aoi_id,
-                    "aoi_name": row.aoi_name,
-                    "year": row.year,
-                    "week": row.week,
-                    "signal_type": row.signal_type,
-                    "status": row.status,
-                    "severity": row.severity,
-                    "confidence": row.confidence,
-                    "score": row.score,
-                    "model_version": row.model_version,
-                    "change_method": row.change_method,
+                    "id": row["id"],
+                    "aoi_id": row["aoi_id"],
+                    "aoi_name": row["aoi_name"],
+                    "year": row["year"],
+                    "week": row["week"],
+                    "signal_type": row["signal_type"],
+                    "status": row["status"],
+                    "severity": row["severity"],
+                    "confidence": row["confidence"],
+                    "score": row["score"],
+                    "model_version": row["model_version"],
+                    "change_method": row["change_method"],
                     "evidence_json": json.loads(evidence) if isinstance(evidence, str) else (evidence or {}),
                     "recommended_actions": json.loads(actions) if isinstance(actions, str) else (actions or []),
-                    "created_at": row.created_at,
+                    "created_at": row["created_at"],
                 }
             )
 
         return signals, has_more
 
     async def get_signal(self, tenant_id: TenantId, signal_id: UUID) -> Optional[dict]:
-        sql = text(
-            """
+        sql = """
             SELECT s.id, s.aoi_id, a.name as aoi_name, s.year, s.week, s.signal_type, s.status, s.severity,
                    s.confidence, s.score, s.model_version, s.change_method,
                    s.evidence_json, s.recommended_actions, s.created_at
@@ -108,37 +106,34 @@ class SQLAlchemySignalRepository(ISignalRepository):
             JOIN aois a ON s.aoi_id = a.id
             WHERE s.id = :signal_id AND s.tenant_id = :tenant_id
             """
-        )
 
-        result = self.db.execute(
+        result = self._execute_query(
             sql,
-            {
-                "signal_id": str(signal_id),
-                "tenant_id": str(tenant_id.value),
-            },
-        ).first()
+            {"signal_id": str(signal_id), "tenant_id": str(tenant_id.value)},
+            fetch_one=True,
+        )
 
         if not result:
             return None
 
-        evidence = result.evidence_json
-        actions = result.recommended_actions
+        evidence = result["evidence_json"]
+        actions = result["recommended_actions"]
         return {
-            "id": result.id,
-            "aoi_id": result.aoi_id,
-            "aoi_name": result.aoi_name,
-            "year": result.year,
-            "week": result.week,
-            "signal_type": result.signal_type,
-            "status": result.status,
-            "severity": result.severity,
-            "confidence": result.confidence,
-            "score": result.score,
-            "model_version": result.model_version,
-            "change_method": result.change_method,
+            "id": result["id"],
+            "aoi_id": result["aoi_id"],
+            "aoi_name": result["aoi_name"],
+            "year": result["year"],
+            "week": result["week"],
+            "signal_type": result["signal_type"],
+            "status": result["status"],
+            "severity": result["severity"],
+            "confidence": result["confidence"],
+            "score": result["score"],
+            "model_version": result["model_version"],
+            "change_method": result["change_method"],
             "evidence_json": json.loads(evidence) if isinstance(evidence, str) else (evidence or {}),
             "recommended_actions": json.loads(actions) if isinstance(actions, str) else (actions or []),
-            "created_at": result.created_at,
+            "created_at": result["created_at"],
         }
 
     async def acknowledge(self, tenant_id: TenantId, signal_id: UUID) -> bool:
@@ -150,7 +145,7 @@ class SQLAlchemySignalRepository(ISignalRepository):
             """
         )
         result = self.db.execute(
-            sql,
+            text(sql),
             {"signal_id": str(signal_id), "tenant_id": str(tenant_id.value)},
         )
         self.db.commit()

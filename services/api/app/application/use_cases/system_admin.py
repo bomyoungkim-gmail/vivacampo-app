@@ -5,6 +5,7 @@ from datetime import date, timedelta
 import hashlib
 import json
 
+from app.application.decorators import require_tenant
 from app.application.dtos.system_admin import (
     CreateTenantCommand,
     GlobalAuditLogCommand,
@@ -15,6 +16,7 @@ from app.application.dtos.system_admin import (
     ReprocessMissingWeeksCommand,
     RetryJobCommand,
     UpdateTenantCommand,
+    ReprocessJobsCommand,
 )
 from app.application.dtos.aoi_management import RequestBackfillCommand
 from app.application.use_cases.aoi_management import RequestBackfillUseCase
@@ -44,6 +46,7 @@ class UpdateTenantUseCase:
     def __init__(self, repo: ISystemAdminRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: UpdateTenantCommand) -> dict | None:
         current = await self.repo.get_tenant_status(command.tenant_id)
         if current is None:
@@ -244,3 +247,79 @@ class GlobalAuditLogUseCase:
 
     async def execute(self, command: GlobalAuditLogCommand) -> list[dict]:
         return await self.repo.list_audit_logs(command.limit)
+
+
+class ReprocessJobsUseCase:
+    def __init__(self, job_repo: IJobRepository, queue: IMessageQueue, queue_name: str, pipeline_version: str):
+        self.job_repo = job_repo
+        self.queue = queue
+        self.queue_name = queue_name
+        self.pipeline_version = pipeline_version
+
+    async def execute(self, command: ReprocessJobsCommand) -> dict:
+        allowed = {
+            "PROCESS_WEEK",
+            "PROCESS_RADAR_WEEK",
+            "PROCESS_TOPOGRAPHY",
+            "PROCESS_WEATHER",
+            "ALERTS_WEEK",
+            "SIGNALS_WEEK",
+            "FORECAST_WEEK",
+            "BACKFILL",
+            "CALCULATE_STATS",
+            "WARM_CACHE",
+            "DETECT_HARVEST",
+        }
+        job_types = [jt for jt in command.job_types if jt in allowed]
+        if not job_types:
+            raise ValueError("No valid job_types provided")
+
+        aoi_required = {
+            "PROCESS_WEEK",
+            "PROCESS_RADAR_WEEK",
+            "PROCESS_TOPOGRAPHY",
+            "PROCESS_WEATHER",
+            "ALERTS_WEEK",
+            "SIGNALS_WEEK",
+            "FORECAST_WEEK",
+            "BACKFILL",
+            "CALCULATE_STATS",
+            "WARM_CACHE",
+            "DETECT_HARVEST",
+        }
+        if any(jt in aoi_required for jt in job_types) and not command.aoi_id:
+            raise ValueError("aoi_id is required for requested job_types")
+
+        results = []
+        tenant_id = TenantId(value=command.tenant_id)
+        for job_type in job_types:
+            job_key = hashlib.sha256(
+                f"{tenant_id.value}{command.aoi_id}{command.year}{command.week}{job_type}{self.pipeline_version}".encode()
+            ).hexdigest()
+            payload = {
+                "tenant_id": str(tenant_id.value),
+                "aoi_id": str(command.aoi_id) if command.aoi_id else None,
+                "year": command.year,
+                "week": command.week,
+            }
+
+            job_id = await self.job_repo.create_job(
+                tenant_id=tenant_id,
+                aoi_id=command.aoi_id,
+                job_type=job_type,
+                job_key=job_key,
+                payload_json=json.dumps(payload),
+            )
+
+            await self.queue.publish(
+                self.queue_name,
+                {
+                    "job_id": str(job_id),
+                    "job_type": job_type,
+                    "payload": payload,
+                },
+            )
+
+            results.append({"job_type": job_type, "job_id": str(job_id)})
+
+        return {"queued": len(results), "jobs": results}

@@ -10,17 +10,15 @@ Endpoints:
 - POST /tiles/aois/{aoi_id}/export - Export COG on-demand
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
 from fastapi.responses import RedirectResponse
 from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
-from sqlalchemy.orm import Session
 import structlog
 
-from app.database import get_db
 from app.auth.dependencies import get_current_membership, CurrentMembership, get_current_tenant_id
 from app.config import settings
 from app.application.dtos.tiles import (
@@ -31,7 +29,7 @@ from app.application.dtos.tiles import (
 )
 from app.application.tiles_config import EXPRESSIONS
 from app.domain.value_objects.tenant_id import TenantId
-from app.infrastructure.di_container import ApiContainer
+from app.infrastructure.di_container import ApiContainer, get_container
 
 logger = structlog.get_logger()
 router = APIRouter(responses=DEFAULT_ERROR_RESPONSES, dependencies=[Depends(get_current_tenant_id)])
@@ -47,7 +45,7 @@ async def get_aoi_tile(
     year: Optional[int] = Query(None, description="ISO year (default: current)"),
     week: Optional[int] = Query(None, description="ISO week (default: current)"),
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db),
+    container: ApiContainer = Depends(get_container),
 ):
     """
     Get a map tile for an AOI with the specified vegetation index.
@@ -60,8 +58,7 @@ async def get_aoi_tile(
     - **index**: Vegetation index (ndvi, ndwi, ndmi, evi, savi, ndre, gndvi)
     - **year/week**: ISO year and week number (default: current week)
     """
-    container = ApiContainer()
-    use_case = container.tile_use_case(db)
+    use_case = container.tile_use_case()
     try:
         result = await use_case.execute(
             TileRequestCommand(
@@ -109,7 +106,7 @@ async def get_aoi_tilejson(
     year: Optional[int] = Query(None, description="ISO year"),
     week: Optional[int] = Query(None, description="ISO week"),
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db),
+    container: ApiContainer = Depends(get_container),
 ):
     """
     Get TileJSON metadata for an AOI.
@@ -117,8 +114,7 @@ async def get_aoi_tilejson(
     Used by GIS tools (QGIS, ArcGIS, Mapbox) for layer configuration.
     Returns tile URL template, bounds, center, and zoom levels.
     """
-    container = ApiContainer()
-    use_case = container.tilejson_use_case(db)
+    use_case = container.tilejson_use_case()
     try:
         return await use_case.execute(
             TileJsonCommand(
@@ -229,7 +225,7 @@ async def export_aoi_cog(
     year: Optional[int] = Query(None, description="ISO year"),
     week: Optional[int] = Query(None, description="ISO week"),
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db),
+    container: ApiContainer = Depends(get_container),
 ):
     """
     Export a Cloud Optimized GeoTIFF (COG) for an AOI.
@@ -240,8 +236,7 @@ async def export_aoi_cog(
     Use this endpoint when you need to download the raster for local analysis
     in QGIS, ArcGIS, or other GIS software.
     """
-    container = ApiContainer()
-    use_case = container.tile_export_use_case(db)
+    use_case = container.tile_export_use_case()
     try:
         result = await use_case.execute(
             TileExportCommand(
@@ -264,7 +259,8 @@ async def export_aoi_cog(
 
     if result.status == "processing" and result.export_key:
         if not year or not week:
-            year, week = datetime.utcnow().isocalendar().year, datetime.utcnow().isocalendar().week
+            now = datetime.now(timezone.utc)
+            year, week = now.isocalendar().year, now.isocalendar().week
         background_tasks.add_task(
             generate_cog_export,
             tenant_id=str(membership.tenant_id),
@@ -302,8 +298,8 @@ async def generate_cog_export(
 
     try:
         db = SessionLocal()
-        container = ApiContainer()
-        use_case = container.tile_export_generate_use_case(db)
+        container = ApiContainer(db=db)
+        use_case = container.tile_export_generate_use_case()
         await use_case.execute(
             tenant_id=TenantId(value=UUID(tenant_id)),
             aoi_id=UUID(aoi_id),
@@ -326,11 +322,11 @@ async def get_export_status(
     year: Optional[int] = Query(None),
     week: Optional[int] = Query(None),
     membership: CurrentMembership = Depends(get_current_membership),
+    container: ApiContainer = Depends(get_container),
 ):
     """
     Check the status of a COG export request.
     """
-    container = ApiContainer()
     use_case = container.tile_export_status_use_case()
     result = await use_case.execute(
         TileExportStatusCommand(

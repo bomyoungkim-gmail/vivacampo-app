@@ -5,6 +5,7 @@ import boto3
 from botocore.config import Config
 
 from app.config import settings
+from app.infrastructure.resilience import retry_with_backoff_sync, circuit_sync
 
 logger = structlog.get_logger()
 
@@ -75,6 +76,8 @@ class S3Client:
         self.client = get_s3_client()
         self.bucket = settings.s3_bucket
 
+    @retry_with_backoff_sync(max_attempts=3, initial_delay=1.0, max_delay=8.0)
+    @circuit_sync(failure_threshold=3, recovery_timeout=120)
     def object_exists(self, key: str) -> bool:
         """Check if object exists in S3."""
         try:
@@ -85,6 +88,8 @@ class S3Client:
                 return False
             raise
 
+    @retry_with_backoff_sync(max_attempts=3, initial_delay=1.0, max_delay=8.0)
+    @circuit_sync(failure_threshold=3, recovery_timeout=120)
     def generate_presigned_url(self, key: str, expires_in: int = 900) -> str:
         """Generate presigned URL for S3 object."""
         return self.client.generate_presigned_url(
@@ -93,6 +98,8 @@ class S3Client:
             ExpiresIn=expires_in,
         )
 
+    @retry_with_backoff_sync(max_attempts=3, initial_delay=1.0, max_delay=8.0)
+    @circuit_sync(failure_threshold=3, recovery_timeout=120)
     def upload_bytes(self, key: str, data: bytes, content_type: str = "application/octet-stream"):
         """Upload bytes to S3."""
         self.client.put_object(
@@ -103,6 +110,8 @@ class S3Client:
         )
         logger.info("s3_upload_complete", key=key, size=len(data))
 
+    @retry_with_backoff_sync(max_attempts=3, initial_delay=1.0, max_delay=8.0)
+    @circuit_sync(failure_threshold=3, recovery_timeout=120)
     def upload_json(self, key: str, data: dict):
         """Upload JSON data to S3."""
         import json

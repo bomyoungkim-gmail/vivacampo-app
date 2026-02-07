@@ -34,7 +34,7 @@ class WorkspaceView(BaseModel):
     tenant_type: Literal["COMPANY", "PERSONAL"]
     tenant_name: str
     membership_id: UUID
-    role: Literal["TENANT_ADMIN", "OPERATOR", "VIEWER"]
+    role: Literal["TENANT_ADMIN", "EDITOR", "VIEWER"]
     status: Literal["ACTIVE", "INVITED", "SUSPENDED"]
 
 
@@ -68,6 +68,7 @@ class FarmCreate(BaseModel):
 class FarmView(BaseModel):
     id: UUID
     tenant_id: UUID
+    created_by_user_id: Optional[UUID] = None
     name: str
     timezone: str
     aoi_count: int = 0
@@ -189,6 +190,102 @@ class AOIPatch(BaseModel):
     geometry: Optional[str] = None  # WKT or GeoJSON string
 
 
+class AoiSplitSimulationRequest(BaseModel):
+    geometry_wkt: str
+    mode: Literal["voronoi", "grid"]
+    target_count: int = Field(..., ge=1, le=1000)
+    max_area_ha: float = Field(default=2000, gt=0)
+
+    @field_validator("geometry_wkt")
+    def validate_geometry_wkt(cls, v):
+        if not (v.startswith("POLYGON") or v.startswith("MULTIPOLYGON")):
+            raise ValueError("Geometry must start with POLYGON or MULTIPOLYGON")
+        return v
+
+
+class AoiSplitPolygon(BaseModel):
+    geometry_wkt: str
+    area_ha: float
+
+
+class AoiSplitSimulationResponse(BaseModel):
+    polygons: List[AoiSplitPolygon]
+    warnings: List[str]
+
+
+class AoiSplitCreatePolygon(BaseModel):
+    geometry_wkt: str
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+
+
+class AoiSplitCreateRequest(BaseModel):
+    parent_aoi_id: UUID
+    polygons: List[AoiSplitCreatePolygon]
+    max_area_ha: float = Field(default=2000, gt=0)
+    enqueue_jobs: bool = True
+
+
+class AoiSplitCreateResponse(BaseModel):
+    created: int
+    job_ids: List[UUID]
+    warnings: List[str] = Field(default_factory=list)
+
+
+class AoiStatusRequest(BaseModel):
+    aoi_ids: List[UUID] = Field(..., min_length=1, max_length=2000)
+
+
+class AoiStatusItem(BaseModel):
+    aoi_id: UUID
+    is_processing: bool
+    job_status: Optional[str] = None
+    job_type: Optional[str] = None
+    updated_at: Optional[datetime] = None
+
+
+class AoiStatusResponse(BaseModel):
+    items: List[AoiStatusItem]
+
+
+class FieldCalibrationCreateRequest(BaseModel):
+    aoi_id: UUID
+    date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    metric_type: Literal["biomass", "yield"]
+    value: float = Field(..., gt=0)
+    unit: Literal["kg_ha", "sc_ha"] = "kg_ha"
+
+
+class FieldCalibrationCreateResponse(BaseModel):
+    id: UUID
+    status: str = "created"
+
+
+class CalibrationResponse(BaseModel):
+    r2: float
+    coefficients: dict
+    sample_size: int
+
+
+class PredictionResponse(BaseModel):
+    p10: float
+    p50: float
+    p90: float
+    unit: Literal["kg_ha"] = "kg_ha"
+    confidence: float
+    source: str
+
+
+class FieldFeedbackCreateRequest(BaseModel):
+    aoi_id: UUID
+    type: Literal["ISSUE", "FALSE_POSITIVE"]
+    message: str = Field(..., min_length=1, max_length=500)
+
+
+class FieldFeedbackCreateResponse(BaseModel):
+    id: UUID
+    status: str = "created"
+
+
 class BackfillRequest(BaseModel):
     from_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     to_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
@@ -221,7 +318,7 @@ class JobRunView(BaseModel):
 class InviteMemberRequest(BaseModel):
     email: str = Field(..., pattern=r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
     name: str = Field(..., min_length=1, max_length=100)
-    role: Literal["TENANT_ADMIN", "OPERATOR", "VIEWER"]
+    role: Literal["EDITOR", "VIEWER"]
 
 
 class MembershipView(BaseModel):
@@ -235,7 +332,7 @@ class MembershipView(BaseModel):
 
 
 class MembershipRolePatch(BaseModel):
-    role: Literal["TENANT_ADMIN", "OPERATOR", "VIEWER"]
+    role: Literal["TENANT_ADMIN", "EDITOR", "VIEWER"]
 
 
 class MembershipStatusPatch(BaseModel):
@@ -300,6 +397,14 @@ class DLQMessageView(BaseModel):
     body: dict
     receive_count: int
     first_received: datetime
+
+
+class ReprocessJobsRequest(BaseModel):
+    tenant_id: UUID
+    aoi_id: Optional[UUID] = None
+    year: int = Field(..., ge=2000, le=2100)
+    week: int = Field(..., ge=1, le=53)
+    job_types: List[str] = Field(..., min_length=1)
 
 
 # ============

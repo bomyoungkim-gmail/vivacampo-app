@@ -51,3 +51,19 @@ class IJobRepository(ABC):
         payload_json: str,
     ) -> UUID:
         raise NotImplementedError
+
+    @abstractmethod
+    async def create_job(
+        self,
+        tenant_id: TenantId,
+        aoi_id: Optional[UUID],
+        job_type: str,
+        job_key: str,
+        payload_json: str,
+    ) -> UUID:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def latest_status_by_aois(self, tenant_id: TenantId, aoi_ids: list[UUID]) -> list[dict]:
+        """Return latest job status for each AOI id."""
+        raise NotImplementedError

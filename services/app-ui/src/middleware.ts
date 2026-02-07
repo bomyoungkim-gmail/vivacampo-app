@@ -1,49 +1,67 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Routes that require authentication
-const protectedRoutes = [
-    '/dashboard',
-    '/farms',
-    '/signals',
-    '/ai-assistant'
+const publicRoutes = [
+    '/',
+    '/login',
+    '/signup',
+    '/forgot-password',
+    '/reset-password',
+    '/terms',
+    '/privacy',
+    '/contact',
 ]
 
-// Routes that should redirect to dashboard if already authenticated
-const authRoutes = ['/login']
+const roleProtectedRoutes: Record<string, string[]> = {
+    '/admin': ['system_admin'],
+    '/settings': ['tenant_admin', 'system_admin'],
+}
+
+function decodeRole(token: string | undefined): string | null {
+    if (!token) return null
+    try {
+        const payload = token.split('.')[1]
+        const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+        const decoded = JSON.parse(atob(base64))
+        return decoded.role || null
+    } catch {
+        return null
+    }
+}
 
 export function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl
-    const authToken = request.cookies.get('auth_token')?.value
+    const authToken = request.cookies.get('access_token')?.value
 
-    // Check if the route requires authentication
-    const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
-    const isAuthRoute = authRoutes.some(route => pathname.startsWith(route))
+    const isPublicRoute = publicRoutes.some(route =>
+        pathname === route || pathname.startsWith(`${route}/`)
+    )
 
-    // Redirect to login if accessing protected route without token
-    if (isProtectedRoute && !authToken) {
-        // console.log('[Middleware] REDIRECTING TO LOGIN (Protected route, no token)')
-        const loginUrl = new URL('/app/login', request.url)
+    if (!isPublicRoute && !authToken) {
+        const loginUrl = new URL('/login', request.url)
         loginUrl.searchParams.set('redirect', pathname)
         return NextResponse.redirect(loginUrl)
     }
 
-    // Redirect to dashboard if accessing login with valid token
-    if (isAuthRoute && authToken) {
-        // console.log('[Middleware] REDIRECTING TO DASHBOARD (Auth route, token found)')
-        return NextResponse.redirect(new URL('/app/dashboard', request.url))
+    if ((pathname.startsWith('/login') || pathname.startsWith('/signup')) && authToken) {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
     }
 
-    // Add security headers to all responses
-    const response = NextResponse.next()
+    const role = decodeRole(authToken)
+    for (const [prefix, allowedRoles] of Object.entries(roleProtectedRoutes)) {
+        if (pathname.startsWith(prefix)) {
+            if (!role || !allowedRoles.includes(role)) {
+                return NextResponse.redirect(new URL('/dashboard', request.url))
+            }
+        }
+    }
 
-    // Security headers
+    const response = NextResponse.next()
     response.headers.set('X-Content-Type-Options', 'nosniff')
     response.headers.set('X-Frame-Options', 'DENY')
     response.headers.set('X-XSS-Protection', '1; mode=block')
     response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
 
-    // Content Security Policy
     const csp = [
         "default-src 'self'",
         "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
@@ -51,7 +69,7 @@ export function middleware(request: NextRequest) {
         "img-src 'self' data: https: blob:",
         "font-src 'self' data:",
         "connect-src 'self' http://localhost:8000 https://unpkg.com",
-        "frame-ancestors 'none'"
+        "frame-ancestors 'none'",
     ].join('; ')
     response.headers.set('Content-Security-Policy', csp)
 
@@ -60,13 +78,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
-        /*
-         * Match all request paths except:
-         * - _next/static (static files)
-         * - _next/image (image optimization)
-         * - favicon.ico (favicon file)
-         * - public files (public directory)
-         */
         '/((?!_next/static|_next/image|favicon.ico|.*\\..*|api).*)',
     ],
 }

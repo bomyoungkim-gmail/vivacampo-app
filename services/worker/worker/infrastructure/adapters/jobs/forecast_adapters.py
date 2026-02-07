@@ -17,6 +17,10 @@ class SqlSeasonRepository(SeasonRepository):
     def __init__(self, db: Session) -> None:
         self._db = db
 
+    def has_season(self, tenant_id: str, aoi_id: str) -> bool:
+        sql = text("SELECT id FROM seasons WHERE tenant_id = :tenant_id AND aoi_id = :aoi_id")
+        return self._db.execute(sql, {"tenant_id": tenant_id, "aoi_id": aoi_id}).fetchone() is not None
+
     def get_active_season(self, *, tenant_id: str, aoi_id: str) -> dict | None:
         sql = text(
             """

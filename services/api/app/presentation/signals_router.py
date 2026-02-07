@@ -4,14 +4,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
-from sqlalchemy.orm import Session
 
-from app.database import get_db
 from app.schemas import OpportunitySignalView
 from app.auth.dependencies import get_current_membership, CurrentMembership, get_current_tenant_id
 from app.domain.value_objects.tenant_id import TenantId
 from app.application.dtos.signals import AckSignalCommand, GetSignalCommand, ListSignalsCommand
-from app.infrastructure.di_container import ApiContainer
+from app.infrastructure.di_container import ApiContainer, get_container
 
 logger = logging.getLogger(__name__)
 
@@ -27,15 +25,14 @@ async def list_signals(
     cursor: Optional[str] = None,  # Base64 encoded: {id}:{created_at}
     limit: int = 20,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db),
+    container: ApiContainer = Depends(get_container),
     response: Response = Response() # Inject Response object to set headers
 ):
     """
     List opportunity signals for the current tenant.
     Uses cursor-based pagination for scalability.
     """
-    container = ApiContainer()
-    use_case = container.list_signals_use_case(db)
+    use_case = container.list_signals_use_case()
 
     try:
         result = await use_case.execute(
@@ -82,13 +79,12 @@ async def list_signals(
 async def get_signal(
     signal_id: str,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Get a specific signal by ID.
     """
-    container = ApiContainer()
-    use_case = container.get_signal_use_case(db)
+    use_case = container.get_signal_use_case()
     signal = await use_case.execute(
         GetSignalCommand(tenant_id=TenantId(value=membership.tenant_id), signal_id=UUID(signal_id))
     )
@@ -119,13 +115,12 @@ async def get_signal(
 async def acknowledge_signal(
     signal_id: UUID, # Changed type hint from str to UUID
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Acknowledge a signal (change status to ACK).
     """
-    container = ApiContainer()
-    use_case = container.ack_signal_use_case(db)
+    use_case = container.ack_signal_use_case()
     ok = await use_case.execute(
         AckSignalCommand(tenant_id=TenantId(value=membership.tenant_id), signal_id=signal_id)
     )

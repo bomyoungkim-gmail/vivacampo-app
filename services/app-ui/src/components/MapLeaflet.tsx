@@ -6,6 +6,7 @@ import L from 'leaflet'
 import { Radio } from 'lucide-react'
 import { APP_CONFIG } from '@/lib/config'
 import type { AOI } from '@/lib/types'
+import * as turf from '@turf/turf'
 import 'leaflet/dist/leaflet.css'
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css'
 import '@geoman-io/leaflet-geoman-free'
@@ -57,6 +58,166 @@ const parseWKT = (wkt: string): [number, number][][] => {
             return null
         }).filter(p => p !== null) as [number, number][]
     })
+}
+
+const geojsonToWkt = (geometry: any): string => {
+    if (!geometry) return ''
+    const toRing = (ring: number[][]) => ring.map((p) => `${p[0]} ${p[1]}`).join(', ')
+    if (geometry.type === 'Polygon') {
+        const ring = geometry.coordinates?.[0] ?? []
+        return `MULTIPOLYGON(((${toRing(ring)})))`
+    }
+    if (geometry.type === 'MultiPolygon') {
+        const parts = geometry.coordinates.map((poly: number[][][]) => `((${toRing(poly[0] ?? [])}))`).join(', ')
+        return `MULTIPOLYGON(${parts})`
+    }
+    return ''
+}
+
+const getPolygonCenter = (coords: [number, number][]) => {
+    const bounds = L.latLngBounds(coords)
+    const center = bounds.getCenter()
+    return [center.lat, center.lng] as [number, number]
+}
+
+type AoiStatus = 'normal' | 'processing' | 'alert' | 'warning' | 'split'
+
+const STATUS_COLORS: Record<AoiStatus, string> = {
+    normal: '#22c55e',
+    processing: '#3b82f6',
+    alert: '#ef4444',
+    warning: '#eab308',
+    split: '#0ea5e9',
+}
+
+type SignalBadge = 'water_stress' | 'disease_risk' | 'yield_risk' | 'general'
+
+const SIGNAL_BADGE_LABELS: Record<SignalBadge, string> = {
+    water_stress: 'H2O',
+    disease_risk: 'DOENCA',
+    yield_risk: 'YIELD',
+    general: 'ALERTA',
+}
+
+const SIGNAL_BADGE_COLORS: Record<SignalBadge, string> = {
+    water_stress: '#0284c7',
+    disease_risk: '#dc2626',
+    yield_risk: '#f97316',
+    general: '#a855f7',
+}
+
+const hexToRgb = (hex: string) => {
+    const value = hex.replace('#', '')
+    const bigint = parseInt(value, 16)
+    return {
+        r: (bigint >> 16) & 255,
+        g: (bigint >> 8) & 255,
+        b: bigint & 255,
+    }
+}
+
+const interpolateColor = (from: string, to: string, t: number) => {
+    const a = hexToRgb(from)
+    const b = hexToRgb(to)
+    const r = Math.round(a.r + (b.r - a.r) * t)
+    const g = Math.round(a.g + (b.g - a.g) * t)
+    const bVal = Math.round(a.b + (b.b - a.b) * t)
+    return `rgb(${r}, ${g}, ${bVal})`
+}
+
+const getNdviFill = (ndvi?: number | null) => {
+    if (ndvi === null || ndvi === undefined) return null
+    const clamped = Math.max(0, Math.min(1, ndvi))
+    if (clamped <= 0.4) {
+        return interpolateColor('#ef4444', '#eab308', clamped / 0.4)
+    }
+    if (clamped <= 0.7) {
+        return interpolateColor('#eab308', '#22c55e', (clamped - 0.4) / 0.3)
+    }
+    return '#22c55e'
+}
+
+const STATUS_SVG: Record<AoiStatus, string> = {
+    normal: `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M9 12l2 2 4-4"></path>
+        </svg>
+    `,
+    processing: `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"></circle>
+            <path d="M12 7v5l3 3"></path>
+        </svg>
+    `,
+    alert: `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <path d="M12 9v4"></path>
+            <path d="M12 17h.01"></path>
+        </svg>
+    `,
+    warning: `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polyline>
+        </svg>
+    `,
+    split: `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="6" cy="6" r="3"></circle>
+            <circle cx="6" cy="18" r="3"></circle>
+            <path d="M20 4L8.12 15.88"></path>
+            <path d="M14.47 14.48 20 20"></path>
+            <path d="M8.12 8.12 12 12"></path>
+        </svg>
+    `,
+}
+
+const getStatusIconHtml = (status: AoiStatus) => {
+    const color = STATUS_COLORS[status] ?? STATUS_COLORS.normal
+    return `
+        <div style="
+            width: 26px;
+            height: 26px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(15, 23, 42, 0.15);
+            display: grid;
+            place-items: center;
+            color: ${color};
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        ">
+            <div style="width: 16px; height: 16px;">
+                ${STATUS_SVG[status]}
+            </div>
+        </div>
+    `
+}
+
+const getSignalBadgeHtml = (badge: SignalBadge) => {
+    const color = SIGNAL_BADGE_COLORS[badge]
+    const title = badge === 'water_stress'
+        ? 'Water Stress'
+        : badge === 'disease_risk'
+            ? 'Disease Risk'
+            : badge === 'yield_risk'
+                ? 'Yield Risk'
+                : 'Alert'
+    return `
+        <div title="${title}" style="
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            font-size: 9px;
+            font-weight: 700;
+            color: ${color};
+            letter-spacing: 0.02em;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+        ">
+            ${SIGNAL_BADGE_LABELS[badge]}
+        </div>
+    `
 }
 
 // 1. Force Resize on Mount
@@ -240,11 +401,27 @@ interface AOIPolygonProps {
     getAOIColor: (type: string, isProcessing?: boolean) => string
     isEditing: boolean
     isSelected: boolean
+    isMergeSelected?: boolean
     isProcessing?: boolean
+    status?: AoiStatus
+    ndviMean?: number | null
     onUpdate?: (aoiId: string, newGeometry: any) => void
+    onSelect?: (aoiId: string) => void
 }
 
-function AOIPolygon({ aoi, coords, getAOIColor, isEditing, isSelected, isProcessing, onUpdate }: AOIPolygonProps) {
+function AOIPolygon({
+    aoi,
+    coords,
+    getAOIColor,
+    isEditing,
+    isSelected,
+    isMergeSelected,
+    isProcessing,
+    status = 'normal',
+    ndviMean,
+    onUpdate,
+    onSelect
+}: AOIPolygonProps) {
     const polygonRef = useRef<L.Polygon>(null)
 
     useEffect(() => {
@@ -291,16 +468,24 @@ function AOIPolygon({ aoi, coords, getAOIColor, isEditing, isSelected, isProcess
         }
     }, [isSelected, isEditing, onUpdate, aoi.id])
 
+    const statusColor = STATUS_COLORS[status] ?? getAOIColor(aoi.use_type, isProcessing)
+    const ndviFill = getNdviFill(ndviMean)
+    const fillColor = ndviFill ?? getAOIColor(aoi.use_type, isProcessing)
+    const borderColor = isMergeSelected ? '#f97316' : statusColor
+
     return (
         <Polygon
             ref={polygonRef}
             positions={coords}
+            eventHandlers={{
+                click: () => onSelect?.(aoi.id),
+            }}
             pathOptions={{
-                color: getAOIColor(aoi.use_type, isProcessing),
-                fillColor: getAOIColor(aoi.use_type, isProcessing),
-                fillOpacity: isProcessing ? 0.1 : 0.4,
-                weight: isSelected ? 4 : 2, // Thicker stroke if selected
-                dashArray: (isSelected && !isEditing) || isProcessing ? '5, 5' : undefined // Dash if selected(not editing) OR processing
+                color: borderColor,
+                fillColor: fillColor,
+                fillOpacity: isProcessing ? 0.1 : isMergeSelected ? 0.35 : 0.25,
+                weight: isSelected || isMergeSelected ? 4 : 2, // Thicker stroke if selected
+                dashArray: (isSelected && !isEditing) || isProcessing || isMergeSelected ? '5, 5' : undefined
             }}
         >
             <Popup>
@@ -317,6 +502,113 @@ function AOIPolygon({ aoi, coords, getAOIColor, isEditing, isSelected, isProcess
             </Popup>
         </Polygon>
     )
+}
+
+interface SplitPreviewPolygonProps {
+    id: string
+    coords: [number, number][]
+    areaHa?: number
+    maxAreaHa?: number
+    isSelected: boolean
+    isEditable: boolean
+    onSelect?: (id: string) => void
+    onUpdate?: (id: string, geometryWkt: string, areaHa: number) => void
+}
+
+function SplitPreviewPolygon({ id, coords, areaHa, maxAreaHa = 2000, isSelected, isEditable, onSelect, onUpdate }: SplitPreviewPolygonProps) {
+    const polygonRef = useRef<L.Polygon>(null)
+
+    useEffect(() => {
+        const layer = polygonRef.current
+        if (!layer) return
+
+        if (isEditable) {
+            layer.pm.enable({
+                allowSelfIntersection: false,
+                draggable: true,
+            })
+
+            const handleUpdate = () => {
+                if (!onUpdate) return
+                const geojson = layer.toGeoJSON()
+                const geometry = geojson.geometry
+                const wkt = geojsonToWkt(geometry)
+                const area = turf.area(geometry) / 10000
+                onUpdate(id, wkt, area)
+            }
+
+            layer.on('pm:edit', handleUpdate)
+            layer.on('pm:dragend', handleUpdate)
+            layer.on('pm:rotateend', handleUpdate)
+            layer.on('pm:markerdragend', handleUpdate)
+
+            return () => {
+                layer.pm.disable()
+                layer.off('pm:edit', handleUpdate)
+                layer.off('pm:dragend', handleUpdate)
+                layer.off('pm:rotateend', handleUpdate)
+                layer.off('pm:markerdragend', handleUpdate)
+            }
+        }
+
+        if (layer.pm && layer.pm.enabled()) {
+            layer.pm.disable()
+        }
+    }, [id, isEditable, onUpdate])
+
+    const isOver = (areaHa ?? 0) > maxAreaHa
+
+    return (
+        <Polygon
+            ref={polygonRef}
+            positions={coords}
+            eventHandlers={{
+                click: () => onSelect?.(id),
+            }}
+            pathOptions={{
+                color: isOver ? STATUS_COLORS.alert : STATUS_COLORS.split,
+                fillColor: isOver ? 'rgba(239, 68, 68, 0.15)' : 'rgba(14, 165, 233, 0.12)',
+                fillOpacity: 0.2,
+                weight: isSelected ? 4 : 2,
+                dashArray: '6, 6',
+            }}
+        >
+            <Popup>
+                <div className="p-2">
+                    <h3 className="font-semibold">Talhão (Preview)</h3>
+                    <p className="text-sm text-gray-600">Área: {areaHa ? areaHa.toFixed(1) : '--'} ha</p>
+                    {isOver && (
+                        <p className="text-sm text-red-600 mt-1">Acima do limite ({maxAreaHa} ha)</p>
+                    )}
+                </div>
+            </Popup>
+        </Polygon>
+    )
+}
+
+function StatusIconMarker({ position, status }: { position: [number, number]; status: AoiStatus }) {
+    const icon = useMemo(() => {
+        return L.divIcon({
+            className: 'aoi-status-icon',
+            html: getStatusIconHtml(status),
+            iconSize: [26, 26],
+            iconAnchor: [13, 13],
+        })
+    }, [status])
+
+    return <Marker position={position} icon={icon} interactive={false} />
+}
+
+function SignalBadgeMarker({ position, badge }: { position: [number, number]; badge: SignalBadge }) {
+    const icon = useMemo(() => {
+        return L.divIcon({
+            className: 'aoi-signal-badge',
+            html: getSignalBadgeHtml(badge),
+            iconAnchor: [16, 16],
+        })
+    }, [badge])
+
+    return <Marker position={position} icon={icon} interactive={false} />
 }
 
 // ------------------------------------------------------------------
@@ -360,6 +652,15 @@ interface MapProps {
     onAOIUpdate?: (aoiId: string, newGeometry: any) => void
     processingAois?: Set<string>
     onMapReady?: (map: any) => void
+    splitPreviewPolygons?: Array<{ id: string; geometry_wkt: string; area_ha?: number; name?: string }>
+    splitSelectedIds?: string[]
+    splitEditableId?: string | null
+    splitMaxAreaHa?: number
+    onSplitPreviewUpdate?: (id: string, geometryWkt: string, areaHa: number) => void
+    onSplitPreviewSelect?: (id: string) => void
+    mergeModeActive?: boolean
+    mergeSelectedIds?: string[]
+    onMergeSelect?: (id: string) => void
 }
 
 // ... Styles (PASTURE_STYLE etc) reused ...
@@ -448,7 +749,16 @@ export default function MapLeaflet({
     onAOIUpdate,
     processingAois,
     signals = [],
-    onMapReady
+    onMapReady,
+    splitPreviewPolygons = [],
+    splitSelectedIds = [],
+    splitEditableId,
+    splitMaxAreaHa,
+    onSplitPreviewUpdate,
+    onSplitPreviewSelect,
+    mergeModeActive = false,
+    mergeSelectedIds = [],
+    onMergeSelect
 }: MapProps & { signals?: any[] }) {
 
     // --- State Management ---
@@ -490,6 +800,37 @@ export default function MapLeaflet({
         }
         return APP_CONFIG.DEFAULT_MAP_CENTER
     }, [aois, timezone])
+
+    const getAoiStatus = useCallback((aoi: AOI): AoiStatus => {
+        if (processingAois?.has(aoi.id)) return 'processing'
+        const aoiSignals = signals?.filter((signal) => signal.aoi_id === aoi.id) ?? []
+        if (aoiSignals.some((signal) => signal.severity === 'HIGH')) return 'alert'
+        if (aoiSignals.some((signal) => signal.severity === 'MEDIUM')) return 'warning'
+        return 'normal'
+    }, [processingAois, signals])
+
+    const getAoiBadge = useCallback((aoi: AOI): SignalBadge | null => {
+        const aoiSignals = signals?.filter((signal) => signal.aoi_id === aoi.id) ?? []
+        if (aoiSignals.length === 0) return null
+
+        const priority = (signal: any) => {
+            if (signal.severity === 'HIGH') return 3
+            if (signal.severity === 'MEDIUM') return 2
+            return 1
+        }
+
+        const top = [...aoiSignals].sort((a, b) => priority(b) - priority(a))[0]
+        switch (top.signal_type) {
+            case 'CROP_STRESS':
+                return 'water_stress'
+            case 'PEST_OUTBREAK':
+                return 'disease_risk'
+            case 'PASTURE_FORAGE_RISK':
+                return 'yield_risk'
+            default:
+                return 'general'
+        }
+    }, [signals])
 
     // Construct Available Layers Object
     const availableLayers = {
@@ -629,11 +970,31 @@ export default function MapLeaflet({
                     />
                 )}
 
-                {/* 4. AOI Polygons */}
+                {/* 4. Split Preview Polygons */}
+                {splitPreviewPolygons.map((preview) => {
+                    const polygons = parseWKT(preview.geometry_wkt)
+                    return polygons.map((coords, pIdx) => (
+                        <SplitPreviewPolygon
+                            key={`${preview.id}-${pIdx}`}
+                            id={preview.id}
+                            coords={coords}
+                            areaHa={preview.area_ha}
+                            maxAreaHa={splitMaxAreaHa}
+                            isSelected={splitSelectedIds.includes(preview.id)}
+                            isEditable={splitEditableId === preview.id}
+                            onSelect={onSplitPreviewSelect}
+                            onUpdate={onSplitPreviewUpdate}
+                        />
+                    ))
+                })}
+
+                {/* 5. AOI Polygons */}
                 {showAOIs && aois.map((aoi, idx) => {
                     const polygons = parseWKT(aoi.geometry)
                     const isSelected = selectedAOI?.id === aoi.id
                     const isProcessing = processingAois?.has(aoi.id)
+                    const status = getAoiStatus(aoi)
+                    const isMergeSelected = mergeSelectedIds.includes(aoi.id)
                     return polygons.map((coords, pIdx) => (
                         <AOIPolygon
                             key={`${aoi.id}-${idx}-${pIdx}`}
@@ -642,16 +1003,68 @@ export default function MapLeaflet({
                             getAOIColor={getAOIColor}
                             isEditing={isEditing}
                             isSelected={isSelected}
+                            isMergeSelected={isMergeSelected}
                             isProcessing={isProcessing}
+                            status={status}
+                            ndviMean={aoi.ndvi_mean}
                             onUpdate={onAOIUpdate}
+                            onSelect={mergeModeActive ? onMergeSelect : undefined}
                         />
                     ))
                 })}
 
-                {/* 5. Alert Markers */}
+                {/* 6. Status Icons */}
+                {showAOIs && aois.map((aoi) => {
+                    const polygons = parseWKT(aoi.geometry)
+                    const coords = polygons[0]
+                    if (!coords || coords.length === 0) return null
+                    const status = getAoiStatus(aoi)
+                    const badge = getAoiBadge(aoi)
+                    if (status === 'normal') return null
+                    return (
+                        <StatusIconMarker
+                            key={`status-${aoi.id}`}
+                            position={getPolygonCenter(coords)}
+                            status={status}
+                        />
+                    )
+                })}
+
+                {splitPreviewPolygons.map((preview) => {
+                    const polygons = parseWKT(preview.geometry_wkt)
+                    const coords = polygons[0]
+                    if (!coords || coords.length === 0) return null
+                    const isOver = (preview.area_ha ?? 0) > (splitMaxAreaHa ?? 2000)
+                    return (
+                        <StatusIconMarker
+                            key={`split-${preview.id}`}
+                            position={getPolygonCenter(coords)}
+                            status={isOver ? 'alert' : 'split'}
+                        />
+                    )
+                })}
+
+                {showAOIs && aois.map((aoi) => {
+                    const polygons = parseWKT(aoi.geometry)
+                    const coords = polygons[0]
+                    if (!coords || coords.length === 0) return null
+                    const badge = getAoiBadge(aoi)
+                    if (!badge) return null
+                    const center = getPolygonCenter(coords)
+                    const offset = [center[0] + 0.0008, center[1] + 0.0008] as [number, number]
+                    return (
+                        <SignalBadgeMarker
+                            key={`badge-${aoi.id}`}
+                            position={offset}
+                            badge={badge}
+                        />
+                    )
+                })}
+
+                {/* 7. Alert Markers */}
                 <AlertMarkers signals={signals} showAlerts={showAlerts} aois={aois} />
 
-                {/* 6. Drawing Tools */}
+                {/* 8. Drawing Tools */}
                 {isDrawing && setDrawingPoints && (
                     <>
                         <DrawingController points={drawingPoints} setPoints={setDrawingPoints} />

@@ -1,8 +1,6 @@
 """Backward-compatible nitrogen use case wrapper."""
 from uuid import UUID
 
-from sqlalchemy.orm import Session
-
 from app.application.dtos.nitrogen import GetNitrogenStatusCommand
 from app.application.use_cases.nitrogen import GetNitrogenStatusUseCase as _UseCase
 from app.domain.value_objects.tenant_id import TenantId
@@ -10,8 +8,8 @@ from app.infrastructure.adapters.persistence.sqlalchemy.nitrogen_repository impo
 
 
 class GetNitrogenStatusUseCase:
-    def __init__(self, db: Session):
-        self.repo = SQLAlchemyNitrogenRepository(db)
+    def __init__(self, repo: SQLAlchemyNitrogenRepository):
+        self.repo = repo
 
     def execute(self, tenant_id: str, aoi_id: str, base_url: str) -> dict:
         use_case = _UseCase(self.repo)

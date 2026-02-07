@@ -3,7 +3,7 @@
 import { ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAuthProtection, logout } from '@/lib/auth'
+import { useAuthProtection, useAuthRole, logout } from '@/lib/auth'
 import { routes } from '@/lib/navigation'
 import MobileNav from './MobileNav'
 import ThemeToggle from './ThemeToggle'
@@ -15,6 +15,8 @@ interface ClientLayoutProps {
 export default function ClientLayout({ children }: ClientLayoutProps) {
     const pathname = usePathname()
     const { user } = useAuthProtection()
+    const role = useAuthRole()
+    const canAccessSettings = role === 'tenant_admin' || role === 'system_admin'
 
     const handleLogout = () => {
         logout()
@@ -26,6 +28,7 @@ export default function ClientLayout({ children }: ClientLayoutProps) {
         { href: routes.signals, label: 'Sinais' },
         { href: routes.vision, label: 'Visão IA' },
         { href: routes.aiAssistant, label: 'AI Assistant' },
+        ...(canAccessSettings ? [{ href: routes.settings, label: 'Configurações' }] : []),
     ]
 
     return (

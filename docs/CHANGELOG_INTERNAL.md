@@ -3,6 +3,25 @@
 > For humans. Keep it factual. Link PRs if available.
 
 ## Unreleased
+- Addressed `datetime.utcnow()` deprecation by switching to timezone-aware `datetime.now(timezone.utc)` across code/tests.
+- Bumped `python-multipart` and `planetary-computer` minimum versions to reduce deprecation warnings.
+- Added `created_by_user_id` to farm API responses for ownership-aware UI.
+- Added Settings page with member invite flow and members list in app-ui.
+- Added role-based UI guards for farm create/delete actions and ownership badge in farm list.
+- Added unit tests for auth signup/login use cases.
+- Pinned `bcrypt<4` to restore passlib compatibility in API container.
+- Fixed tenant creation to serialize `quotas` JSON when inserting into `jsonb`.
+- Added AOI geometry normalization (make valid + simplify), reject invalid geometry with 422, and repository unit tests.
+- Added AOI split simulation endpoint (voronoi/grid) with spatial repository support and unit test.
+- Added AOI split create endpoint to persist child AOIs with parent linkage and optional backfill enqueue.
+- Added split batch idempotency (Idempotency-Key + split_batches) to prevent duplicate child AOIs.
+- Added AOI status endpoint for polling processing state by AOI.
+- Added field calibration endpoints and calibration regression use case.
+- Added versioned field calibrations with single active record per date/metric.
+- Added prediction endpoint backed by yield_forecasts with tenant-average fallback.
+- Added unit conversion to normalize sc/ha into kg/ha (default).
+- Added calibration audit log and Prometheus counter for calibration submissions.
+- Added field feedback endpoint and persistence for issue/false positive logging.
 - Added SRRE (Simple Ratio Red Edge) vegetation index to TiTiler expressions.
 - Added DETECT_HARVEST worker job to create HARVEST_DETECTED signals from RVI drops.
 - Added nitrogen status API use case and router (SRRE zone map support).
@@ -102,6 +121,20 @@
 ## 2026-02-06
 - Removed fallback tiling path in app-ui (`DynamicTileLayer` + removed tile prop map constant).
 - Removed prior COG pipeline from worker `process_week` and forced dynamic tiling path.
+- Added migration plan and SQL for tenant query composite indexes (jobs, aois, opportunity_signals).
+- Added Hypothesis (dev dependency) and property-based tests for domain value objects.
+- Added OpenTelemetry tracing setup (API) and dependencies.
+- Documented API DI container usage in `di_container.py`.
+- Rate limiting now uses tenant_id when available (fallback to IP).
+- Observability now tolerates missing OpenTelemetry packages (skips tracing).
+- Enabled OpenTelemetry by default (console exporter if no endpoint configured).
+- Data provider resilience: new provider interfaces, index calculator + tests, and provider registry with fallback chain + metrics.
+- Added Planetary Computer, AWS Earth Search, and CDSE providers; migrated topography/radar/weather/mosaic adapters to provider registry.
+- Added STAC scene cache (migration + repository) and cached provider wrapper.
+- Added admin endpoints: `/admin/providers/status` and `/admin/jobs/reprocess`.
+- Removed worker `stac_client.py` after migrating all references.
+- Fixed SQLAlchemy repository initialization and `_execute_query` handling of TextClause.
+- Fixed OIDC login to reuse existing Identity by email and handle unique constraint conflicts.
 
 ## 2026-02-04
 - Added LocalStack custom build + init script for SQS queue bootstrap

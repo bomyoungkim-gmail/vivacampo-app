@@ -5,19 +5,19 @@ from datetime import date
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.domain.ports.weather_data_repository import IWeatherDataRepository
 from app.domain.value_objects.tenant_id import TenantId
+from app.infrastructure.adapters.persistence.sqlalchemy.base_repository import BaseSQLAlchemyRepository
 import structlog
 
 logger = structlog.get_logger()
 
 
-class SQLAlchemyWeatherDataRepository(IWeatherDataRepository):
+class SQLAlchemyWeatherDataRepository(IWeatherDataRepository, BaseSQLAlchemyRepository):
     def __init__(self, db: Session):
-        self.db = db
+        super().__init__(db)
 
     async def get_history(
         self,
@@ -43,19 +43,16 @@ class SQLAlchemyWeatherDataRepository(IWeatherDataRepository):
 
         where_clause = " AND ".join(conditions)
 
-        sql = text(
-            f"""
+        sql = f"""
             SELECT date, temp_max, temp_min, precip_sum, et0_fao
             FROM derived_weather_daily
             WHERE {where_clause}
             ORDER BY date DESC
             LIMIT :limit
             """
-        )
 
         try:
-            result = self.db.execute(sql, params)
-            return [dict(row._mapping) for row in result]
+            return self._execute_query(sql, params)
         except Exception as exc:
             logger.warning("weather_table_query_failed", exc_info=exc)
             return []

@@ -1,6 +1,7 @@
 """Radar use cases."""
 from __future__ import annotations
 
+from app.application.decorators import require_tenant
 from app.application.dtos.radar import RadarHistoryCommand
 from app.domain.ports.radar_data_repository import IRadarDataRepository
 
@@ -9,6 +10,7 @@ class GetRadarHistoryUseCase:
     def __init__(self, repo: IRadarDataRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: RadarHistoryCommand) -> list[dict]:
         return await self.repo.get_history(
             tenant_id=command.tenant_id,

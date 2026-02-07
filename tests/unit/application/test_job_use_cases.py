@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.application.dtos.jobs import (
@@ -44,8 +44,8 @@ class _StubJobRepo(IJobRepository):
                 "status": "DONE",
                 "metrics": None,
                 "error": None,
-                "started_at": datetime.utcnow(),
-                "finished_at": datetime.utcnow(),
+                "started_at": datetime.now(timezone.utc),
+                "finished_at": datetime.now(timezone.utc),
             }
         ], True
 
@@ -65,8 +65,8 @@ class _StubJobRepo(IJobRepository):
                 "job_type": "BACKFILL",
                 "status": "PENDING",
                 "payload": payload_json,
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
             }
         )
         return job_id
@@ -80,8 +80,26 @@ class _StubJobRepo(IJobRepository):
                 "job_type": "PROCESS_WEATHER",
                 "status": "PENDING",
                 "payload": payload_json,
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
+            }
+        )
+        return job_id
+
+    async def latest_status_by_aois(self, tenant_id, aoi_ids):
+        return []
+
+    async def create_job(self, tenant_id, aoi_id, job_type, job_key, payload_json):
+        job_id = uuid4()
+        self.jobs.append(
+            {
+                "id": job_id,
+                "aoi_id": aoi_id,
+                "job_type": job_type,
+                "status": "PENDING",
+                "payload": payload_json,
+                "created_at": datetime.now(timezone.utc),
+                "updated_at": datetime.now(timezone.utc),
             }
         )
         return job_id
@@ -94,8 +112,8 @@ def _job(job_id, status="FAILED"):
         "job_type": "BACKFILL",
         "status": status,
         "payload": None,
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
+        "updated_at": datetime.now(timezone.utc),
     }
 
 

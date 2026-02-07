@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS memberships (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   identity_id uuid NOT NULL REFERENCES identities(id) ON DELETE CASCADE,
-  role text NOT NULL DEFAULT 'VIEWER',     -- TENANT_ADMIN|OPERATOR|VIEWER
+  role text NOT NULL DEFAULT 'VIEWER',     -- TENANT_ADMIN|EDITOR|VIEWER
   status text NOT NULL DEFAULT 'ACTIVE',   -- ACTIVE|INVITED|SUSPENDED
   invited_by_membership_id uuid NULL REFERENCES memberships(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),

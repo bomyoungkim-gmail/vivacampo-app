@@ -91,7 +91,10 @@ def clamp_date_range(start_date: date, end_date: date, today: date | None = None
     return start_date, end_date, did_clamp
 
 
-def _normalize_records(payload: dict) -> list[dict]:
+def _normalize_records(payload: list[dict] | dict) -> list[dict]:
+    if isinstance(payload, list):
+        return payload
+
     daily = payload.get("daily", {}) if payload else {}
     dates = daily.get("time", [])
     temp_max = daily.get("temperature_2m_max", [])
@@ -101,11 +104,13 @@ def _normalize_records(payload: dict) -> list[dict]:
 
     records = []
     for i, date_str in enumerate(dates):
-        records.append({
-            "date": date_str,
-            "temp_max": temp_max[i] if i < len(temp_max) and temp_max[i] is not None else 0,
-            "temp_min": temp_min[i] if i < len(temp_min) and temp_min[i] is not None else 0,
-            "precip_sum": precip[i] if i < len(precip) and precip[i] is not None else 0,
-            "et0_fao": et0[i] if i < len(et0) and et0[i] is not None else 0,
-        })
+        records.append(
+            {
+                "date": date_str,
+                "temp_max": temp_max[i] if i < len(temp_max) and temp_max[i] is not None else 0,
+                "temp_min": temp_min[i] if i < len(temp_min) and temp_min[i] is not None else 0,
+                "precip_sum": precip[i] if i < len(precip) and precip[i] is not None else 0,
+                "et0_fao": et0[i] if i < len(et0) and et0[i] is not None else 0,
+            }
+        )
     return records

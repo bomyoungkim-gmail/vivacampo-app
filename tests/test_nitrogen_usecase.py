@@ -99,7 +99,12 @@ def test_nitrogen_status_deficient():
         )
         db.commit()
 
-        use_case = GetNitrogenStatusUseCase(db)
+        from app.infrastructure.adapters.persistence.sqlalchemy.nitrogen_repository import (
+            SQLAlchemyNitrogenRepository,
+        )
+
+        repo = SQLAlchemyNitrogenRepository(db)
+        use_case = GetNitrogenStatusUseCase(repo)
         result = use_case.execute(tenant_id, aoi_id, "http://localhost:8000")
 
         assert result["status"] == "DEFICIENT"

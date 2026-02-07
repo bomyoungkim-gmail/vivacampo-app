@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 from typing import Tuple
 
+from app.application.decorators import require_tenant
 from app.application.dtos.aoi_management import (
     AoiAssetsCommand,
     AoiHistoryCommand,
@@ -27,6 +28,7 @@ class UpdateAoiUseCase:
     def __init__(self, repo: IAOIRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: UpdateAoiCommand) -> UpdateAoiResult | None:
         geometry_changed = command.geometry_wkt is not None
         updated = await self.repo.update(
@@ -61,6 +63,7 @@ class DeleteAoiUseCase:
     def __init__(self, repo: IAOIRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: DeleteAoiCommand) -> bool:
         return await self.repo.delete(command.tenant_id, command.aoi_id)
 
@@ -69,6 +72,7 @@ class AoiAssetsUseCase:
     def __init__(self, repo: IAoiDataRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: AoiAssetsCommand) -> dict:
         return await self.repo.get_latest_assets(command.tenant_id, command.aoi_id)
 
@@ -77,6 +81,7 @@ class AoiHistoryUseCase:
     def __init__(self, repo: IAoiDataRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: AoiHistoryCommand) -> list[dict]:
         return await self.repo.get_history(command.tenant_id, command.aoi_id, command.limit)
 
@@ -88,6 +93,7 @@ class RequestBackfillUseCase:
         self.queue_name = queue_name
         self.pipeline_version = pipeline_version
 
+    @require_tenant
     async def execute(self, command: RequestBackfillCommand) -> BackfillResult:
         from_dt = datetime.strptime(command.from_date, "%Y-%m-%d")
         to_dt = datetime.strptime(command.to_date, "%Y-%m-%d")

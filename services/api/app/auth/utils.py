@@ -61,6 +61,35 @@ def decode_session_token(token: str) -> dict:
         raise ValueError(f"Invalid session token: {str(e)}")
 
 
+def create_password_reset_token(identity_id: UUID, email: str, ttl_minutes: int = 15) -> str:
+    expires = datetime.now(UTC) + timedelta(minutes=ttl_minutes)
+    payload = {
+        "sub": str(identity_id),
+        "email": email,
+        "exp": expires,
+        "iss": settings.session_jwt_issuer,
+        "aud": settings.session_jwt_audience,
+        "type": "password_reset",
+    }
+    return jwt.encode(payload, settings.session_jwt_secret, algorithm="HS256")
+
+
+def decode_password_reset_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(
+            token,
+            settings.session_jwt_secret,
+            algorithms=["HS256"],
+            audience=settings.session_jwt_audience,
+            issuer=settings.session_jwt_issuer,
+        )
+        if payload.get("type") != "password_reset":
+            raise ValueError("Invalid reset token type")
+        return payload
+    except JWTError as e:
+        raise ValueError(f"Invalid password reset token: {str(e)}")
+
+
 def validate_oidc_token(id_token: str, provider: str) -> dict:
     """
     Validate OIDC token from provider.

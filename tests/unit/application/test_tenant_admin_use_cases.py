@@ -45,7 +45,7 @@ def test_invite_member_use_case():
                 tenant_id=tenant_id,
                 email="test@example.com",
                 name="Test",
-                role="OPERATOR",
+                role="EDITOR",
             )
         )
 
@@ -63,9 +63,9 @@ def test_update_member_role_use_case():
             UpdateMemberRoleCommand(
                 tenant_id=tenant_id,
                 membership_id=uuid4(),
-                role="OPERATOR",
+                role="EDITOR",
             )
         )
 
     result = asyncio.run(run())
-    assert result["new_role"] == "OPERATOR"
+    assert result["new_role"] == "EDITOR"

@@ -2,18 +2,18 @@
     "name": "VivaCampo",
     "short_name": "VivaCampo",
     "description": "Plataforma de Monitoramento Agrícola via Satélite",
-    "start_url": "/app/dashboard",
+    "start_url": "/dashboard",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#16a34a",
     "icons": [
         {
-            "src": "/app/icons/icon-192x192.png",
+            "src": "/icons/icon-192x192.png",
             "sizes": "192x192",
             "type": "image/png"
         },
         {
-            "src": "/app/icons/icon-512x512.png",
+            "src": "/icons/icon-512x512.png",
             "sizes": "512x512",
             "type": "image/png"
         }

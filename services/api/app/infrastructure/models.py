@@ -14,6 +14,9 @@ class Identity(Base):
     subject = Column(String, nullable=False)
     email = Column(String, nullable=False)
     name = Column(String, nullable=False)
+    password_hash = Column(String, nullable=True)
+    password_reset_token = Column(String, nullable=True)
+    password_reset_expires_at = Column(DateTime(timezone=True), nullable=True)
     status = Column(String, nullable=False, default="ACTIVE")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
@@ -76,12 +79,14 @@ class Farm(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False)
+    created_by_user_id = Column(UUID(as_uuid=True), ForeignKey('identities.id', ondelete='SET NULL'), nullable=True)
     name = Column(String, nullable=False)
     timezone = Column(String, nullable=False, default="America/Sao_Paulo")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
     __table_args__ = (
         Index('farms_tenant_idx', 'tenant_id'),
+        Index('farms_created_by_user_idx', 'tenant_id', 'created_by_user_id'),
     )
 
 
@@ -90,6 +95,7 @@ class AOI(Base):
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False)
+    parent_aoi_id = Column(UUID(as_uuid=True), ForeignKey('aois.id', ondelete='SET NULL'), nullable=True)
     farm_id = Column(UUID(as_uuid=True), ForeignKey('farms.id', ondelete='CASCADE'), nullable=False)
     name = Column(String, nullable=False)
     use_type = Column(String, nullable=False)
@@ -103,6 +109,27 @@ class AOI(Base):
         Index('aois_tenant_farm_idx', 'tenant_id', 'farm_id', 'status'),
     )
 
+
+class FieldCalibration(Base):
+    __tablename__ = "field_calibrations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False)
+    aoi_id = Column(UUID(as_uuid=True), ForeignKey('aois.id', ondelete='CASCADE'), nullable=False)
+    observed_date = Column(Date, nullable=False)
+    metric_type = Column(String, nullable=False)
+    value = Column(Float, nullable=False)
+    unit = Column(String, nullable=False, default="kg_ha")
+    source = Column(String, nullable=False, default="MANUAL")
+    is_active = Column(Boolean, nullable=False, server_default="true")
+    version = Column(Integer, nullable=False, server_default="1")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index('field_calibrations_aoi_time_idx', 'tenant_id', 'aoi_id', 'observed_date'),
+        Index('field_calibrations_active_idx', 'tenant_id', 'aoi_id', 'observed_date', 'metric_type'),
+        Index('field_calibrations_version_idx', 'tenant_id', 'aoi_id', 'observed_date', 'metric_type', 'version'),
+    )
 
 class Job(Base):
     __tablename__ = "jobs"
@@ -189,6 +216,37 @@ class CopilotApproval(Base):
         Index('copilot_approvals_idx', 'tenant_id', 'decision', 'created_at'),
     )
 
+
+class SplitBatch(Base):
+    __tablename__ = "split_batches"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False)
+    parent_aoi_id = Column(UUID(as_uuid=True), ForeignKey('aois.id', ondelete='CASCADE'), nullable=False)
+    idempotency_key = Column(String, nullable=False)
+    created_ids = Column(JSONB, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint('tenant_id', 'idempotency_key'),
+        Index('split_batches_parent_idx', 'tenant_id', 'parent_aoi_id', 'created_at'),
+    )
+
+
+class FieldFeedback(Base):
+    __tablename__ = "field_feedback"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    tenant_id = Column(UUID(as_uuid=True), ForeignKey('tenants.id', ondelete='CASCADE'), nullable=False)
+    aoi_id = Column(UUID(as_uuid=True), ForeignKey('aois.id', ondelete='CASCADE'), nullable=False)
+    feedback_type = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    created_by_membership_id = Column(UUID(as_uuid=True), ForeignKey('memberships.id', ondelete='SET NULL'), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index('field_feedback_aoi_time_idx', 'tenant_id', 'aoi_id', 'created_at'),
+    )
 class DerivedRadarAssets(Base):
     __tablename__ = "derived_radar_assets"
     

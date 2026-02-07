@@ -13,7 +13,7 @@ const envSchema = z.object({
     }),
 
     // Base Path Configuration
-    NEXT_PUBLIC_BASE_PATH: z.string().optional().default('/app'),
+    NEXT_PUBLIC_BASE_PATH: z.string().optional().default(''),
 
     // Environment Type
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),

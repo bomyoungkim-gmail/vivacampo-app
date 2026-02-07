@@ -1,7 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy.exc import IntegrityError
 from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
-from sqlalchemy.orm import Session
-from app.database import get_db
 from app.schemas import (
     OIDCLoginRequest,
     IdentityView,
@@ -10,10 +9,25 @@ from app.schemas import (
     WorkspaceSwitchRequest,
     SessionTokenResponse
 )
+from app.presentation.dtos.auth_dtos import (
+    AuthResponseDTO,
+    ForgotPasswordRequestDTO,
+    LoginRequestDTO,
+    MessageResponseDTO,
+    ResetPasswordRequestDTO,
+    SignupRequestDTO,
+)
 from app.infrastructure.models import Identity, Tenant, Membership
+from app.infrastructure.di_container import ApiContainer, get_container
 from app.auth.dependencies import get_current_membership, CurrentMembership
 from app.auth.utils import validate_oidc_token, create_session_token
 from app.config import settings
+from app.application.dtos.auth import (
+    ForgotPasswordCommand,
+    LoginCommand,
+    ResetPasswordCommand,
+    SignupCommand,
+)
 import uuid
 
 router = APIRouter(responses=DEFAULT_ERROR_RESPONSES)
@@ -21,7 +35,7 @@ router = APIRouter(responses=DEFAULT_ERROR_RESPONSES)
 @router.post("/auth/oidc/login", response_model=dict)
 async def oidc_login(
     request: OIDCLoginRequest,
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     OIDC login endpoint.
@@ -30,6 +44,7 @@ async def oidc_login(
     - If INDIVIDUAL (no memberships), creates PERSONAL tenant + TENANT_ADMIN membership
     - Returns identity + workspaces + access_token
     """
+    db = container.db_session()
     # Validate OIDC token
     try:
         token_data = validate_oidc_token(request.id_token, request.provider)
@@ -46,6 +61,29 @@ async def oidc_login(
     ).first()
     
     if not identity:
+        identity = db.query(Identity).filter(
+            Identity.email == token_data["email"]
+        ).first()
+
+    if identity:
+        updated = False
+        if identity.name != token_data["name"]:
+            identity.name = token_data["name"]
+            updated = True
+        if identity.provider != request.provider or identity.subject != token_data["subject"]:
+            conflict = db.query(Identity).filter(
+                Identity.provider == request.provider,
+                Identity.subject == token_data["subject"],
+                Identity.id != identity.id
+            ).first()
+            if not conflict:
+                identity.provider = request.provider
+                identity.subject = token_data["subject"]
+                updated = True
+        if updated:
+            db.commit()
+            db.refresh(identity)
+    else:
         identity = Identity(
             provider=request.provider,
             subject=token_data["subject"],
@@ -54,8 +92,17 @@ async def oidc_login(
             status="ACTIVE"
         )
         db.add(identity)
-        db.commit()
-        db.refresh(identity)
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            identity = db.query(Identity).filter(
+                Identity.email == token_data["email"]
+            ).first()
+            if not identity:
+                raise
+        if identity:
+            db.refresh(identity)
     
     # Check if user has any memberships
     memberships = db.query(Membership).filter(
@@ -126,17 +173,128 @@ async def oidc_login(
     }
 
 
+def _error_detail(code: str, message: str, details: dict | None = None, trace_id: str | None = None) -> dict:
+    payload = {"error": {"code": code, "message": message}}
+    if details:
+        payload["error"]["details"] = details
+    if trace_id:
+        payload["error"]["traceId"] = trace_id
+    return payload
+
+
+def _set_auth_cookie(response: Response, token: str | None) -> None:
+    if not token:
+        return
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="strict",
+        max_age=settings.session_token_ttl_minutes * 60,
+    )
+
+
+@router.post("/auth/signup", response_model=AuthResponseDTO, status_code=status.HTTP_201_CREATED)
+async def signup(
+    request: SignupRequestDTO,
+    response: Response,
+    container: ApiContainer = Depends(get_container),
+):
+    use_case = container.signup_use_case()
+    try:
+        command = SignupCommand(**request.model_dump())
+        result = await use_case.execute(command=command)
+    except ValueError as exc:
+        if str(exc) == "EMAIL_ALREADY_EXISTS":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=_error_detail("EMAIL_ALREADY_EXISTS", "Email already exists"),
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_error_detail("BAD_REQUEST", "Invalid signup request"),
+        )
+
+    _set_auth_cookie(response, result.access_token)
+    return AuthResponseDTO.from_result(result)
+
+
+@router.post("/auth/login", response_model=AuthResponseDTO)
+async def login(
+    request: LoginRequestDTO,
+    response: Response,
+    container: ApiContainer = Depends(get_container),
+):
+    use_case = container.login_use_case()
+    try:
+        command = LoginCommand(**request.model_dump())
+        result = await use_case.execute(command=command)
+    except ValueError as exc:
+        if str(exc) == "INVALID_CREDENTIALS":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=_error_detail("INVALID_CREDENTIALS", "Invalid credentials"),
+            )
+        if str(exc) == "IDENTITY_INACTIVE":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=_error_detail("IDENTITY_INACTIVE", "Identity is inactive"),
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_error_detail("BAD_REQUEST", "Invalid login request"),
+        )
+
+    _set_auth_cookie(response, result.access_token)
+    return AuthResponseDTO.from_result(result)
+
+
+@router.post("/auth/forgot-password", response_model=MessageResponseDTO)
+async def forgot_password(
+    request: ForgotPasswordRequestDTO,
+    container: ApiContainer = Depends(get_container),
+):
+    use_case = container.forgot_password_use_case()
+    command = ForgotPasswordCommand(**request.model_dump())
+    result = await use_case.execute(command=command)
+    return MessageResponseDTO.from_result(result)
+
+
+@router.post("/auth/reset-password", response_model=MessageResponseDTO)
+async def reset_password(
+    request: ResetPasswordRequestDTO,
+    container: ApiContainer = Depends(get_container),
+):
+    use_case = container.reset_password_use_case()
+    try:
+        command = ResetPasswordCommand(**request.model_dump())
+        result = await use_case.execute(command=command)
+    except ValueError as exc:
+        if str(exc) == "RESET_TOKEN_EXPIRED":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=_error_detail("RESET_TOKEN_EXPIRED", "Reset token expired"),
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=_error_detail("RESET_TOKEN_INVALID", "Reset token invalid"),
+        )
+    return MessageResponseDTO.from_result(result)
+
+
 @router.post("/auth/workspaces/switch", response_model=SessionTokenResponse)
 async def switch_workspace(
     request: WorkspaceSwitchRequest,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Switch workspace (tenant).
     Returns session token with active_tenant_id + membership_id + role.
     
     """
+    db = container.db_session()
     # Find membership for the same identity
     membership = db.query(Membership).filter(
         Membership.tenant_id == request.tenant_id,

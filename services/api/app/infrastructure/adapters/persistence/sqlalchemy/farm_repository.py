@@ -21,6 +21,7 @@ class SQLAlchemyFarmRepository(IFarmRepository):
         return Farm(
             id=model.id,
             tenant_id=TenantId(value=model.tenant_id),
+            created_by_user_id=model.created_by_user_id,
             name=model.name,
             timezone=model.timezone,
             created_at=model.created_at,
@@ -60,6 +61,7 @@ class SQLAlchemyFarmRepository(IFarmRepository):
         model = FarmModel(
             id=farm.id,
             tenant_id=farm.tenant_id.value,
+            created_by_user_id=farm.created_by_user_id,
             name=farm.name,
             timezone=farm.timezone,
             created_at=farm.created_at,
@@ -68,3 +70,26 @@ class SQLAlchemyFarmRepository(IFarmRepository):
         self.db.commit()
         self.db.refresh(model)
         return self._to_entity(model, aoi_count=getattr(farm, "aoi_count", 0))
+
+    async def update(self, farm: Farm) -> Farm:
+        model = self.db.query(FarmModel).filter(
+            FarmModel.id == farm.id,
+            FarmModel.tenant_id == farm.tenant_id.value
+        ).first()
+        if not model:
+            raise ValueError("FARM_NOT_FOUND")
+        model.name = farm.name
+        model.timezone = farm.timezone
+        self.db.commit()
+        self.db.refresh(model)
+        return self._to_entity(model, aoi_count=getattr(farm, "aoi_count", 0))
+
+    async def delete(self, farm_id: UUID, tenant_id: TenantId) -> None:
+        model = self.db.query(FarmModel).filter(
+            FarmModel.id == farm_id,
+            FarmModel.tenant_id == tenant_id.value
+        ).first()
+        if not model:
+            raise ValueError("FARM_NOT_FOUND")
+        self.db.delete(model)
+        self.db.commit()

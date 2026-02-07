@@ -40,7 +40,7 @@ class CancelJobCommand(ImmutableDTO):
 
 class JobResult(ImmutableDTO):
     id: UUID
-    aoi_id: UUID
+    aoi_id: Optional[UUID] = None
     job_type: str
     status: str
     payload: Optional[dict] = None

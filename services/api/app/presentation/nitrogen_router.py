@@ -9,15 +9,13 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 
 from app.application.dtos.nitrogen import GetNitrogenStatusCommand
 from app.application.use_cases.nitrogen import GetNitrogenStatusUseCase
 from app.auth.dependencies import CurrentMembership, get_current_membership, get_current_tenant_id
 from app.config import settings
-from app.database import get_db
 from app.domain.value_objects.tenant_id import TenantId
-from app.infrastructure.di_container import ApiContainer
+from app.infrastructure.di_container import ApiContainer, get_container
 
 logger = logging.getLogger(__name__)
 router = APIRouter(responses=DEFAULT_ERROR_RESPONSES, dependencies=[Depends(get_current_tenant_id)])
@@ -37,12 +35,11 @@ class NitrogenStatus(BaseModel):
 def get_nitrogen_status(
     aoi_id: UUID,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db),
+    container: ApiContainer = Depends(get_container),
 ):
     """Get nitrogen deficiency status for an AOI."""
     base_url = settings.api_base_url or "http://localhost:8000"
-    container = ApiContainer()
-    use_case = container.nitrogen_use_case(db)
+    use_case = container.nitrogen_use_case()
     result = use_case.execute(
         GetNitrogenStatusCommand(
             tenant_id=TenantId(value=membership.tenant_id),

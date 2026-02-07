@@ -21,3 +21,11 @@ class IFarmRepository(ABC):
     @abstractmethod
     async def create(self, farm: Farm) -> Farm:
         raise NotImplementedError
+
+    @abstractmethod
+    async def update(self, farm: Farm) -> Farm:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def delete(self, farm_id: UUID, tenant_id: TenantId) -> None:
+        raise NotImplementedError

@@ -51,3 +51,11 @@ class ReprocessMissingWeeksCommand(ImmutableDTO):
 
 class GlobalAuditLogCommand(ImmutableDTO):
     limit: int = Field(default=100, ge=1, le=200)
+
+
+class ReprocessJobsCommand(ImmutableDTO):
+    tenant_id: UUID
+    aoi_id: Optional[UUID] = None
+    year: int
+    week: int
+    job_types: list[str]

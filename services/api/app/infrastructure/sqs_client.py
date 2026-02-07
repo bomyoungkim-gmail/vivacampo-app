@@ -1,6 +1,7 @@
 import boto3
 from botocore.config import Config
 from app.config import settings
+from app.infrastructure.resilience import retry_with_backoff_sync, circuit_sync
 
 class SQSClientWrapper:
     def __init__(self):
@@ -17,6 +18,8 @@ class SQSClientWrapper:
             config=config,
         )
 
+    @retry_with_backoff_sync(max_attempts=3, initial_delay=1.0, max_delay=8.0)
+    @circuit_sync(failure_threshold=3, recovery_timeout=120)
     def send_message(self, queue_name_or_url: str, body: str):
         # If queue_name_or_url is a name, we might need to get the URL first.
         # But commonly localstack/aws can take URL. 

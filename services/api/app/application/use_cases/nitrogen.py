@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Optional
 
+from app.application.decorators import require_tenant
 from app.application.dtos.nitrogen import GetNitrogenStatusCommand, NitrogenStatusResult
 from app.domain.ports.nitrogen_repository import INitrogenRepository
 
@@ -11,6 +12,7 @@ class GetNitrogenStatusUseCase:
     def __init__(self, repo: INitrogenRepository):
         self.repo = repo
 
+    @require_tenant
     def execute(self, command: GetNitrogenStatusCommand) -> NitrogenStatusResult | None:
         indices = self.repo.get_latest_indices(command.tenant_id, command.aoi_id)
         if not indices:

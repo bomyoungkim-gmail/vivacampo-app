@@ -5,7 +5,7 @@ import ChartComponent from './ChartComponent'
 import WeatherChart from './WeatherChart'
 import AOIActionsMenu from './AOIActionsMenu'
 import { useErrorHandler } from '@/lib/errorHandler'
-import { MapPin, Calendar, Activity, AlertTriangle, ChevronRight, CloudRain, Leaf, BarChart3 } from 'lucide-react'
+import { MapPin, Calendar, Activity, AlertTriangle, ChevronRight, CloudRain, Leaf, BarChart3, Scissors } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +19,7 @@ interface AOIDetailsPanelProps {
     onClose: () => void
     onDelete: () => void
     onEdit?: () => void
+    onSplit?: () => void
     onSave?: () => void
     onCancelEdit?: () => void
     isEditing?: boolean
@@ -37,6 +38,7 @@ export default function AOIDetailsPanel({
     onClose,
     onDelete,
     onEdit,
+    onSplit,
     onSave,
     onCancelEdit,
     isEditing = false
@@ -244,6 +246,12 @@ export default function AOIDetailsPanel({
                         </div>
                     ) : (
                         <>
+                            {onSplit && (
+                                <Button variant="outline" size="sm" onClick={onSplit} className="gap-2">
+                                    <Scissors size={14} />
+                                    Dividir
+                                </Button>
+                            )}
                             <AOIActionsMenu
                                 onEditGeometry={onEdit}
                                 onDelete={onDelete}

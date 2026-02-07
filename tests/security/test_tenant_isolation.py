@@ -19,7 +19,7 @@ def _create_tenant(db, name: str) -> Tenant:
     return tenant
 
 
-def _create_membership(db, tenant_id: uuid.UUID, role: str = "OPERATOR") -> tuple[Identity, Membership]:
+def _create_membership(db, tenant_id: uuid.UUID, role: str = "EDITOR") -> tuple[Identity, Membership]:
     identity = Identity(
         provider="local",
         subject=f"security-{uuid.uuid4()}",
@@ -107,8 +107,8 @@ def test_list_farms_isolated_by_tenant():
         tenant_a = _create_tenant(db, "Tenant A")
         tenant_b = _create_tenant(db, "Tenant B")
 
-        identity_a, membership_a = _create_membership(db, tenant_a.id, role="OPERATOR")
-        identity_b, membership_b = _create_membership(db, tenant_b.id, role="OPERATOR")
+        identity_a, membership_a = _create_membership(db, tenant_a.id, role="EDITOR")
+        identity_b, membership_b = _create_membership(db, tenant_b.id, role="EDITOR")
 
         farm_a = _create_farm(db, tenant_a.id, "Farm A")
         _create_farm(db, tenant_b.id, "Farm B")
@@ -139,7 +139,7 @@ def test_backfill_rejects_cross_tenant_aoi():
         tenant_a = _create_tenant(db, "Tenant C")
         tenant_b = _create_tenant(db, "Tenant D")
 
-        identity_a, membership_a = _create_membership(db, tenant_a.id, role="OPERATOR")
+        identity_a, membership_a = _create_membership(db, tenant_a.id, role="EDITOR")
 
         farm_b = _create_farm(db, tenant_b.id, "Farm D")
         aoi_b = _create_aoi(db, tenant_b.id, farm_b.id, "AOI D")
@@ -165,7 +165,7 @@ def test_membership_token_mismatch_rejected():
     db = SessionLocal()
     try:
         tenant = _create_tenant(db, "Tenant E")
-        identity, membership = _create_membership(db, tenant.id, role="OPERATOR")
+        identity, membership = _create_membership(db, tenant.id, role="EDITOR")
         farm = _create_farm(db, tenant.id, "Farm E")
         _create_aoi(db, tenant.id, farm.id, "AOI E")
 
@@ -186,8 +186,8 @@ def test_workspace_switch_rejects_other_identity_membership():
         tenant_a = _create_tenant(db, "Tenant F")
         tenant_b = _create_tenant(db, "Tenant G")
 
-        identity_a, membership_a = _create_membership(db, tenant_a.id, role="OPERATOR")
-        identity_b, membership_b = _create_membership(db, tenant_b.id, role="OPERATOR")
+        identity_a, membership_a = _create_membership(db, tenant_a.id, role="EDITOR")
+        identity_b, membership_b = _create_membership(db, tenant_b.id, role="EDITOR")
 
         headers_a = _auth_headers(tenant_a.id, membership_a.id, identity_a.id, membership_a.role)
         resp = client.post(

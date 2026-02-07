@@ -1,10 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
-from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
 
-from app.database import get_db
 from app.auth.dependencies import get_current_membership, CurrentMembership, require_role, get_current_tenant_id
 from app.ai_assistant.workflow import AIAssistantWorkflow
 from app.application.dtos.ai_assistant import (
@@ -15,7 +13,7 @@ from app.application.dtos.ai_assistant import (
     ListThreadsCommand,
 )
 from app.domain.value_objects.tenant_id import TenantId
-from app.infrastructure.di_container import ApiContainer
+from app.infrastructure.di_container import ApiContainer, get_container
 from pydantic import BaseModel, Field
 import structlog
 
@@ -69,7 +67,7 @@ class ApprovalView(BaseModel):
 async def create_thread(
     thread_data: ThreadCreate,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Create a new AI assistant thread.
@@ -78,9 +76,7 @@ async def create_thread(
     
     provider = thread_data.provider or settings.ai_assistant_provider
     model = thread_data.model or settings.ai_assistant_model
-
-    container = ApiContainer()
-    use_case = container.create_ai_thread_use_case(db)
+    use_case = container.create_ai_thread_use_case()
     row = await use_case.execute(
         CreateThreadCommand(
             tenant_id=TenantId(value=membership.tenant_id),
@@ -106,13 +102,12 @@ async def create_thread(
 @router.get("/ai-assistant/threads", response_model=List[ThreadView])
 async def list_threads(
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     List all AI assistant threads for the current tenant.
     """
-    container = ApiContainer()
-    use_case = container.list_ai_threads_use_case(db)
+    use_case = container.list_ai_threads_use_case()
     rows = await use_case.execute(
         ListThreadsCommand(tenant_id=TenantId(value=membership.tenant_id))
     )
@@ -135,7 +130,7 @@ async def send_message(
     thread_id: UUID,
     message_data: MessageCreate,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Send a message to an AI assistant thread.
@@ -171,13 +166,12 @@ async def send_message(
 async def get_messages(
     thread_id: UUID,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Get conversation history for a thread.
     """
-    container = ApiContainer()
-    use_case = container.ai_messages_use_case(db)
+    use_case = container.ai_messages_use_case()
     messages = await use_case.execute(
         GetMessagesCommand(
             tenant_id=TenantId(value=membership.tenant_id),
@@ -191,13 +185,12 @@ async def get_messages(
 async def list_approvals(
     pending_only: bool = True,
     membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     List approval requests for the current tenant.
     """
-    container = ApiContainer()
-    use_case = container.list_ai_approvals_use_case(db)
+    use_case = container.list_ai_approvals_use_case()
     rows = await use_case.execute(
         ListApprovalsCommand(
             tenant_id=TenantId(value=membership.tenant_id),
@@ -223,15 +216,14 @@ async def list_approvals(
 async def decide_approval(
     approval_id: UUID,
     decision_data: ApprovalDecision,
-    membership: CurrentMembership = Depends(require_role("OPERATOR")),
-    db: Session = Depends(get_db)
+    membership: CurrentMembership = Depends(require_role("EDITOR")),
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Approve or reject an AI assistant action.
-    Requires OPERATOR or TENANT_ADMIN role.
+    Requires EDITOR or TENANT_ADMIN role.
     """
-    container = ApiContainer()
-    use_case = container.ai_approval_thread_use_case(db)
+    use_case = container.ai_approval_thread_use_case()
     thread_id = await use_case.execute(
         GetApprovalThreadCommand(
             tenant_id=TenantId(value=membership.tenant_id),

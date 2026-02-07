@@ -1,7 +1,7 @@
 """
 AOI (Area of Interest) domain entity.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 
@@ -16,6 +16,7 @@ from app.domain.value_objects.tenant_id import TenantId
 class AOI(DomainEntity):
     id: UUID = Field(default_factory=uuid4)
     tenant_id: TenantId
+    parent_aoi_id: Optional[UUID] = None
     farm_id: UUID
     name: str = Field(min_length=3, max_length=200)
     use_type: str = Field(min_length=3, max_length=20)
@@ -46,4 +47,4 @@ class AOI(DomainEntity):
     def update_geometry(self, new_geometry: GeometryWkt, new_area: AreaHectares) -> None:
         self.geometry_wkt = new_geometry
         self.area_hectares = new_area
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)

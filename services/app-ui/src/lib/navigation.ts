@@ -18,6 +18,7 @@ export const routes = {
     signals: '/signals',
     aiAssistant: '/ai-assistant',
     vision: '/vision',
+    settings: '/settings',
 } as const
 
 /**

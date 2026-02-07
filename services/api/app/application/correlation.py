@@ -2,8 +2,6 @@
 from typing import List
 from uuid import UUID
 
-from sqlalchemy.orm import Session
-
 from app.application.dtos.correlation import CorrelationCommand, YearOverYearCommand
 from app.application.use_cases.correlation import CorrelationUseCase, YearOverYearUseCase
 from app.domain.value_objects.tenant_id import TenantId
@@ -11,9 +9,8 @@ from app.infrastructure.adapters.persistence.sqlalchemy.correlation_repository i
 
 
 class CorrelationService:
-    def __init__(self, db: Session):
-        self.db = db
-        self.repo = SQLAlchemyCorrelationRepository(db)
+    def __init__(self, repo: SQLAlchemyCorrelationRepository):
+        self.repo = repo
 
     def fetch_correlation_data(self, aoi_id: str, tenant_id: str, weeks: int) -> List[dict]:
         use_case = CorrelationUseCase(self.repo)

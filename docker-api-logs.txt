@@ -1,0 +1,3080 @@
+{"event": "otel_endpoint_missing_using_console_exporter", "level": "warning", "timestamp": "2026-02-06T13:43:54.113852Z"}
+2026-02-06 13:45:04,852 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+2026-02-06 13:45:04,852 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-02-06 13:45:04,876 INFO sqlalchemy.engine.Engine select current_schema()
+2026-02-06 13:45:04,876 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-02-06 13:45:04,880 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+2026-02-06 13:45:04,880 INFO sqlalchemy.engine.Engine [raw sql] {}
+2026-02-06 13:45:04,907 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-06 13:45:04,910 INFO sqlalchemy.engine.Engine SELECT identities.id AS identities_id, identities.provider AS identities_provider, identities.subject AS identities_subject, identities.email AS identities_email, identities.name AS identities_name, identities.status AS identities_status, identities.created_at AS identities_created_at 
+FROM identities 
+WHERE identities.provider = %(provider_1)s::VARCHAR AND identities.subject = %(subject_1)s::VARCHAR 
+ LIMIT %(param_1)s::INTEGER
+2026-02-06 13:45:04,910 INFO sqlalchemy.engine.Engine [generated in 0.00045s] {'provider_1': 'local', 'subject_1': 'mock-user-bomyoungkim@gmail.com', 'param_1': 1}
+2026-02-06 13:45:04,923 INFO sqlalchemy.engine.Engine SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at 
+FROM memberships 
+WHERE memberships.identity_id = %(identity_id_1)s::UUID
+2026-02-06 13:45:04,923 INFO sqlalchemy.engine.Engine [generated in 0.00036s] {'identity_id_1': UUID('6744ba93-f635-416d-9f85-4faf1af0ad41')}
+2026-02-06 13:45:04,932 INFO sqlalchemy.engine.Engine SELECT tenants.id AS tenants_id, tenants.type AS tenants_type, tenants.name AS tenants_name, tenants.status AS tenants_status, tenants.plan AS tenants_plan, tenants.quotas AS tenants_quotas, tenants.created_at AS tenants_created_at 
+FROM tenants 
+WHERE tenants.id = %(id_1)s::UUID 
+ LIMIT %(param_1)s::INTEGER
+2026-02-06 13:45:04,932 INFO sqlalchemy.engine.Engine [generated in 0.00032s] {'id_1': UUID('5f07e5d8-8443-418f-bb08-43cfe1497ee0'), 'param_1': 1}
+INFO:     172.18.0.7:46968 - "POST /v1/auth/oidc/login HTTP/1.1" 200 OK
+2026-02-06 13:45:04,941 INFO sqlalchemy.engine.Engine ROLLBACK
+DEBUG: Token Payload - Sub: 6744ba93-f635-416d-9f85-4faf1af0ad41, MemID: 4b2e8907-7d5b-4563-a7ef-bea4fbc0021b, Tenant: 5f07e5d8-8443-418f-bb08-43cfe1497ee0
+DEBUG: Token Payload - Sub: 6744ba93-f635-416d-9f85-4faf1af0ad41, MemID: 4b2e8907-7d5b-4563-a7ef-bea4fbc0021b, Tenant: 5f07e5d8-8443-418f-bb08-43cfe1497ee0
+DEBUG: Token Payload - Sub: 6744ba93-f635-416d-9f85-4faf1af0ad41, MemID: 4b2e8907-7d5b-4563-a7ef-bea4fbc0021b, Tenant: 5f07e5d8-8443-418f-bb08-43cfe1497ee0
+2026-02-06 13:45:06,483 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-06 13:45:06,483 INFO sqlalchemy.engine.Engine SELECT set_config('app.is_system_admin', 'false', true)
+2026-02-06 13:45:06,483 INFO sqlalchemy.engine.Engine [generated in 0.00023s] {}
+2026-02-06 13:45:06,488 INFO sqlalchemy.engine.Engine SELECT set_config('app.tenant_id', %(tenant_id)s, true)
+2026-02-06 13:45:06,488 INFO sqlalchemy.engine.Engine [generated in 0.00033s] {'tenant_id': '5f07e5d8-8443-418f-bb08-43cfe1497ee0'}
+2026-02-06 13:45:06,490 INFO sqlalchemy.engine.Engine SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at 
+FROM memberships 
+WHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR 
+ LIMIT %(param_1)s::INTEGER
+2026-02-06 13:45:06,490 INFO sqlalchemy.engine.Engine [generated in 0.00029s] {'id_1': UUID('4b2e8907-7d5b-4563-a7ef-bea4fbc0021b'), 'status_1': 'ACTIVE', 'param_1': 1}
+2026-02-06 13:45:06,490 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-06 13:45:06,491 INFO sqlalchemy.engine.Engine SELECT set_config('app.is_system_admin', 'false', true)
+2026-02-06 13:45:06,492 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-06 13:45:06,493 INFO sqlalchemy.engine.Engine 
+            SELECT s.id, s.aoi_id, a.name as aoi_name, s.year, s.week, s.signal_type, s.status, s.severity,
+                   s.confidence, s.score, s.model_version, s.change_method,
+                   s.evidence_json, s.recommended_actions, s.created_at
+            FROM opportunity_signals s
+            JOIN aois a ON s.aoi_id = a.id
+            WHERE s.tenant_id = %(tenant_id)s
+            ORDER BY s.created_at DESC, s.id DESC
+            LIMIT %(limit)s + 1
+            
+2026-02-06 13:45:06,493 INFO sqlalchemy.engine.Engine [cached since 0.009955s ago] {}
+2026-02-06 13:45:06,493 INFO sqlalchemy.engine.Engine SELECT set_config('app.is_system_admin', 'false', true)
+2026-02-06 13:45:06,493 INFO sqlalchemy.engine.Engine [generated in 0.00074s] {'tenant_id': '5f07e5d8-8443-418f-bb08-43cfe1497ee0', 'limit': 5}
+2026-02-06 13:45:06,494 INFO sqlalchemy.engine.Engine [cached since 0.01063s ago] {}
+2026-02-06 13:45:06,494 INFO sqlalchemy.engine.Engine SELECT set_config('app.tenant_id', %(tenant_id)s, true)
+2026-02-06 13:45:06,495 INFO sqlalchemy.engine.Engine [cached since 0.007214s ago] {'tenant_id': '5f07e5d8-8443-418f-bb08-43cfe1497ee0'}
+2026-02-06 13:45:06,495 INFO sqlalchemy.engine.Engine SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at 
+FROM memberships 
+WHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR 
+ LIMIT %(param_1)s::INTEGER
+2026-02-06 13:45:06,496 INFO sqlalchemy.engine.Engine [cached since 0.006236s ago] {'id_1': UUID('4b2e8907-7d5b-4563-a7ef-bea4fbc0021b'), 'status_1': 'ACTIVE', 'param_1': 1}
+2026-02-06 13:45:06,496 INFO sqlalchemy.engine.Engine SELECT set_config('app.tenant_id', %(tenant_id)s, true)
+2026-02-06 13:45:06,496 INFO sqlalchemy.engine.Engine [cached since 0.008801s ago] {'tenant_id': '5f07e5d8-8443-418f-bb08-43cfe1497ee0'}
+2026-02-06 13:45:06,497 INFO sqlalchemy.engine.Engine SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at 
+FROM memberships 
+WHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR 
+ LIMIT %(param_1)s::INTEGER
+2026-02-06 13:45:06,497 INFO sqlalchemy.engine.Engine [cached since 0.007731s ago] {'id_1': UUID('4b2e8907-7d5b-4563-a7ef-bea4fbc0021b'), 'status_1': 'ACTIVE', 'param_1': 1}
+INFO:     172.18.0.7:46980 - "GET /v1/app/signals?limit=5 HTTP/1.1" 200 OK
+2026-02-06 13:45:06,509 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-02-06 13:45:06,513 INFO sqlalchemy.engine.Engine SELECT farms.id AS farms_id, farms.tenant_id AS farms_tenant_id, farms.name AS farms_name, farms.timezone AS farms_timezone, farms.created_at AS farms_created_at, count(aois.id) AS aoi_count 
+FROM farms LEFT OUTER JOIN aois ON aois.farm_id = farms.id AND aois.status = %(status_1)s::VARCHAR 
+WHERE farms.tenant_id = %(tenant_id_1)s::UUID GROUP BY farms.id ORDER BY farms.created_at DESC
+2026-02-06 13:45:06,513 INFO sqlalchemy.engine.Engine [generated in 0.00044s] {'status_1': 'ACTIVE', 'tenant_id_1': UUID('5f07e5d8-8443-418f-bb08-43cfe1497ee0')}
+2026-02-06 13:45:06,636 INFO sqlalchemy.engine.Engine 
+            SELECT id, aoi_id, job_type, status, created_at, updated_at
+            FROM jobs
+            WHERE tenant_id = %(tenant_id)s
+            ORDER BY created_at DESC
+            LIMIT %(limit)s
+            
+2026-02-06 13:45:06,636 INFO sqlalchemy.engine.Engine [generated in 0.00035s] {'tenant_id': '5f07e5d8-8443-418f-bb08-43cfe1497ee0', 'limit': 10}
+2026-02-06 13:45:06,643 INFO sqlalchemy.engine.Engine ROLLBACK
+INFO:     172.18.0.7:47012 - "GET /v1/app/jobs?limit=10 HTTP/1.1" 200 OK
+2026-02-06 13:45:06,645 INFO sqlalchemy.engine.Engine ROLLBACK
+DEBUG: Token Payload - Sub: 6744ba93-f635-416d-9f85-4faf1af0ad41, MemID: 4b2e8907-7d5b-4563-a7ef-bea4fbc0021b, Tenant: 5f07e5d8-8443-418f-bb08-43cfe1497ee0
+2026-02-06 13:45:06,647 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-06 13:45:06,648 INFO sqlalchemy.engine.Engine SELECT set_config('app.is_system_admin', 'false', true)
+2026-02-06 13:45:06,648 INFO sqlalchemy.engine.Engine [cached since 0.165s ago] {}
+2026-02-06 13:45:06,650 INFO sqlalchemy.engine.Engine SELECT set_config('app.tenant_id', %(tenant_id)s, true)
+2026-02-06 13:45:06,650 INFO sqlalchemy.engine.Engine [cached since 0.1625s ago] {'tenant_id': '5f07e5d8-8443-418f-bb08-43cfe1497ee0'}
+2026-02-06 13:45:06,652 INFO sqlalchemy.engine.Engine SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at 
+FROM memberships 
+WHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR 
+ LIMIT %(param_1)s::INTEGER
+2026-02-06 13:45:06,652 INFO sqlalchemy.engine.Engine [cached since 0.1625s ago] {'id_1': UUID('4b2e8907-7d5b-4563-a7ef-bea4fbc0021b'), 'status_1': 'ACTIVE', 'param_1': 1}
+{"exc_info": "1 validation error for Farm\nname\n  String should have at least 3 characters [type=string_too_short, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short", "path": "/v1/app/farms", "event": "unhandled_exception", "request_id": "e710d64c-7ce4-4919-b049-101e4a46e773", "level": "error", "timestamp": "2026-02-06T13:45:06.675381Z"}
+INFO:     172.18.0.7:46996 - "GET /v1/app/farms HTTP/1.1" 500 Internal Server Error
+DEBUG: Token Payload - Sub: 6744ba93-f635-416d-9f85-4faf1af0ad41, MemID: 4b2e8907-7d5b-4563-a7ef-bea4fbc0021b, Tenant: 5f07e5d8-8443-418f-bb08-43cfe1497ee0
+2026-02-06 13:45:06,690 INFO sqlalchemy.engine.Engine 
+            SELECT s.id, s.aoi_id, a.name as aoi_name, s.year, s.week, s.signal_type, s.status, s.severity,
+                   s.confidence, s.score, s.model_version, s.change_method,
+                   s.evidence_json, s.recommended_actions, s.created_at
+            FROM opportunity_signals s
+            JOIN aois a ON s.aoi_id = a.id
+            WHERE s.tenant_id = %(tenant_id)s
+            ORDER BY s.created_at DESC, s.id DESC
+            LIMIT %(limit)s + 1
+            
+2026-02-06 13:45:06,691 INFO sqlalchemy.engine.Engine [cached since 0.1981s ago] {'tenant_id': '5f07e5d8-8443-418f-bb08-43cfe1497ee0', 'limit': 5}
+2026-02-06 13:45:06,691 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-06 13:45:06,691 INFO sqlalchemy.engine.Engine SELECT set_config('app.is_system_admin', 'false', true)
+2026-02-06 13:45:06,692 INFO sqlalchemy.engine.Engine [cached since 0.2086s ago] {}
+INFO:     172.18.0.7:47026 - "GET /v1/app/signals?limit=5 HTTP/1.1" 200 OK
+2026-02-06 13:45:06,694 INFO sqlalchemy.engine.Engine ROLLBACK
+2026-02-06 13:45:06,695 INFO sqlalchemy.engine.Engine SELECT set_config('app.tenant_id', %(tenant_id)s, true)
+2026-02-06 13:45:06,695 INFO sqlalchemy.engine.Engine [cached since 0.2075s ago] {'tenant_id': '5f07e5d8-8443-418f-bb08-43cfe1497ee0'}
+2026-02-06 13:45:06,696 INFO sqlalchemy.engine.Engine SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at 
+FROM memberships 
+WHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR 
+ LIMIT %(param_1)s::INTEGER
+2026-02-06 13:45:06,696 INFO sqlalchemy.engine.Engine [cached since 0.2067s ago] {'id_1': UUID('4b2e8907-7d5b-4563-a7ef-bea4fbc0021b'), 'status_1': 'ACTIVE', 'param_1': 1}
+2026-02-06 13:45:06,698 INFO sqlalchemy.engine.Engine 
+            SELECT id, aoi_id, job_type, status, created_at, updated_at
+            FROM jobs
+            WHERE tenant_id = %(tenant_id)s
+            ORDER BY created_at DESC
+            LIMIT %(limit)s
+            
+2026-02-06 13:45:06,698 INFO sqlalchemy.engine.Engine [cached since 0.06203s ago] {'tenant_id': '5f07e5d8-8443-418f-bb08-43cfe1497ee0', 'limit': 10}
+INFO:     172.18.0.7:47036 - "GET /v1/app/jobs?limit=10 HTTP/1.1" 200 OK
+2026-02-06 13:45:06,701 INFO sqlalchemy.engine.Engine ROLLBACK
+DEBUG: Token Payload - Sub: 6744ba93-f635-416d-9f85-4faf1af0ad41, MemID: 4b2e8907-7d5b-4563-a7ef-bea4fbc0021b, Tenant: 5f07e5d8-8443-418f-bb08-43cfe1497ee0
+2026-02-06 13:45:06,712 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-06 13:45:06,713 INFO sqlalchemy.engine.Engine SELECT set_config('app.is_system_admin', 'false', true)
+2026-02-06 13:45:06,713 INFO sqlalchemy.engine.Engine [cached since 0.2298s ago] {}
+2026-02-06 13:45:06,714 INFO sqlalchemy.engine.Engine SELECT set_config('app.tenant_id', %(tenant_id)s, true)
+2026-02-06 13:45:06,714 INFO sqlalchemy.engine.Engine [cached since 0.2263s ago] {'tenant_id': '5f07e5d8-8443-418f-bb08-43cfe1497ee0'}
+2026-02-06 13:45:06,715 INFO sqlalchemy.engine.Engine SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at 
+FROM memberships 
+WHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR 
+ LIMIT %(param_1)s::INTEGER
+2026-02-06 13:45:06,715 INFO sqlalchemy.engine.Engine [cached since 0.2255s ago] {'id_1': UUID('4b2e8907-7d5b-4563-a7ef-bea4fbc0021b'), 'status_1': 'ACTIVE', 'param_1': 1}
+2026-02-06 13:45:06,717 INFO sqlalchemy.engine.Engine SELECT farms.id AS farms_id, farms.tenant_id AS farms_tenant_id, farms.name AS farms_name, farms.timezone AS farms_timezone, farms.created_at AS farms_created_at, count(aois.id) AS aoi_count 
+FROM farms LEFT OUTER JOIN aois ON aois.farm_id = farms.id AND aois.status = %(status_1)s::VARCHAR 
+WHERE farms.tenant_id = %(tenant_id_1)s::UUID GROUP BY farms.id ORDER BY farms.created_at DESC
+2026-02-06 13:45:06,717 INFO sqlalchemy.engine.Engine [cached since 0.2047s ago] {'status_1': 'ACTIVE', 'tenant_id_1': UUID('5f07e5d8-8443-418f-bb08-43cfe1497ee0')}
+2026-02-06 13:45:06,733 INFO sqlalchemy.engine.Engine ROLLBACK
+{"exc_info": "1 validation error for Farm\nname\n  String should have at least 3 characters [type=string_too_short, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short", "path": "/v1/app/farms", "event": "unhandled_exception", "request_id": "81f91c1f-1deb-4771-8cc1-32724e210f49", "level": "error", "timestamp": "2026-02-06T13:45:06.742312Z"}
+INFO:     172.18.0.7:47048 - "GET /v1/app/farms HTTP/1.1" 500 Internal Server Error
+{
+    "name": "POST /v1/auth/oidc/login http receive",
+    "context": {
+        "trace_id": "0x7c445aa19666a8e4c03d7225737d0036",
+        "span_id": "0x3b975a9cf9bca461",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xe539844e08961f79",
+    "start_time": "2026-02-06T13:45:04.827744Z",
+    "end_time": "2026-02-06T13:45:04.827784Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.request"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "connect",
+    "context": {
+        "trace_id": "0x7c445aa19666a8e4c03d7225737d0036",
+        "span_id": "0xdab358e280c2266b",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xe539844e08961f79",
+    "start_time": "2026-02-06T13:45:04.838006Z",
+    "end_time": "2026-02-06T13:45:04.907762Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo",
+        "db.system": "postgresql"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x7c445aa19666a8e4c03d7225737d0036",
+        "span_id": "0x6d18145a1823b6fd",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xe539844e08961f79",
+    "start_time": "2026-02-06T13:45:04.910304Z",
+    "end_time": "2026-02-06T13:45:04.921158Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT identities.id AS identities_id, identities.provider AS identities_provider, identities.subject AS identities_subject, identities.email AS identities_email, identities.name AS identities_name, identities.status AS identities_status, identities.created_at AS identities_created_at \nFROM identities \nWHERE identities.provider = %(provider_1)s::VARCHAR AND identities.subject = %(subject_1)s::VARCHAR \n LIMIT %(param_1)s::INTEGER",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x7c445aa19666a8e4c03d7225737d0036",
+        "span_id": "0xe54b4b0655961a4e",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xe539844e08961f79",
+    "start_time": "2026-02-06T13:45:04.923316Z",
+    "end_time": "2026-02-06T13:45:04.929865Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at \nFROM memberships \nWHERE memberships.identity_id = %(identity_id_1)s::UUID",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x7c445aa19666a8e4c03d7225737d0036",
+        "span_id": "0x91ad5f242ce66791",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xe539844e08961f79",
+    "start_time": "2026-02-06T13:45:04.932284Z",
+    "end_time": "2026-02-06T13:45:04.935930Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT tenants.id AS tenants_id, tenants.type AS tenants_type, tenants.name AS tenants_name, tenants.status AS tenants_status, tenants.plan AS tenants_plan, tenants.quotas AS tenants_quotas, tenants.created_at AS tenants_created_at \nFROM tenants \nWHERE tenants.id = %(id_1)s::UUID \n LIMIT %(param_1)s::INTEGER",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "POST /v1/auth/oidc/login http send",
+    "context": {
+        "trace_id": "0x7c445aa19666a8e4c03d7225737d0036",
+        "span_id": "0x63a95dc46b836503",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xe539844e08961f79",
+    "start_time": "2026-02-06T13:45:04.940637Z",
+    "end_time": "2026-02-06T13:45:04.940684Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "POST /v1/auth/oidc/login http send",
+    "context": {
+        "trace_id": "0x7c445aa19666a8e4c03d7225737d0036",
+        "span_id": "0xd43bcf02a606a5e7",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xe539844e08961f79",
+    "start_time": "2026-02-06T13:45:04.941133Z",
+    "end_time": "2026-02-06T13:45:04.941148Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "POST /v1/auth/oidc/login http send",
+    "context": {
+        "trace_id": "0x7c445aa19666a8e4c03d7225737d0036",
+        "span_id": "0x5402bb560ddc9b12",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xe539844e08961f79",
+    "start_time": "2026-02-06T13:45:04.941188Z",
+    "end_time": "2026-02-06T13:45:04.941197Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "POST /v1/auth/oidc/login",
+    "context": {
+        "trace_id": "0x7c445aa19666a8e4c03d7225737d0036",
+        "span_id": "0xe539844e08961f79",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-02-06T13:45:04.812587Z",
+    "end_time": "2026-02-06T13:45:04.941215Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "172.18.0.10:8000",
+        "net.host.port": 8000,
+        "http.flavor": "1.1",
+        "http.target": "/v1/auth/oidc/login",
+        "http.url": "http://api:8000/v1/auth/oidc/login",
+        "http.method": "POST",
+        "http.server_name": "api:8000",
+        "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        "net.peer.ip": "172.18.0.7",
+        "net.peer.port": 46968,
+        "http.route": "/v1/auth/oidc/login",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "connect",
+    "context": {
+        "trace_id": "0x8a20a88149388dbd26ebb2baaf829c5f",
+        "span_id": "0x501ce3ecefdeffb9",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x2369d299ad41fc54",
+    "start_time": "2026-02-06T13:45:06.480974Z",
+    "end_time": "2026-02-06T13:45:06.483009Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo",
+        "db.system": "postgresql"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x8a20a88149388dbd26ebb2baaf829c5f",
+        "span_id": "0x0641812bcd28f567",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x2369d299ad41fc54",
+    "start_time": "2026-02-06T13:45:06.483527Z",
+    "end_time": "2026-02-06T13:45:06.487368Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.is_system_admin', 'false', true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x8a20a88149388dbd26ebb2baaf829c5f",
+        "span_id": "0x23685cfc112d9397",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x2369d299ad41fc54",
+    "start_time": "2026-02-06T13:45:06.487949Z",
+    "end_time": "2026-02-06T13:45:06.488639Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.tenant_id', %(tenant_id)s, true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "connect",
+    "context": {
+        "trace_id": "0x1f8e1b8811e7fcad90084c980271c5e6",
+        "span_id": "0x38a40b1132981ae1",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x34a5be28d9ea5954",
+    "start_time": "2026-02-06T13:45:06.482114Z",
+    "end_time": "2026-02-06T13:45:06.490721Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo",
+        "db.system": "postgresql"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x8a20a88149388dbd26ebb2baaf829c5f",
+        "span_id": "0x603746be664c6c82",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x2369d299ad41fc54",
+    "start_time": "2026-02-06T13:45:06.489989Z",
+    "end_time": "2026-02-06T13:45:06.490911Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at \nFROM memberships \nWHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR \n LIMIT %(param_1)s::INTEGER",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "connect",
+    "context": {
+        "trace_id": "0xe2016d2809d2cc91dbad1c782fe18bec",
+        "span_id": "0x4fdf1afa9400bacc",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x648d9875add7f85d",
+    "start_time": "2026-02-06T13:45:06.482727Z",
+    "end_time": "2026-02-06T13:45:06.492303Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo",
+        "db.system": "postgresql"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x1f8e1b8811e7fcad90084c980271c5e6",
+        "span_id": "0xdccdfee58d5f2bd7",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x34a5be28d9ea5954",
+    "start_time": "2026-02-06T13:45:06.491740Z",
+    "end_time": "2026-02-06T13:45:06.494652Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.is_system_admin', 'false', true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x1f8e1b8811e7fcad90084c980271c5e6",
+        "span_id": "0x53d3a536e41f28bd",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x34a5be28d9ea5954",
+    "start_time": "2026-02-06T13:45:06.494900Z",
+    "end_time": "2026-02-06T13:45:06.495411Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.tenant_id', %(tenant_id)s, true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0xe2016d2809d2cc91dbad1c782fe18bec",
+        "span_id": "0xa55faa874cb1991c",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x648d9875add7f85d",
+    "start_time": "2026-02-06T13:45:06.493579Z",
+    "end_time": "2026-02-06T13:45:06.496164Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.is_system_admin', 'false', true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0xe2016d2809d2cc91dbad1c782fe18bec",
+        "span_id": "0x6954606226a13a04",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x648d9875add7f85d",
+    "start_time": "2026-02-06T13:45:06.496381Z",
+    "end_time": "2026-02-06T13:45:06.496989Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.tenant_id', %(tenant_id)s, true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x1f8e1b8811e7fcad90084c980271c5e6",
+        "span_id": "0xd2e81a179e4b4482",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x34a5be28d9ea5954",
+    "start_time": "2026-02-06T13:45:06.495958Z",
+    "end_time": "2026-02-06T13:45:06.497854Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at \nFROM memberships \nWHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR \n LIMIT %(param_1)s::INTEGER",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0xe2016d2809d2cc91dbad1c782fe18bec",
+        "span_id": "0x6a8033dbef65ec40",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x648d9875add7f85d",
+    "start_time": "2026-02-06T13:45:06.497465Z",
+    "end_time": "2026-02-06T13:45:06.498631Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at \nFROM memberships \nWHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR \n LIMIT %(param_1)s::INTEGER",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x8a20a88149388dbd26ebb2baaf829c5f",
+        "span_id": "0x03640268c1d97d79",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x2369d299ad41fc54",
+    "start_time": "2026-02-06T13:45:06.493077Z",
+    "end_time": "2026-02-06T13:45:06.507585Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "\n            SELECT s.id, s.aoi_id, a.name as aoi_name, s.year, s.week, s.signal_type, s.status, s.severity,\n                   s.confidence, s.score, s.model_version, s.change_method,\n                   s.evidence_json, s.recommended_actions, s.created_at\n            FROM opportunity_signals s\n            JOIN aois a ON s.aoi_id = a.id\n            WHERE s.tenant_id = %(tenant_id)s\n            ORDER BY s.created_at DESC, s.id DESC\n            LIMIT %(limit)s + 1\n            ",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/signals http send",
+    "context": {
+        "trace_id": "0x8a20a88149388dbd26ebb2baaf829c5f",
+        "span_id": "0x8fe97c94d5839e45",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x2369d299ad41fc54",
+    "start_time": "2026-02-06T13:45:06.508550Z",
+    "end_time": "2026-02-06T13:45:06.508592Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/signals http send",
+    "context": {
+        "trace_id": "0x8a20a88149388dbd26ebb2baaf829c5f",
+        "span_id": "0x16383bf6655bb3ad",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x2369d299ad41fc54",
+    "start_time": "2026-02-06T13:45:06.509022Z",
+    "end_time": "2026-02-06T13:45:06.509034Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/signals http send",
+    "context": {
+        "trace_id": "0x8a20a88149388dbd26ebb2baaf829c5f",
+        "span_id": "0x5a7aa89901b69271",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x2369d299ad41fc54",
+    "start_time": "2026-02-06T13:45:06.509069Z",
+    "end_time": "2026-02-06T13:45:06.509076Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/signals",
+    "context": {
+        "trace_id": "0x8a20a88149388dbd26ebb2baaf829c5f",
+        "span_id": "0x2369d299ad41fc54",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-02-06T13:45:06.449649Z",
+    "end_time": "2026-02-06T13:45:06.509094Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "172.18.0.10:8000",
+        "net.host.port": 8000,
+        "http.flavor": "1.1",
+        "http.target": "/v1/app/signals",
+        "http.url": "http://api:8000/v1/app/signals?limit=5",
+        "http.method": "GET",
+        "http.server_name": "api:8000",
+        "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        "net.peer.ip": "172.18.0.7",
+        "net.peer.port": 46980,
+        "http.route": "/v1/app/signals",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0xe2016d2809d2cc91dbad1c782fe18bec",
+        "span_id": "0xaf9a5212abb34cdb",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x648d9875add7f85d",
+    "start_time": "2026-02-06T13:45:06.513464Z",
+    "end_time": "2026-02-06T13:45:06.520954Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT farms.id AS farms_id, farms.tenant_id AS farms_tenant_id, farms.name AS farms_name, farms.timezone AS farms_timezone, farms.created_at AS farms_created_at, count(aois.id) AS aoi_count \nFROM farms LEFT OUTER JOIN aois ON aois.farm_id = farms.id AND aois.status = %(status_1)s::VARCHAR \nWHERE farms.tenant_id = %(tenant_id_1)s::UUID GROUP BY farms.id ORDER BY farms.created_at DESC",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x1f8e1b8811e7fcad90084c980271c5e6",
+        "span_id": "0x7c1911cbf3d8e0db",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x34a5be28d9ea5954",
+    "start_time": "2026-02-06T13:45:06.636710Z",
+    "end_time": "2026-02-06T13:45:06.641974Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "\n            SELECT id, aoi_id, job_type, status, created_at, updated_at\n            FROM jobs\n            WHERE tenant_id = %(tenant_id)s\n            ORDER BY created_at DESC\n            LIMIT %(limit)s\n            ",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/jobs http send",
+    "context": {
+        "trace_id": "0x1f8e1b8811e7fcad90084c980271c5e6",
+        "span_id": "0xe359bb66eb4e67bf",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x34a5be28d9ea5954",
+    "start_time": "2026-02-06T13:45:06.643751Z",
+    "end_time": "2026-02-06T13:45:06.643783Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/jobs http send",
+    "context": {
+        "trace_id": "0x1f8e1b8811e7fcad90084c980271c5e6",
+        "span_id": "0xeb849e613cadbb57",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x34a5be28d9ea5954",
+    "start_time": "2026-02-06T13:45:06.644249Z",
+    "end_time": "2026-02-06T13:45:06.644264Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/jobs http send",
+    "context": {
+        "trace_id": "0x1f8e1b8811e7fcad90084c980271c5e6",
+        "span_id": "0x2c4c17618615b503",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x34a5be28d9ea5954",
+    "start_time": "2026-02-06T13:45:06.644304Z",
+    "end_time": "2026-02-06T13:45:06.644312Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/jobs",
+    "context": {
+        "trace_id": "0x1f8e1b8811e7fcad90084c980271c5e6",
+        "span_id": "0x34a5be28d9ea5954",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-02-06T13:45:06.470440Z",
+    "end_time": "2026-02-06T13:45:06.644327Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "172.18.0.10:8000",
+        "net.host.port": 8000,
+        "http.flavor": "1.1",
+        "http.target": "/v1/app/jobs",
+        "http.url": "http://api:8000/v1/app/jobs?limit=10",
+        "http.method": "GET",
+        "http.server_name": "api:8000",
+        "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        "net.peer.ip": "172.18.0.7",
+        "net.peer.port": 47012,
+        "http.route": "/v1/app/jobs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "connect",
+    "context": {
+        "trace_id": "0x455471af4481061ddffef51bbe3557f4",
+        "span_id": "0xed1cb0942ed6a32f",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xc8a1de201093199c",
+    "start_time": "2026-02-06T13:45:06.646184Z",
+    "end_time": "2026-02-06T13:45:06.647850Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo",
+        "db.system": "postgresql"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x455471af4481061ddffef51bbe3557f4",
+        "span_id": "0xf7cea869cc27450b",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xc8a1de201093199c",
+    "start_time": "2026-02-06T13:45:06.648301Z",
+    "end_time": "2026-02-06T13:45:06.649770Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.is_system_admin', 'false', true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x455471af4481061ddffef51bbe3557f4",
+        "span_id": "0x0593014c06d2302b",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xc8a1de201093199c",
+    "start_time": "2026-02-06T13:45:06.650109Z",
+    "end_time": "2026-02-06T13:45:06.651165Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.tenant_id', %(tenant_id)s, true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x455471af4481061ddffef51bbe3557f4",
+        "span_id": "0x14739b878f321427",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xc8a1de201093199c",
+    "start_time": "2026-02-06T13:45:06.652008Z",
+    "end_time": "2026-02-06T13:45:06.653224Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at \nFROM memberships \nWHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR \n LIMIT %(param_1)s::INTEGER",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/farms http send",
+    "context": {
+        "trace_id": "0xe2016d2809d2cc91dbad1c782fe18bec",
+        "span_id": "0x8388f03accf8ad51",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x648d9875add7f85d",
+    "start_time": "2026-02-06T13:45:06.675622Z",
+    "end_time": "2026-02-06T13:45:06.675661Z",
+    "status": {
+        "status_code": "ERROR"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 500
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/farms http send",
+    "context": {
+        "trace_id": "0xe2016d2809d2cc91dbad1c782fe18bec",
+        "span_id": "0x30e7898278bdcdbd",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x648d9875add7f85d",
+    "start_time": "2026-02-06T13:45:06.675880Z",
+    "end_time": "2026-02-06T13:45:06.675891Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/farms",
+    "context": {
+        "trace_id": "0xe2016d2809d2cc91dbad1c782fe18bec",
+        "span_id": "0x648d9875add7f85d",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-02-06T13:45:06.460661Z",
+    "end_time": "2026-02-06T13:45:06.675927Z",
+    "status": {
+        "status_code": "ERROR"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "172.18.0.10:8000",
+        "net.host.port": 8000,
+        "http.flavor": "1.1",
+        "http.target": "/v1/app/farms",
+        "http.url": "http://api:8000/v1/app/farms",
+        "http.method": "GET",
+        "http.server_name": "api:8000",
+        "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        "net.peer.ip": "172.18.0.7",
+        "net.peer.port": 46996,
+        "http.route": "/v1/app/farms",
+        "http.status_code": 500
+    },
+    "events": [
+        {
+            "name": "exception",
+            "timestamp": "2026-02-06T13:45:06.675212Z",
+            "attributes": {
+                "exception.type": "pydantic_core._pydantic_core.ValidationError",
+                "exception.message": "1 validation error for Farm\nname\n  String should have at least 3 characters [type=string_too_short, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short",
+                "exception.stacktrace": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.11/site-packages/opentelemetry/instrumentation/fastapi/__init__.py\", line 307, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 191, in __call__\n    with recv_stream, send_stream, collapse_excgroups():\n  File \"/usr/local/lib/python3.11/contextlib.py\", line 158, in __exit__\n    self.gen.throw(typ, value, traceback)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_utils.py\", line 85, in collapse_excgroups\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 193, in __call__\n    response = await self.dispatch_func(request, call_next)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/main.py\", line 87, in dispatch\n    response = await call_next(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 168, in call_next\n    raise app_exc from app_exc.__cause__ or app_exc.__context__\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 144, in coro\n    await self.app(scope, receive_or_disconnect, send_no_error)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py\", line 85, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py\", line 63, in __call__\n    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py\", line 18, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 716, in __call__\n    await self.middleware_stack(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 736, in app\n    await route.handle(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 290, in handle\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 115, in app\n    await wrap_app_handling_exceptions(app, request)(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 101, in app\n    response = await f(request)\n               ^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 355, in app\n    raw_response = await run_endpoint_function(\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 243, in run_endpoint_function\n    return await dependant.call(**values)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/presentation/farms_router.py\", line 78, in list_farms\n    farms = await use_case.execute(ListFarmsCommand(tenant_id=TenantId(value=membership.tenant_id)))\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/application/decorators.py\", line 27, in wrapper\n    return await func(self, command, *args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/application/use_cases/farms.py\", line 40, in execute\n    farms = await self.farm_repo.find_all_by_tenant(command.tenant_id)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/infrastructure/adapters/persistence/sqlalchemy/farm_repository.py\", line 56, in find_all_by_tenant\n    farms.append(self._to_entity(model, aoi_count=count))\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/infrastructure/adapters/persistence/sqlalchemy/farm_repository.py\", line 21, in _to_entity\n    return Farm(\n           ^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/pydantic/main.py\", line 250, in __init__\n    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydantic_core._pydantic_core.ValidationError: 1 validation error for Farm\nname\n  String should have at least 3 characters [type=string_too_short, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short\n",
+                "exception.escaped": "False"
+            }
+        }
+    ],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "connect",
+    "context": {
+        "trace_id": "0x5fe7edaf3b975ff3aa122bfeceb7e9d3",
+        "span_id": "0xf222cc19097dee42",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xd13f14cf04d7f5ca",
+    "start_time": "2026-02-06T13:45:06.689647Z",
+    "end_time": "2026-02-06T13:45:06.691446Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo",
+        "db.system": "postgresql"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x455471af4481061ddffef51bbe3557f4",
+        "span_id": "0x58a4f8772aed4109",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xc8a1de201093199c",
+    "start_time": "2026-02-06T13:45:06.690926Z",
+    "end_time": "2026-02-06T13:45:06.692440Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "\n            SELECT s.id, s.aoi_id, a.name as aoi_name, s.year, s.week, s.signal_type, s.status, s.severity,\n                   s.confidence, s.score, s.model_version, s.change_method,\n                   s.evidence_json, s.recommended_actions, s.created_at\n            FROM opportunity_signals s\n            JOIN aois a ON s.aoi_id = a.id\n            WHERE s.tenant_id = %(tenant_id)s\n            ORDER BY s.created_at DESC, s.id DESC\n            LIMIT %(limit)s + 1\n            ",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/signals http send",
+    "context": {
+        "trace_id": "0x455471af4481061ddffef51bbe3557f4",
+        "span_id": "0x3899e0517c6dea63",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xc8a1de201093199c",
+    "start_time": "2026-02-06T13:45:06.693398Z",
+    "end_time": "2026-02-06T13:45:06.693433Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/signals http send",
+    "context": {
+        "trace_id": "0x455471af4481061ddffef51bbe3557f4",
+        "span_id": "0xa6fa7436267b13f9",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xc8a1de201093199c",
+    "start_time": "2026-02-06T13:45:06.693820Z",
+    "end_time": "2026-02-06T13:45:06.693834Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/signals http send",
+    "context": {
+        "trace_id": "0x455471af4481061ddffef51bbe3557f4",
+        "span_id": "0x64c2597df422823c",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xc8a1de201093199c",
+    "start_time": "2026-02-06T13:45:06.693869Z",
+    "end_time": "2026-02-06T13:45:06.693877Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/signals",
+    "context": {
+        "trace_id": "0x455471af4481061ddffef51bbe3557f4",
+        "span_id": "0xc8a1de201093199c",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-02-06T13:45:06.642920Z",
+    "end_time": "2026-02-06T13:45:06.693894Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "172.18.0.10:8000",
+        "net.host.port": 8000,
+        "http.flavor": "1.1",
+        "http.target": "/v1/app/signals",
+        "http.url": "http://api:8000/v1/app/signals?limit=5",
+        "http.method": "GET",
+        "http.server_name": "api:8000",
+        "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        "net.peer.ip": "172.18.0.7",
+        "net.peer.port": 47026,
+        "http.route": "/v1/app/signals",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x5fe7edaf3b975ff3aa122bfeceb7e9d3",
+        "span_id": "0x596344ed72ea70d0",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xd13f14cf04d7f5ca",
+    "start_time": "2026-02-06T13:45:06.691818Z",
+    "end_time": "2026-02-06T13:45:06.694844Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.is_system_admin', 'false', true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x5fe7edaf3b975ff3aa122bfeceb7e9d3",
+        "span_id": "0x077d5829ce01e5fe",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xd13f14cf04d7f5ca",
+    "start_time": "2026-02-06T13:45:06.695174Z",
+    "end_time": "2026-02-06T13:45:06.695743Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.tenant_id', %(tenant_id)s, true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x5fe7edaf3b975ff3aa122bfeceb7e9d3",
+        "span_id": "0x063b01ac750de468",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xd13f14cf04d7f5ca",
+    "start_time": "2026-02-06T13:45:06.696415Z",
+    "end_time": "2026-02-06T13:45:06.697359Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at \nFROM memberships \nWHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR \n LIMIT %(param_1)s::INTEGER",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x5fe7edaf3b975ff3aa122bfeceb7e9d3",
+        "span_id": "0x113177f7e505710c",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xd13f14cf04d7f5ca",
+    "start_time": "2026-02-06T13:45:06.698459Z",
+    "end_time": "2026-02-06T13:45:06.699587Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "\n            SELECT id, aoi_id, job_type, status, created_at, updated_at\n            FROM jobs\n            WHERE tenant_id = %(tenant_id)s\n            ORDER BY created_at DESC\n            LIMIT %(limit)s\n            ",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/jobs http send",
+    "context": {
+        "trace_id": "0x5fe7edaf3b975ff3aa122bfeceb7e9d3",
+        "span_id": "0xbf95df6b447ea16c",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xd13f14cf04d7f5ca",
+    "start_time": "2026-02-06T13:45:06.700216Z",
+    "end_time": "2026-02-06T13:45:06.700247Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/jobs http send",
+    "context": {
+        "trace_id": "0x5fe7edaf3b975ff3aa122bfeceb7e9d3",
+        "span_id": "0x1166460f63c26251",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xd13f14cf04d7f5ca",
+    "start_time": "2026-02-06T13:45:06.700759Z",
+    "end_time": "2026-02-06T13:45:06.700777Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/jobs http send",
+    "context": {
+        "trace_id": "0x5fe7edaf3b975ff3aa122bfeceb7e9d3",
+        "span_id": "0xf1231a07fa1bf98b",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xd13f14cf04d7f5ca",
+    "start_time": "2026-02-06T13:45:06.700829Z",
+    "end_time": "2026-02-06T13:45:06.700840Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/jobs",
+    "context": {
+        "trace_id": "0x5fe7edaf3b975ff3aa122bfeceb7e9d3",
+        "span_id": "0xd13f14cf04d7f5ca",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-02-06T13:45:06.687741Z",
+    "end_time": "2026-02-06T13:45:06.700864Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "172.18.0.10:8000",
+        "net.host.port": 8000,
+        "http.flavor": "1.1",
+        "http.target": "/v1/app/jobs",
+        "http.url": "http://api:8000/v1/app/jobs?limit=10",
+        "http.method": "GET",
+        "http.server_name": "api:8000",
+        "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        "net.peer.ip": "172.18.0.7",
+        "net.peer.port": 47036,
+        "http.route": "/v1/app/jobs",
+        "http.status_code": 200
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "connect",
+    "context": {
+        "trace_id": "0x1bd5d0f32370def44b6af1a36aedb4bc",
+        "span_id": "0x02813541ecd357d9",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x6cfe9ddbb506b5d4",
+    "start_time": "2026-02-06T13:45:06.712401Z",
+    "end_time": "2026-02-06T13:45:06.712819Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo",
+        "db.system": "postgresql"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x1bd5d0f32370def44b6af1a36aedb4bc",
+        "span_id": "0xbe10a8e3ab75f6cd",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x6cfe9ddbb506b5d4",
+    "start_time": "2026-02-06T13:45:06.713111Z",
+    "end_time": "2026-02-06T13:45:06.713735Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.is_system_admin', 'false', true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x1bd5d0f32370def44b6af1a36aedb4bc",
+        "span_id": "0x5b2ca2e562ece554",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x6cfe9ddbb506b5d4",
+    "start_time": "2026-02-06T13:45:06.714022Z",
+    "end_time": "2026-02-06T13:45:06.714450Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.tenant_id', %(tenant_id)s, true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x1bd5d0f32370def44b6af1a36aedb4bc",
+        "span_id": "0x48d78b555941546a",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x6cfe9ddbb506b5d4",
+    "start_time": "2026-02-06T13:45:06.715237Z",
+    "end_time": "2026-02-06T13:45:06.715949Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at \nFROM memberships \nWHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR \n LIMIT %(param_1)s::INTEGER",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x1bd5d0f32370def44b6af1a36aedb4bc",
+        "span_id": "0x694a52c35ffda2e9",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x6cfe9ddbb506b5d4",
+    "start_time": "2026-02-06T13:45:06.717752Z",
+    "end_time": "2026-02-06T13:45:06.719901Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT farms.id AS farms_id, farms.tenant_id AS farms_tenant_id, farms.name AS farms_name, farms.timezone AS farms_timezone, farms.created_at AS farms_created_at, count(aois.id) AS aoi_count \nFROM farms LEFT OUTER JOIN aois ON aois.farm_id = farms.id AND aois.status = %(status_1)s::VARCHAR \nWHERE farms.tenant_id = %(tenant_id_1)s::UUID GROUP BY farms.id ORDER BY farms.created_at DESC",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/farms http send",
+    "context": {
+        "trace_id": "0x1bd5d0f32370def44b6af1a36aedb4bc",
+        "span_id": "0x66d5791f6ae276e9",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x6cfe9ddbb506b5d4",
+    "start_time": "2026-02-06T13:45:06.742506Z",
+    "end_time": "2026-02-06T13:45:06.742537Z",
+    "status": {
+        "status_code": "ERROR"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 500
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/farms http send",
+    "context": {
+        "trace_id": "0x1bd5d0f32370def44b6af1a36aedb4bc",
+        "span_id": "0x696c085bcef3c33c",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x6cfe9ddbb506b5d4",
+    "start_time": "2026-02-06T13:45:06.742732Z",
+    "end_time": "2026-02-06T13:45:06.742743Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/farms",
+    "context": {
+        "trace_id": "0x1bd5d0f32370def44b6af1a36aedb4bc",
+        "span_id": "0x6cfe9ddbb506b5d4",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-02-06T13:45:06.711003Z",
+    "end_time": "2026-02-06T13:45:06.742765Z",
+    "status": {
+        "status_code": "ERROR"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "172.18.0.10:8000",
+        "net.host.port": 8000,
+        "http.flavor": "1.1",
+        "http.target": "/v1/app/farms",
+        "http.url": "http://api:8000/v1/app/farms",
+        "http.method": "GET",
+        "http.server_name": "api:8000",
+        "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        "net.peer.ip": "172.18.0.7",
+        "net.peer.port": 47048,
+        "http.route": "/v1/app/farms",
+        "http.status_code": 500
+    },
+    "events": [
+        {
+            "name": "exception",
+            "timestamp": "2026-02-06T13:45:06.742193Z",
+            "attributes": {
+                "exception.type": "pydantic_core._pydantic_core.ValidationError",
+                "exception.message": "1 validation error for Farm\nname\n  String should have at least 3 characters [type=string_too_short, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short",
+                "exception.stacktrace": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.11/site-packages/opentelemetry/instrumentation/fastapi/__init__.py\", line 307, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 191, in __call__\n    with recv_stream, send_stream, collapse_excgroups():\n  File \"/usr/local/lib/python3.11/contextlib.py\", line 158, in __exit__\n    self.gen.throw(typ, value, traceback)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_utils.py\", line 85, in collapse_excgroups\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 193, in __call__\n    response = await self.dispatch_func(request, call_next)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/main.py\", line 87, in dispatch\n    response = await call_next(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 168, in call_next\n    raise app_exc from app_exc.__cause__ or app_exc.__context__\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 144, in coro\n    await self.app(scope, receive_or_disconnect, send_no_error)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py\", line 85, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py\", line 63, in __call__\n    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py\", line 18, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 716, in __call__\n    await self.middleware_stack(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 736, in app\n    await route.handle(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 290, in handle\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 115, in app\n    await wrap_app_handling_exceptions(app, request)(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 101, in app\n    response = await f(request)\n               ^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 355, in app\n    raw_response = await run_endpoint_function(\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 243, in run_endpoint_function\n    return await dependant.call(**values)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/presentation/farms_router.py\", line 78, in list_farms\n    farms = await use_case.execute(ListFarmsCommand(tenant_id=TenantId(value=membership.tenant_id)))\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/application/decorators.py\", line 27, in wrapper\n    return await func(self, command, *args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/application/use_cases/farms.py\", line 40, in execute\n    farms = await self.farm_repo.find_all_by_tenant(command.tenant_id)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/infrastructure/adapters/persistence/sqlalchemy/farm_repository.py\", line 56, in find_all_by_tenant\n    farms.append(self._to_entity(model, aoi_count=count))\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/infrastructure/adapters/persistence/sqlalchemy/farm_repository.py\", line 21, in _to_entity\n    return Farm(\n           ^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/pydantic/main.py\", line 250, in __init__\n    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydantic_core._pydantic_core.ValidationError: 1 validation error for Farm\nname\n  String should have at least 3 characters [type=string_too_short, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short\n",
+                "exception.escaped": "False"
+            }
+        }
+    ],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+DEBUG: Token Payload - Sub: 6744ba93-f635-416d-9f85-4faf1af0ad41, MemID: 4b2e8907-7d5b-4563-a7ef-bea4fbc0021b, Tenant: 5f07e5d8-8443-418f-bb08-43cfe1497ee0
+2026-02-06 13:45:14,410 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-06 13:45:14,410 INFO sqlalchemy.engine.Engine SELECT set_config('app.is_system_admin', 'false', true)
+2026-02-06 13:45:14,410 INFO sqlalchemy.engine.Engine [cached since 7.927s ago] {}
+2026-02-06 13:45:14,411 INFO sqlalchemy.engine.Engine SELECT set_config('app.tenant_id', %(tenant_id)s, true)
+2026-02-06 13:45:14,411 INFO sqlalchemy.engine.Engine [cached since 7.924s ago] {'tenant_id': '5f07e5d8-8443-418f-bb08-43cfe1497ee0'}
+2026-02-06 13:45:14,413 INFO sqlalchemy.engine.Engine SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at 
+FROM memberships 
+WHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR 
+ LIMIT %(param_1)s::INTEGER
+2026-02-06 13:45:14,413 INFO sqlalchemy.engine.Engine [cached since 7.923s ago] {'id_1': UUID('4b2e8907-7d5b-4563-a7ef-bea4fbc0021b'), 'status_1': 'ACTIVE', 'param_1': 1}
+2026-02-06 13:45:14,415 INFO sqlalchemy.engine.Engine SELECT farms.id AS farms_id, farms.tenant_id AS farms_tenant_id, farms.name AS farms_name, farms.timezone AS farms_timezone, farms.created_at AS farms_created_at, count(aois.id) AS aoi_count 
+FROM farms LEFT OUTER JOIN aois ON aois.farm_id = farms.id AND aois.status = %(status_1)s::VARCHAR 
+WHERE farms.tenant_id = %(tenant_id_1)s::UUID GROUP BY farms.id ORDER BY farms.created_at DESC
+2026-02-06 13:45:14,415 INFO sqlalchemy.engine.Engine [cached since 7.902s ago] {'status_1': 'ACTIVE', 'tenant_id_1': UUID('5f07e5d8-8443-418f-bb08-43cfe1497ee0')}
+2026-02-06 13:45:14,429 INFO sqlalchemy.engine.Engine ROLLBACK
+{"exc_info": "1 validation error for Farm\nname\n  String should have at least 3 characters [type=string_too_short, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short", "path": "/v1/app/farms", "event": "unhandled_exception", "request_id": "0defd2b9-9987-44cf-85e7-8c09cb0f9f70", "level": "error", "timestamp": "2026-02-06T13:45:14.440709Z"}
+INFO:     172.18.0.7:39876 - "GET /v1/app/farms HTTP/1.1" 500 Internal Server Error
+DEBUG: Token Payload - Sub: 6744ba93-f635-416d-9f85-4faf1af0ad41, MemID: 4b2e8907-7d5b-4563-a7ef-bea4fbc0021b, Tenant: 5f07e5d8-8443-418f-bb08-43cfe1497ee0
+2026-02-06 13:45:14,473 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-06 13:45:14,473 INFO sqlalchemy.engine.Engine SELECT set_config('app.is_system_admin', 'false', true)
+2026-02-06 13:45:14,474 INFO sqlalchemy.engine.Engine [cached since 7.991s ago] {}
+2026-02-06 13:45:14,475 INFO sqlalchemy.engine.Engine SELECT set_config('app.tenant_id', %(tenant_id)s, true)
+2026-02-06 13:45:14,475 INFO sqlalchemy.engine.Engine [cached since 7.988s ago] {'tenant_id': '5f07e5d8-8443-418f-bb08-43cfe1497ee0'}
+2026-02-06 13:45:14,476 INFO sqlalchemy.engine.Engine SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at 
+FROM memberships 
+WHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR 
+ LIMIT %(param_1)s::INTEGER
+2026-02-06 13:45:14,476 INFO sqlalchemy.engine.Engine [cached since 7.986s ago] {'id_1': UUID('4b2e8907-7d5b-4563-a7ef-bea4fbc0021b'), 'status_1': 'ACTIVE', 'param_1': 1}
+2026-02-06 13:45:14,478 INFO sqlalchemy.engine.Engine SELECT farms.id AS farms_id, farms.tenant_id AS farms_tenant_id, farms.name AS farms_name, farms.timezone AS farms_timezone, farms.created_at AS farms_created_at, count(aois.id) AS aoi_count 
+FROM farms LEFT OUTER JOIN aois ON aois.farm_id = farms.id AND aois.status = %(status_1)s::VARCHAR 
+WHERE farms.tenant_id = %(tenant_id_1)s::UUID GROUP BY farms.id ORDER BY farms.created_at DESC
+2026-02-06 13:45:14,478 INFO sqlalchemy.engine.Engine [cached since 7.965s ago] {'status_1': 'ACTIVE', 'tenant_id_1': UUID('5f07e5d8-8443-418f-bb08-43cfe1497ee0')}
+2026-02-06 13:45:14,492 INFO sqlalchemy.engine.Engine ROLLBACK
+{"exc_info": "1 validation error for Farm\nname\n  String should have at least 3 characters [type=string_too_short, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short", "path": "/v1/app/farms", "event": "unhandled_exception", "request_id": "fd25ea9f-3620-4831-80c6-520fbcb68024", "level": "error", "timestamp": "2026-02-06T13:45:14.502356Z"}
+INFO:     172.18.0.7:39880 - "GET /v1/app/farms HTTP/1.1" 500 Internal Server Error
+{
+    "name": "connect",
+    "context": {
+        "trace_id": "0x43c3eb917557ac4856fb2502b2cd423e",
+        "span_id": "0x9c2b80f018303fe2",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xac8d6daff0f26382",
+    "start_time": "2026-02-06T13:45:14.409687Z",
+    "end_time": "2026-02-06T13:45:14.410116Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo",
+        "db.system": "postgresql"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x43c3eb917557ac4856fb2502b2cd423e",
+        "span_id": "0xaad6cdae56f20610",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xac8d6daff0f26382",
+    "start_time": "2026-02-06T13:45:14.410508Z",
+    "end_time": "2026-02-06T13:45:14.411265Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.is_system_admin', 'false', true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x43c3eb917557ac4856fb2502b2cd423e",
+        "span_id": "0xab6390df80d78c6a",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xac8d6daff0f26382",
+    "start_time": "2026-02-06T13:45:14.411648Z",
+    "end_time": "2026-02-06T13:45:14.412245Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.tenant_id', %(tenant_id)s, true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x43c3eb917557ac4856fb2502b2cd423e",
+        "span_id": "0x52908a8161221ae1",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xac8d6daff0f26382",
+    "start_time": "2026-02-06T13:45:14.413037Z",
+    "end_time": "2026-02-06T13:45:14.413698Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at \nFROM memberships \nWHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR \n LIMIT %(param_1)s::INTEGER",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x43c3eb917557ac4856fb2502b2cd423e",
+        "span_id": "0xefc1f9457bf552c2",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xac8d6daff0f26382",
+    "start_time": "2026-02-06T13:45:14.415261Z",
+    "end_time": "2026-02-06T13:45:14.416354Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT farms.id AS farms_id, farms.tenant_id AS farms_tenant_id, farms.name AS farms_name, farms.timezone AS farms_timezone, farms.created_at AS farms_created_at, count(aois.id) AS aoi_count \nFROM farms LEFT OUTER JOIN aois ON aois.farm_id = farms.id AND aois.status = %(status_1)s::VARCHAR \nWHERE farms.tenant_id = %(tenant_id_1)s::UUID GROUP BY farms.id ORDER BY farms.created_at DESC",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/farms http send",
+    "context": {
+        "trace_id": "0x43c3eb917557ac4856fb2502b2cd423e",
+        "span_id": "0xfb488af562a0b6f9",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xac8d6daff0f26382",
+    "start_time": "2026-02-06T13:45:14.440977Z",
+    "end_time": "2026-02-06T13:45:14.441023Z",
+    "status": {
+        "status_code": "ERROR"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 500
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/farms http send",
+    "context": {
+        "trace_id": "0x43c3eb917557ac4856fb2502b2cd423e",
+        "span_id": "0xb6d615616fead2ae",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xac8d6daff0f26382",
+    "start_time": "2026-02-06T13:45:14.441282Z",
+    "end_time": "2026-02-06T13:45:14.441293Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/farms",
+    "context": {
+        "trace_id": "0x43c3eb917557ac4856fb2502b2cd423e",
+        "span_id": "0xac8d6daff0f26382",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-02-06T13:45:14.408522Z",
+    "end_time": "2026-02-06T13:45:14.441322Z",
+    "status": {
+        "status_code": "ERROR"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "172.18.0.10:8000",
+        "net.host.port": 8000,
+        "http.flavor": "1.1",
+        "http.target": "/v1/app/farms",
+        "http.url": "http://api:8000/v1/app/farms",
+        "http.method": "GET",
+        "http.server_name": "api:8000",
+        "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        "net.peer.ip": "172.18.0.7",
+        "net.peer.port": 39876,
+        "http.route": "/v1/app/farms",
+        "http.status_code": 500
+    },
+    "events": [
+        {
+            "name": "exception",
+            "timestamp": "2026-02-06T13:45:14.440520Z",
+            "attributes": {
+                "exception.type": "pydantic_core._pydantic_core.ValidationError",
+                "exception.message": "1 validation error for Farm\nname\n  String should have at least 3 characters [type=string_too_short, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short",
+                "exception.stacktrace": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.11/site-packages/opentelemetry/instrumentation/fastapi/__init__.py\", line 307, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 191, in __call__\n    with recv_stream, send_stream, collapse_excgroups():\n  File \"/usr/local/lib/python3.11/contextlib.py\", line 158, in __exit__\n    self.gen.throw(typ, value, traceback)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_utils.py\", line 85, in collapse_excgroups\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 193, in __call__\n    response = await self.dispatch_func(request, call_next)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/main.py\", line 87, in dispatch\n    response = await call_next(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 168, in call_next\n    raise app_exc from app_exc.__cause__ or app_exc.__context__\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 144, in coro\n    await self.app(scope, receive_or_disconnect, send_no_error)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py\", line 85, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py\", line 63, in __call__\n    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py\", line 18, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 716, in __call__\n    await self.middleware_stack(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 736, in app\n    await route.handle(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 290, in handle\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 115, in app\n    await wrap_app_handling_exceptions(app, request)(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 101, in app\n    response = await f(request)\n               ^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 355, in app\n    raw_response = await run_endpoint_function(\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 243, in run_endpoint_function\n    return await dependant.call(**values)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/presentation/farms_router.py\", line 78, in list_farms\n    farms = await use_case.execute(ListFarmsCommand(tenant_id=TenantId(value=membership.tenant_id)))\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/application/decorators.py\", line 27, in wrapper\n    return await func(self, command, *args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/application/use_cases/farms.py\", line 40, in execute\n    farms = await self.farm_repo.find_all_by_tenant(command.tenant_id)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/infrastructure/adapters/persistence/sqlalchemy/farm_repository.py\", line 56, in find_all_by_tenant\n    farms.append(self._to_entity(model, aoi_count=count))\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/infrastructure/adapters/persistence/sqlalchemy/farm_repository.py\", line 21, in _to_entity\n    return Farm(\n           ^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/pydantic/main.py\", line 250, in __init__\n    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydantic_core._pydantic_core.ValidationError: 1 validation error for Farm\nname\n  String should have at least 3 characters [type=string_too_short, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short\n",
+                "exception.escaped": "False"
+            }
+        }
+    ],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "connect",
+    "context": {
+        "trace_id": "0x56bfa560f8944af906d1369e4333d631",
+        "span_id": "0x6870f1747429261c",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xf03da2c198948599",
+    "start_time": "2026-02-06T13:45:14.473116Z",
+    "end_time": "2026-02-06T13:45:14.473553Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo",
+        "db.system": "postgresql"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x56bfa560f8944af906d1369e4333d631",
+        "span_id": "0x7b6efd34e9dca1c5",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xf03da2c198948599",
+    "start_time": "2026-02-06T13:45:14.473834Z",
+    "end_time": "2026-02-06T13:45:14.474962Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.is_system_admin', 'false', true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x56bfa560f8944af906d1369e4333d631",
+        "span_id": "0x96cc940f0779dd49",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xf03da2c198948599",
+    "start_time": "2026-02-06T13:45:14.475223Z",
+    "end_time": "2026-02-06T13:45:14.475593Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.tenant_id', %(tenant_id)s, true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x56bfa560f8944af906d1369e4333d631",
+        "span_id": "0xd781a2592eedec88",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xf03da2c198948599",
+    "start_time": "2026-02-06T13:45:14.476119Z",
+    "end_time": "2026-02-06T13:45:14.476606Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at \nFROM memberships \nWHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR \n LIMIT %(param_1)s::INTEGER",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x56bfa560f8944af906d1369e4333d631",
+        "span_id": "0x5bff5ccb9ed78fb6",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0xf03da2c198948599",
+    "start_time": "2026-02-06T13:45:14.478255Z",
+    "end_time": "2026-02-06T13:45:14.479403Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT farms.id AS farms_id, farms.tenant_id AS farms_tenant_id, farms.name AS farms_name, farms.timezone AS farms_timezone, farms.created_at AS farms_created_at, count(aois.id) AS aoi_count \nFROM farms LEFT OUTER JOIN aois ON aois.farm_id = farms.id AND aois.status = %(status_1)s::VARCHAR \nWHERE farms.tenant_id = %(tenant_id_1)s::UUID GROUP BY farms.id ORDER BY farms.created_at DESC",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/farms http send",
+    "context": {
+        "trace_id": "0x56bfa560f8944af906d1369e4333d631",
+        "span_id": "0x8428f55b0275fd5a",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xf03da2c198948599",
+    "start_time": "2026-02-06T13:45:14.502570Z",
+    "end_time": "2026-02-06T13:45:14.502602Z",
+    "status": {
+        "status_code": "ERROR"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 500
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/farms http send",
+    "context": {
+        "trace_id": "0x56bfa560f8944af906d1369e4333d631",
+        "span_id": "0x23f08597f8edf559",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0xf03da2c198948599",
+    "start_time": "2026-02-06T13:45:14.502819Z",
+    "end_time": "2026-02-06T13:45:14.502829Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "GET /v1/app/farms",
+    "context": {
+        "trace_id": "0x56bfa560f8944af906d1369e4333d631",
+        "span_id": "0xf03da2c198948599",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-02-06T13:45:14.471985Z",
+    "end_time": "2026-02-06T13:45:14.502848Z",
+    "status": {
+        "status_code": "ERROR"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "172.18.0.10:8000",
+        "net.host.port": 8000,
+        "http.flavor": "1.1",
+        "http.target": "/v1/app/farms",
+        "http.url": "http://api:8000/v1/app/farms",
+        "http.method": "GET",
+        "http.server_name": "api:8000",
+        "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        "net.peer.ip": "172.18.0.7",
+        "net.peer.port": 39880,
+        "http.route": "/v1/app/farms",
+        "http.status_code": 500
+    },
+    "events": [
+        {
+            "name": "exception",
+            "timestamp": "2026-02-06T13:45:14.502228Z",
+            "attributes": {
+                "exception.type": "pydantic_core._pydantic_core.ValidationError",
+                "exception.message": "1 validation error for Farm\nname\n  String should have at least 3 characters [type=string_too_short, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short",
+                "exception.stacktrace": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.11/site-packages/opentelemetry/instrumentation/fastapi/__init__.py\", line 307, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 191, in __call__\n    with recv_stream, send_stream, collapse_excgroups():\n  File \"/usr/local/lib/python3.11/contextlib.py\", line 158, in __exit__\n    self.gen.throw(typ, value, traceback)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_utils.py\", line 85, in collapse_excgroups\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 193, in __call__\n    response = await self.dispatch_func(request, call_next)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/main.py\", line 87, in dispatch\n    response = await call_next(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 168, in call_next\n    raise app_exc from app_exc.__cause__ or app_exc.__context__\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 144, in coro\n    await self.app(scope, receive_or_disconnect, send_no_error)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py\", line 85, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py\", line 63, in __call__\n    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py\", line 18, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 716, in __call__\n    await self.middleware_stack(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 736, in app\n    await route.handle(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 290, in handle\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 115, in app\n    await wrap_app_handling_exceptions(app, request)(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 101, in app\n    response = await f(request)\n               ^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 355, in app\n    raw_response = await run_endpoint_function(\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 243, in run_endpoint_function\n    return await dependant.call(**values)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/presentation/farms_router.py\", line 78, in list_farms\n    farms = await use_case.execute(ListFarmsCommand(tenant_id=TenantId(value=membership.tenant_id)))\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/application/decorators.py\", line 27, in wrapper\n    return await func(self, command, *args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/application/use_cases/farms.py\", line 40, in execute\n    farms = await self.farm_repo.find_all_by_tenant(command.tenant_id)\n            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/infrastructure/adapters/persistence/sqlalchemy/farm_repository.py\", line 56, in find_all_by_tenant\n    farms.append(self._to_entity(model, aoi_count=count))\n                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/infrastructure/adapters/persistence/sqlalchemy/farm_repository.py\", line 21, in _to_entity\n    return Farm(\n           ^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/pydantic/main.py\", line 250, in __init__\n    validated_self = self.__pydantic_validator__.validate_python(data, self_instance=self)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\npydantic_core._pydantic_core.ValidationError: 1 validation error for Farm\nname\n  String should have at least 3 characters [type=string_too_short, input_value='x', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short\n",
+                "exception.escaped": "False"
+            }
+        }
+    ],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+DEBUG: Token Payload - Sub: 6744ba93-f635-416d-9f85-4faf1af0ad41, MemID: 4b2e8907-7d5b-4563-a7ef-bea4fbc0021b, Tenant: 5f07e5d8-8443-418f-bb08-43cfe1497ee0
+2026-02-06 13:45:37,078 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-02-06 13:45:37,078 INFO sqlalchemy.engine.Engine SELECT set_config('app.is_system_admin', 'false', true)
+2026-02-06 13:45:37,078 INFO sqlalchemy.engine.Engine [cached since 30.6s ago] {}
+2026-02-06 13:45:37,079 INFO sqlalchemy.engine.Engine SELECT set_config('app.tenant_id', %(tenant_id)s, true)
+2026-02-06 13:45:37,079 INFO sqlalchemy.engine.Engine [cached since 30.6s ago] {'tenant_id': '5f07e5d8-8443-418f-bb08-43cfe1497ee0'}
+2026-02-06 13:45:37,081 INFO sqlalchemy.engine.Engine SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at 
+FROM memberships 
+WHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR 
+ LIMIT %(param_1)s::INTEGER
+2026-02-06 13:45:37,081 INFO sqlalchemy.engine.Engine [cached since 30.6s ago] {'id_1': UUID('4b2e8907-7d5b-4563-a7ef-bea4fbc0021b'), 'status_1': 'ACTIVE', 'param_1': 1}
+2026-02-06 13:45:37,093 INFO sqlalchemy.engine.Engine ROLLBACK
+{"exc_info": "AttributeError(\"'SQLAlchemyQuotaRepository' object has no attribute 'db'\")", "path": "/v1/app/farms", "event": "unhandled_exception", "request_id": "a1f117be-d36d-4e0a-8bb6-fc67a0766d76", "level": "error", "timestamp": "2026-02-06T13:45:37.117277Z"}
+INFO:     172.18.0.7:59522 - "POST /v1/app/farms HTTP/1.1" 500 Internal Server Error
+{
+    "name": "POST /v1/app/farms http receive",
+    "context": {
+        "trace_id": "0x693be3643208481c99103ad697af2adb",
+        "span_id": "0x5112e7b315ece1d2",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x22ca418d7cb38dca",
+    "start_time": "2026-02-06T13:45:37.076488Z",
+    "end_time": "2026-02-06T13:45:37.076521Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.request"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "connect",
+    "context": {
+        "trace_id": "0x693be3643208481c99103ad697af2adb",
+        "span_id": "0x5a984e679b75c0a5",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x22ca418d7cb38dca",
+    "start_time": "2026-02-06T13:45:37.077942Z",
+    "end_time": "2026-02-06T13:45:37.078362Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo",
+        "db.system": "postgresql"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x693be3643208481c99103ad697af2adb",
+        "span_id": "0x260767431d0168b5",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x22ca418d7cb38dca",
+    "start_time": "2026-02-06T13:45:37.078657Z",
+    "end_time": "2026-02-06T13:45:37.079287Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.is_system_admin', 'false', true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x693be3643208481c99103ad697af2adb",
+        "span_id": "0x77e0667291f22efb",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x22ca418d7cb38dca",
+    "start_time": "2026-02-06T13:45:37.079622Z",
+    "end_time": "2026-02-06T13:45:37.080198Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT set_config('app.tenant_id', %(tenant_id)s, true)",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "SELECT vivacampo",
+    "context": {
+        "trace_id": "0x693be3643208481c99103ad697af2adb",
+        "span_id": "0xf2cc369b1ed7a97e",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.CLIENT",
+    "parent_id": "0x22ca418d7cb38dca",
+    "start_time": "2026-02-06T13:45:37.081116Z",
+    "end_time": "2026-02-06T13:45:37.082132Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "db.statement": "SELECT memberships.id AS memberships_id, memberships.tenant_id AS memberships_tenant_id, memberships.identity_id AS memberships_identity_id, memberships.role AS memberships_role, memberships.status AS memberships_status, memberships.invited_by_membership_id AS memberships_invited_by_membership_id, memberships.created_at AS memberships_created_at \nFROM memberships \nWHERE memberships.id = %(id_1)s::UUID AND memberships.status = %(status_1)s::VARCHAR \n LIMIT %(param_1)s::INTEGER",
+        "db.system": "postgresql",
+        "net.peer.name": "db",
+        "net.peer.port": 5432,
+        "db.name": "vivacampo",
+        "db.user": "vivacampo"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "POST /v1/app/farms http send",
+    "context": {
+        "trace_id": "0x693be3643208481c99103ad697af2adb",
+        "span_id": "0x1eae20546ae91afb",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x22ca418d7cb38dca",
+    "start_time": "2026-02-06T13:45:37.117523Z",
+    "end_time": "2026-02-06T13:45:37.117560Z",
+    "status": {
+        "status_code": "ERROR"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.start",
+        "http.status_code": 500
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "POST /v1/app/farms http send",
+    "context": {
+        "trace_id": "0x693be3643208481c99103ad697af2adb",
+        "span_id": "0xa230782aef8559eb",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.INTERNAL",
+    "parent_id": "0x22ca418d7cb38dca",
+    "start_time": "2026-02-06T13:45:37.117792Z",
+    "end_time": "2026-02-06T13:45:37.117804Z",
+    "status": {
+        "status_code": "UNSET"
+    },
+    "attributes": {
+        "asgi.event.type": "http.response.body"
+    },
+    "events": [],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}
+{
+    "name": "POST /v1/app/farms",
+    "context": {
+        "trace_id": "0x693be3643208481c99103ad697af2adb",
+        "span_id": "0x22ca418d7cb38dca",
+        "trace_state": "[]"
+    },
+    "kind": "SpanKind.SERVER",
+    "parent_id": null,
+    "start_time": "2026-02-06T13:45:37.071181Z",
+    "end_time": "2026-02-06T13:45:37.117827Z",
+    "status": {
+        "status_code": "ERROR"
+    },
+    "attributes": {
+        "http.scheme": "http",
+        "http.host": "172.18.0.10:8000",
+        "net.host.port": 8000,
+        "http.flavor": "1.1",
+        "http.target": "/v1/app/farms",
+        "http.url": "http://api:8000/v1/app/farms",
+        "http.method": "POST",
+        "http.server_name": "api:8000",
+        "http.user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36",
+        "net.peer.ip": "172.18.0.7",
+        "net.peer.port": 59522,
+        "http.route": "/v1/app/farms",
+        "http.status_code": 500
+    },
+    "events": [
+        {
+            "name": "exception",
+            "timestamp": "2026-02-06T13:45:37.117101Z",
+            "attributes": {
+                "exception.type": "AttributeError",
+                "exception.message": "'SQLAlchemyQuotaRepository' object has no attribute 'db'",
+                "exception.stacktrace": "Traceback (most recent call last):\n  File \"/usr/local/lib/python3.11/site-packages/opentelemetry/instrumentation/fastapi/__init__.py\", line 307, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 191, in __call__\n    with recv_stream, send_stream, collapse_excgroups():\n  File \"/usr/local/lib/python3.11/contextlib.py\", line 158, in __exit__\n    self.gen.throw(typ, value, traceback)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_utils.py\", line 85, in collapse_excgroups\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 193, in __call__\n    response = await self.dispatch_func(request, call_next)\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/main.py\", line 87, in dispatch\n    response = await call_next(request)\n               ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 168, in call_next\n    raise app_exc from app_exc.__cause__ or app_exc.__context__\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/base.py\", line 144, in coro\n    await self.app(scope, receive_or_disconnect, send_no_error)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py\", line 93, in __call__\n    await self.simple_response(scope, receive, send, request_headers=headers)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/cors.py\", line 144, in simple_response\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/middleware/exceptions.py\", line 63, in __call__\n    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/middleware/asyncexitstack.py\", line 18, in __call__\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 716, in __call__\n    await self.middleware_stack(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 736, in app\n    await route.handle(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/routing.py\", line 290, in handle\n    await self.app(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 115, in app\n    await wrap_app_handling_exceptions(app, request)(scope, receive, send)\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 53, in wrapped_app\n    raise exc\n  File \"/usr/local/lib/python3.11/site-packages/starlette/_exception_handler.py\", line 42, in wrapped_app\n    await app(scope, receive, sender)\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 101, in app\n    response = await f(request)\n               ^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 355, in app\n    raw_response = await run_endpoint_function(\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/usr/local/lib/python3.11/site-packages/fastapi/routing.py\", line 243, in run_endpoint_function\n    return await dependant.call(**values)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/presentation/farms_router.py\", line 33, in create_farm\n    quota_service.check_farm_quota(str(membership.tenant_id))\n  File \"/app/app/domain/quotas.py\", line 112, in check_farm_quota\n    limits = self.get_quota_limits(tenant_id)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/domain/quotas.py\", line 78, in get_quota_limits\n    tier = self.quota_repo.get_tenant_tier(tenant_id)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/infrastructure/adapters/persistence/sqlalchemy/quota_repository.py\", line 24, in get_tenant_tier\n    result = self._execute_query(sql, {\"tenant_id\": tenant_id}, fetch_one=True)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/infrastructure/adapters/persistence/sqlalchemy/base_repository.py\", line 24, in _execute_query\n    result = self.db.execute(text(sql), params)\n             ^^^^^^^\nAttributeError: 'SQLAlchemyQuotaRepository' object has no attribute 'db'\n",
+                "exception.escaped": "False"
+            }
+        }
+    ],
+    "links": [],
+    "resource": {
+        "attributes": {
+            "telemetry.sdk.language": "python",
+            "telemetry.sdk.name": "opentelemetry",
+            "telemetry.sdk.version": "1.39.1",
+            "service.name": "vivacampo-api"
+        },
+        "schema_url": ""
+    }
+}

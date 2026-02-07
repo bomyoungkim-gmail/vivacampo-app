@@ -319,6 +319,79 @@ END $$;
 
 ## Pending Migration Plans
 
+### Add AOI parent + Field Calibrations
+**Reason:** Suportar divisão de macro-área em talhões e registrar calibrações de campo.  
+**Migration:** `infra/migrations/sql/008_add_aoi_parent_and_field_calibrations.sql`  
+**Rollback:**
+```sql
+ALTER TABLE aois DROP CONSTRAINT IF EXISTS aois_parent_aoi_fk;
+ALTER TABLE aois DROP COLUMN IF EXISTS parent_aoi_id;
+DROP TABLE IF EXISTS field_calibrations;
+DROP INDEX IF EXISTS aois_parent_idx;
+DROP INDEX IF EXISTS field_calibrations_aoi_time_idx;
+DROP INDEX IF EXISTS field_calibrations_active_idx;
+DROP INDEX IF EXISTS field_calibrations_version_idx;
+```
+
+### Add split_batches for idempotent splits
+**Reason:** Evitar duplicação de AOIs em confirmações repetidas.  
+**Migration:** `infra/migrations/sql/009_add_split_batches.sql`  
+**Rollback:**
+```sql
+DROP TABLE IF EXISTS split_batches;
+DROP INDEX IF EXISTS split_batches_parent_idx;
+```
+
+### Add field_feedback for paddock feedback
+**Reason:** Registrar feedback de campo (issue/false positive) por talhão.  
+**Migration:** `infra/migrations/sql/010_add_field_feedback.sql`  
+**Rollback:**
+```sql
+DROP TABLE IF EXISTS field_feedback;
+DROP INDEX IF EXISTS field_feedback_aoi_time_idx;
+```
+
+### Add local auth credentials to identities
+**Reason:** Suportar login local (email/senha) e reset de senha.  
+**Migration:** `infra/migrations/sql/011_add_identity_local_credentials.sql`  
+**Rollback:**
+```sql
+ALTER TABLE identities
+  DROP COLUMN IF EXISTS password_hash,
+  DROP COLUMN IF EXISTS password_reset_token,
+  DROP COLUMN IF EXISTS password_reset_expires_at;
+DROP INDEX IF EXISTS identities_provider_email_idx;
+```
+
+### Add farm ownership (created_by_user_id)
+**Reason:** Registrar ownership de fazendas para regras de EDITOR vs TENANT_ADMIN.  
+**Migration:** `infra/migrations/sql/012_add_farm_created_by_user.sql`  
+**Rollback:**
+```sql
+ALTER TABLE farms
+  DROP COLUMN IF EXISTS created_by_user_id;
+DROP INDEX IF EXISTS farms_created_by_user_idx;
+```
+
+### Add Composite Indexes for Tenant Queries
+**Reason:** Improve p95 for tenant-scoped queries on jobs, AOIs, and signals.  
+**Plan:** Create concurrent composite indexes.  
+**Migration:** `infra/migrations/sql/006_add_tenant_query_indexes.sql`  
+**Rollback:**
+```sql
+DROP INDEX CONCURRENTLY IF EXISTS idx_jobs_tenant_status_created;
+DROP INDEX CONCURRENTLY IF EXISTS idx_aois_tenant_status;
+DROP INDEX CONCURRENTLY IF EXISTS idx_opportunity_signals_tenant_week;
+```
+
+### Add STAC Scene Cache Table
+**Reason:** Cache STAC scene metadata for provider fallback and resilience.  
+**Migration:** `infra/migrations/sql/007_add_stac_scene_cache.sql`  
+**Rollback:**
+```sql
+DROP TABLE IF EXISTS stac_scene_cache;
+```
+
 ### Add Timestamps to `derived_weather_daily`
 **Reason:** Worker upsert expects `updated_at`, but older tables may not have the column.  
 **Plan:** Add columns if missing, with defaults.  
@@ -332,4 +405,4 @@ ALTER TABLE derived_weather_daily
 ---
 
 ## Last Updated
-2026-02-05
+2026-02-06

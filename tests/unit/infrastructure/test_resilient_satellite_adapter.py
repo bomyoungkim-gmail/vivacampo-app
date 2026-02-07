@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 from worker.domain.ports.satellite_provider import ISatelliteProvider, SatelliteScene
@@ -43,7 +43,7 @@ class _StubProvider(ISatelliteProvider):
 def _scene() -> SatelliteScene:
     return SatelliteScene(
         id="scene-1",
-        datetime=datetime.utcnow(),
+        datetime=datetime.now(timezone.utc),
         cloud_cover=0.0,
         platform="sentinel",
         collection="sentinel-2-l2a",
@@ -58,7 +58,7 @@ def test_resilient_adapter_uses_fallback_when_primary_fails():
     fallback = _StubProvider("fallback", scenes=[_scene()], fail=False)
     adapter = ResilientSatelliteAdapter(primary=primary, fallback=fallback, circuit_failure_threshold=1)
 
-    scenes = asyncio.run(adapter.search_scenes({}, datetime.utcnow(), datetime.utcnow()))
+    scenes = asyncio.run(adapter.search_scenes({}, datetime.now(timezone.utc), datetime.now(timezone.utc)))
     assert len(scenes) == 1
     assert primary.calls == 1
     assert fallback.calls == 1
@@ -74,8 +74,8 @@ def test_resilient_adapter_skips_primary_when_circuit_open():
         circuit_recovery_timeout_seconds=9999,
     )
 
-    asyncio.run(adapter.search_scenes({}, datetime.utcnow(), datetime.utcnow()))
-    asyncio.run(adapter.search_scenes({}, datetime.utcnow(), datetime.utcnow()))
+    asyncio.run(adapter.search_scenes({}, datetime.now(timezone.utc), datetime.now(timezone.utc)))
+    asyncio.run(adapter.search_scenes({}, datetime.now(timezone.utc), datetime.now(timezone.utc)))
 
     assert primary.calls == 1
     assert fallback.calls == 2

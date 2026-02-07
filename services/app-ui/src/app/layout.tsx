@@ -8,7 +8,7 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
     title: 'VivaCampo - Monitoramento Agrícola',
     description: 'Plataforma de monitoramento agrícola via satélite',
-    manifest: '/app/manifest.json',
+    manifest: '/manifest.json',
 }
 
 export const viewport: Viewport = {

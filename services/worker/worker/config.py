@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     max_cloud_cover: int = 100
     min_valid_pixel_ratio: float = 0.01
 
+    # Providers
+    satellite_provider: str = "planetary_computer"
+    weather_provider: str = "open_meteo"
+    satellite_fallback_providers: str = ""
+    cdse_client_id: str | None = None
+    cdse_client_secret: str | None = None
+
     # Dynamic Tiling (ADR-0007)
     # When enabled, skips per-AOI COG generation and uses MosaicJSON + TiTiler instead
     use_dynamic_tiling: bool = True  # Default to new architecture

@@ -46,6 +46,15 @@ interface MapComponentProps {
     processingAois?: Set<string>
     signals?: any[]
     onMapReady?: (map: any) => void
+    splitPreviewPolygons?: Array<{ id: string; geometry_wkt: string; area_ha?: number; name?: string }>
+    splitSelectedIds?: string[]
+    splitEditableId?: string | null
+    splitMaxAreaHa?: number
+    onSplitPreviewUpdate?: (id: string, geometryWkt: string, areaHa: number) => void
+    onSplitPreviewSelect?: (id: string) => void
+    mergeModeActive?: boolean
+    mergeSelectedIds?: string[]
+    onMergeSelect?: (id: string) => void
 }
 
 export default function MapComponent(props: MapComponentProps) {

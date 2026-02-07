@@ -3,24 +3,18 @@ from __future__ import annotations
 
 import structlog
 
-import planetary_computer
-from pystac_client import Client
+import asyncio
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from worker.config import settings
 from worker.domain.ports.mosaic_provider import MosaicProvider, MosaicRegistry, MosaicStorage
 from worker.shared.aws_clients import S3Client
+from worker.pipeline.providers.registry import get_satellite_provider
 
 logger = structlog.get_logger()
 
-PC_STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
-
-
 class PlanetaryComputerMosaicProvider(MosaicProvider):
-    def __init__(self, stac_url: str = PC_STAC_URL) -> None:
-        self._stac_url = stac_url
-
     def search_scenes(
         self,
         *,
@@ -31,18 +25,17 @@ class PlanetaryComputerMosaicProvider(MosaicProvider):
         max_cloud_cover: float,
         max_items: int,
     ):
-        catalog = Client.open(self._stac_url, modifier=planetary_computer.sign_inplace)
-        query = {}
-        if collection == "sentinel-2-l2a":
-            query["eo:cloud_cover"] = {"lt": max_cloud_cover}
-        search = catalog.search(
-            collections=[collection],
-            bbox=bbox,
-            datetime=f"{start_date}/{end_date}",
-            query=query if query else None,
-            max_items=max_items,
+        provider = get_satellite_provider()
+        return asyncio.run(
+            provider.search_raw_items(
+                bbox=bbox,
+                start_date=start_date,
+                end_date=end_date,
+                max_cloud_cover=max_cloud_cover,
+                collections=[collection],
+                max_items=max_items,
+            )
         )
-        return search.items()
 
 
 class S3MosaicStorage(MosaicStorage):

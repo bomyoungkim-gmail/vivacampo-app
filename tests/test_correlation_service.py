@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from app.application.correlation import CorrelationService
 from app.database import SessionLocal
+from app.infrastructure.adapters.persistence.sqlalchemy.correlation_repository import SQLAlchemyCorrelationRepository
 
 
 def _seed_minimal_data(db, tenant_id, identity_id, membership_id, farm_id, aoi_id):
@@ -12,11 +13,15 @@ def _seed_minimal_data(db, tenant_id, identity_id, membership_id, farm_id, aoi_i
         text(
             """
             INSERT INTO identities (id, provider, subject, email, name, status)
-            VALUES (:id, 'local', 'local-test', 'local.test@vivacampo.com', 'Local Test', 'ACTIVE')
+            VALUES (:id, 'local', :subject, :email, 'Local Test', 'ACTIVE')
             ON CONFLICT DO NOTHING
             """
         ),
-        {"id": identity_id},
+        {
+            "id": identity_id,
+            "subject": f"local-test-{identity_id}",
+            "email": f"local.test+{identity_id}@vivacampo.com",
+        },
     )
     db.execute(
         text(
@@ -137,8 +142,8 @@ def test_correlation_service_weather_columns():
 
         db.commit()
 
-        service = CorrelationService(db)
-        data = service.fetch_correlation_data(aoi_id, tenant_id, weeks=2)
+        service = CorrelationService(SQLAlchemyCorrelationRepository(db))
+        data = service.fetch_correlation_data(aoi_id, tenant_id, weeks=4)
 
         target_key = f"{year}-W{week:02d}"
         row = next((item for item in data if item["date"] == target_key), None)

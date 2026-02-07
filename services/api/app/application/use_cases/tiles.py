@@ -6,6 +6,7 @@ from datetime import timedelta
 import httpx
 import structlog
 
+from app.application.decorators import require_tenant
 from app.application.dtos.tiles import (
     TileExportCommand,
     TileExportResult,
@@ -25,6 +26,7 @@ class GetAoiTileUseCase:
     def __init__(self, repo: IAoiSpatialRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: TileRequestCommand) -> TileRedirect:
         exists = await self.repo.exists(command.tenant_id, command.aoi_id)
         if not exists:
@@ -50,6 +52,7 @@ class GetAoiTileJsonUseCase:
         self.cdn_enabled = cdn_enabled
         self.cdn_tiles_url = cdn_tiles_url
 
+    @require_tenant
     async def execute(self, command: TileJsonCommand) -> dict:
         meta = await self.repo.get_tilejson_metadata(command.tenant_id, command.aoi_id)
         if not meta:
@@ -93,6 +96,7 @@ class RequestAoiExportUseCase:
         self.repo = repo
         self.storage = storage
 
+    @require_tenant
     async def execute(self, command: TileExportCommand) -> TileExportResult:
         meta = await self.repo.get_tilejson_metadata(command.tenant_id, command.aoi_id)
         if not meta:
@@ -131,6 +135,7 @@ class GetAoiExportStatusUseCase:
     def __init__(self, storage: IObjectStorage):
         self.storage = storage
 
+    @require_tenant
     async def execute(self, command: TileExportStatusCommand) -> TileExportResult:
         if not command.year or not command.week:
             year, week = get_current_iso_week()

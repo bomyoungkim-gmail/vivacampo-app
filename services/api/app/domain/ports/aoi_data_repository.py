@@ -16,3 +16,8 @@ class IAoiDataRepository(ABC):
     @abstractmethod
     async def get_history(self, tenant_id: TenantId, aoi_id: UUID, limit: int = 52) -> List[dict]:
         raise NotImplementedError
+
+    @abstractmethod
+    async def get_index_for_week(self, tenant_id: TenantId, aoi_id: UUID, year: int, week: int) -> dict | None:
+        """Return index stats for a given year/week (e.g., ndvi_mean)."""
+        raise NotImplementedError

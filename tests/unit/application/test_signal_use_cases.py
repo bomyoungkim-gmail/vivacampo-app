@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.application.dtos.signals import AckSignalCommand, GetSignalCommand, ListSignalsCommand
@@ -53,7 +53,7 @@ def _signal(signal_id):
         "change_method": "BFast",
         "evidence_json": {},
         "recommended_actions": ["Check"],
-        "created_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
     }
 
 

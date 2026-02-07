@@ -4,6 +4,7 @@ from __future__ import annotations
 import base64
 from typing import Optional
 
+from app.application.decorators import require_tenant
 from app.application.dtos.signals import (
     AckSignalCommand,
     GetSignalCommand,
@@ -31,6 +32,7 @@ class ListSignalsUseCase:
     def __init__(self, repo: ISignalRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: ListSignalsCommand) -> ListSignalsResult:
         cursor_id, cursor_created = _decode_cursor(command.cursor)
         signals, has_more = await self.repo.list_signals(
@@ -53,6 +55,7 @@ class GetSignalUseCase:
     def __init__(self, repo: ISignalRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: GetSignalCommand) -> SignalResult | None:
         signal = await self.repo.get_signal(command.tenant_id, command.signal_id)
         if not signal:
@@ -64,5 +67,6 @@ class AckSignalUseCase:
     def __init__(self, repo: ISignalRepository):
         self.repo = repo
 
+    @require_tenant
     async def execute(self, command: AckSignalCommand) -> bool:
         return await self.repo.acknowledge(command.tenant_id, command.signal_id)

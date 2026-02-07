@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import uuid
 
-import httpx
 import pytest
 from jose import jwt
 
@@ -101,21 +100,25 @@ def ensure_db_schema() -> None:
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS tenant_settings (
                 tenant_id uuid PRIMARY KEY,
-                tier text NOT NULL DEFAULT 'PERSONAL',
+                max_cloud_cover int NOT NULL DEFAULT 60,
                 min_valid_pixel_ratio double precision NOT NULL DEFAULT 0.15,
-                alert_thresholds_json text NULL
+                alert_thresholds jsonb NOT NULL DEFAULT '{}'::jsonb,
+                notifications jsonb NOT NULL DEFAULT '{}'::jsonb,
+                updated_at timestamptz NOT NULL DEFAULT now(),
+                updated_by_membership_id uuid NULL
             )
         """))
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS audit_log (
                 id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-                tenant_id text NOT NULL,
-                actor_membership_id text NULL,
+                tenant_id uuid NULL,
+                actor_type text NOT NULL,
+                actor_id uuid NULL,
                 action text NOT NULL,
                 resource_type text NOT NULL,
-                resource_id text NULL,
-                changes_json text NULL,
-                metadata_json text NULL,
+                resource_id uuid NULL,
+                diff_json jsonb NULL,
+                metadata_json jsonb NULL,
                 created_at timestamptz NOT NULL DEFAULT now()
             )
         """))
@@ -170,29 +173,52 @@ def oidc_id_token() -> str:
     return _build_oidc_token()
 
 
-async def _get_session_token() -> str:
-    id_token = _build_oidc_token()
-    async with httpx.AsyncClient() as client:
-        login = await client.post(
-            "http://localhost:8000/v1/auth/oidc/login",
-            json={"provider": "local", "id_token": id_token},
+def _create_local_session_token() -> str:
+    from app.auth.utils import create_session_token
+    from app.database import SessionLocal
+    from app.infrastructure.models import Identity, Membership, Tenant
+
+    with SessionLocal() as db:
+        tenant = Tenant(
+            type="PERSONAL",
+            name=f"Test Tenant {uuid.uuid4()}",
+            status="ACTIVE",
+            plan="BASIC",
+            quotas={},
         )
-        login.raise_for_status()
-        workspaces = login.json().get("workspaces", [])
-        if not workspaces:
-            raise RuntimeError("OIDC login returned no workspaces")
-        tenant_id = workspaces[0]["tenant_id"]
-        switch = await client.post(
-            "http://localhost:8000/v1/auth/workspaces/switch",
-            json={"tenant_id": tenant_id},
+        db.add(tenant)
+        db.flush()
+
+        identity = Identity(
+            provider="local",
+            subject=f"test-user-{uuid.uuid4()}",
+            email=f"test-user-{uuid.uuid4()}@example.com",
+            name="Test User",
+            status="ACTIVE",
         )
-        switch.raise_for_status()
-        return switch.json()["access_token"]
+        db.add(identity)
+        db.flush()
+
+        membership = Membership(
+            tenant_id=tenant.id,
+            identity_id=identity.id,
+            role="TENANT_ADMIN",
+            status="ACTIVE",
+        )
+        db.add(membership)
+        db.commit()
+
+        return create_session_token(
+            tenant_id=tenant.id,
+            membership_id=membership.id,
+            identity_id=identity.id,
+            role="TENANT_ADMIN",
+        )
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 async def session_token() -> str:
-    return await _get_session_token()
+    return _create_local_session_token()
 
 
 @pytest.fixture

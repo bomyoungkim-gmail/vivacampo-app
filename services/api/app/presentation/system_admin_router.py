@@ -1,25 +1,24 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.presentation.error_responses import DEFAULT_ERROR_RESPONSES
-from sqlalchemy.orm import Session
 from typing import List, Optional
 from uuid import UUID
 
-from app.database import get_db
 from app.auth.dependencies import get_current_system_admin
-from app.schemas import TenantView, TenantCreate, TenantPatch, SystemJobView
-from app.domain.audit import get_audit_logger
+from app.schemas import TenantView, TenantCreate, TenantPatch, SystemJobView, ReprocessJobsRequest
 from app.application.dtos.system_admin import (
     CreateTenantCommand,
     GlobalAuditLogCommand,
     ListMissingWeeksCommand,
     ListSystemJobsCommand,
     ListTenantsCommand,
+    ReprocessJobsCommand,
     ReprocessMissingAoisCommand,
     ReprocessMissingWeeksCommand,
     RetryJobCommand,
     UpdateTenantCommand,
 )
-from app.infrastructure.di_container import ApiContainer
+from app.infrastructure.di_container import ApiContainer, get_container
+from app.config import settings
 import structlog
 import json
 
@@ -32,13 +31,12 @@ async def list_tenants(
     tenant_type: Optional[str] = None,
     limit: int = 50,
     system_admin = Depends(get_current_system_admin),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     List all tenants (SYSTEM_ADMIN only).
     """
-    container = ApiContainer()
-    use_case = container.list_tenants_use_case(db)
+    use_case = container.list_tenants_use_case()
     rows = await use_case.execute(ListTenantsCommand(tenant_type=tenant_type, limit=limit))
     return [
         TenantView(
@@ -56,19 +54,18 @@ async def list_tenants(
 async def create_tenant(
     tenant_data: TenantCreate,
     system_admin = Depends(get_current_system_admin),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Create a new tenant (SYSTEM_ADMIN only).
     """
-    container = ApiContainer()
-    use_case = container.create_tenant_use_case(db)
+    use_case = container.create_tenant_use_case()
     row = await use_case.execute(
         CreateTenantCommand(name=tenant_data.name, tenant_type=tenant_data.type)
     )
     
     # Audit log
-    audit = get_audit_logger(db)
+    audit = container.audit_logger()
     audit.log(
         tenant_id="SYSTEM",
         actor_membership_id=None,
@@ -92,14 +89,13 @@ async def update_tenant(
     tenant_id: UUID,
     tenant_patch: TenantPatch,
     system_admin = Depends(get_current_system_admin),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Update tenant (SYSTEM_ADMIN only).
     Can change status (ACTIVE/SUSPENDED).
     """
-    container = ApiContainer()
-    use_case = container.update_tenant_use_case(db)
+    use_case = container.update_tenant_use_case()
     result = await use_case.execute(
         UpdateTenantCommand(tenant_id=tenant_id, status=tenant_patch.status)
     )
@@ -110,7 +106,7 @@ async def update_tenant(
     old_status = result["before"]
     
     # Audit log
-    audit = get_audit_logger(db)
+    audit = container.audit_logger()
     audit.log(
         tenant_id="SYSTEM",
         actor_membership_id=None,
@@ -129,13 +125,12 @@ async def list_all_jobs(
     job_type: Optional[str] = None,
     limit: int = 100,
     system_admin = Depends(get_current_system_admin),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     List all jobs across all tenants (SYSTEM_ADMIN only).
     """
-    container = ApiContainer()
-    use_case = container.list_system_jobs_use_case(db)
+    use_case = container.list_system_jobs_use_case()
     rows = await use_case.execute(
         ListSystemJobsCommand(status=status, job_type=job_type, limit=limit)
     )
@@ -161,19 +156,18 @@ async def list_all_jobs(
 async def admin_retry_job(
     job_id: UUID,
     system_admin = Depends(get_current_system_admin),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Retry any job (SYSTEM_ADMIN only).
     """
-    container = ApiContainer()
-    use_case = container.system_retry_job_use_case(db)
+    use_case = container.system_retry_job_use_case()
     ok = await use_case.execute(RetryJobCommand(job_id=job_id))
     if not ok:
         raise HTTPException(status_code=404, detail="Job not found or cannot be retried")
     
     # Audit log
-    audit = get_audit_logger(db)
+    audit = container.audit_logger()
     audit.log(
         tenant_id="SYSTEM",
         actor_membership_id=None,
@@ -185,23 +179,43 @@ async def admin_retry_job(
     return {"message": "Job retry requested"}
 
 
+@router.post("/admin/jobs/reprocess")
+async def reprocess_jobs(
+    request: ReprocessJobsRequest,
+    system_admin = Depends(get_current_system_admin),
+    container: ApiContainer = Depends(get_container),
+):
+    """
+    Reprocess jobs for a given week (SYSTEM_ADMIN only).
+    """
+    use_case = container.reprocess_jobs_use_case()
+    return await use_case.execute(
+        ReprocessJobsCommand(
+            tenant_id=request.tenant_id,
+            aoi_id=request.aoi_id,
+            year=request.year,
+            week=request.week,
+            job_types=request.job_types,
+        )
+    )
+
+
 @router.post("/admin/ops/reprocess-missing-aois")
 async def reprocess_missing_aois(
     days: int = 56,
     limit: int = 200,
     system_admin = Depends(get_current_system_admin),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Enqueue BACKFILL jobs for AOIs with no derived assets.
     """
-    container = ApiContainer()
-    use_case = container.reprocess_missing_aois_use_case(db)
+    use_case = container.reprocess_missing_aois_use_case()
     result = await use_case.execute(
         ReprocessMissingAoisCommand(days=days, limit=limit)
     )
 
-    audit = get_audit_logger(db)
+    audit = container.audit_logger()
     audit.log(
         tenant_id="SYSTEM",
         actor_membership_id=None,
@@ -223,13 +237,12 @@ async def list_missing_weeks(
     weeks: int = 12,
     limit: int = 50,
     system_admin = Depends(get_current_system_admin),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     List missing weekly observations for active AOIs in the last N weeks.
     """
-    container = ApiContainer()
-    use_case = container.list_missing_weeks_use_case(db)
+    use_case = container.list_missing_weeks_use_case()
     return await use_case.execute(ListMissingWeeksCommand(weeks=weeks, limit=limit))
 
 
@@ -239,13 +252,12 @@ async def reprocess_missing_weeks(
     limit: int = 50,
     max_runs_per_aoi: int = 3,
     system_admin = Depends(get_current_system_admin),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Enqueue BACKFILL jobs for missing weekly observations in the last N weeks.
     """
-    container = ApiContainer()
-    use_case = container.reprocess_missing_weeks_use_case(db)
+    use_case = container.reprocess_missing_weeks_use_case()
     result = await use_case.execute(
         ReprocessMissingWeeksCommand(
             weeks=weeks,
@@ -254,7 +266,7 @@ async def reprocess_missing_weeks(
         )
     )
 
-    audit = get_audit_logger(db)
+    audit = container.audit_logger()
     audit.log(
         tenant_id="SYSTEM",
         actor_membership_id=None,
@@ -274,26 +286,24 @@ async def reprocess_missing_weeks(
 @router.get("/admin/ops/health")
 async def system_health(
     system_admin = Depends(get_current_system_admin),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     System-wide health check (SYSTEM_ADMIN only).
     """
-    container = ApiContainer()
-    use_case = container.system_health_use_case(db)
+    use_case = container.system_health_use_case()
     return await use_case.execute()
 
 
 @router.get("/admin/ops/queues")
 async def queue_stats(
     system_admin = Depends(get_current_system_admin),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Queue statistics (SYSTEM_ADMIN only).
     """
-    container = ApiContainer()
-    use_case = container.queue_stats_use_case(db)
+    use_case = container.queue_stats_use_case()
     return await use_case.execute()
 
 
@@ -301,13 +311,12 @@ async def queue_stats(
 async def global_audit_log(
     limit: int = 100,
     system_admin = Depends(get_current_system_admin),
-    db: Session = Depends(get_db)
+    container: ApiContainer = Depends(get_container)
 ):
     """
     Global audit log (SYSTEM_ADMIN only).
     """
-    container = ApiContainer()
-    use_case = container.global_audit_log_use_case(db)
+    use_case = container.global_audit_log_use_case()
     rows = await use_case.execute(GlobalAuditLogCommand(limit=limit))
     logs = []
     for row in rows:
@@ -323,3 +332,36 @@ async def global_audit_log(
             }
         )
     return logs
+
+
+@router.get("/admin/providers/status")
+async def providers_status(
+    system_admin = Depends(get_current_system_admin),
+):
+    """
+    Provider status (SYSTEM_ADMIN only).
+    """
+    provider_names = [settings.satellite_provider]
+    fallbacks = [n.strip() for n in settings.satellite_fallback_providers.split(",") if n.strip()]
+    provider_names.extend(fallbacks)
+
+    providers = [
+        {
+            "name": name,
+            "status": "unknown",
+            "circuit_state": "UNKNOWN",
+            "calls_24h": None,
+            "errors_24h": None,
+            "avg_latency_ms": None,
+        }
+        for name in provider_names
+    ]
+
+    return {
+        "providers": providers,
+        "cache": {
+            "scenes_cached": None,
+            "oldest_scene": None,
+            "newest_scene": None,
+        },
+    }

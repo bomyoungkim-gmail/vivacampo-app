@@ -42,6 +42,17 @@ export default function AOIList({
         return signals.filter(s => s.aoi_id === aoiId).length
     }
 
+    const getSignalBadges = (aoiId: string) => {
+        const aoiSignals = signals.filter((signal) => signal.aoi_id === aoiId)
+        const types = new Set<string>()
+        aoiSignals.forEach((signal) => {
+            if (signal.signal_type === 'CROP_STRESS') types.add('water_stress')
+            else if (signal.signal_type === 'PEST_OUTBREAK') types.add('disease_risk')
+            else if (signal.signal_type === 'PASTURE_FORAGE_RISK') types.add('yield_risk')
+        })
+        return Array.from(types)
+    }
+
     return (
         <div className="flex flex-col h-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
             {/* Header: Search & Filter */}
@@ -153,6 +164,24 @@ export default function AOIList({
                                         </span>
                                     </div>
                                 </div>
+
+                                {getSignalBadges(aoi.id).length > 0 && (
+                                    <div className="mt-2 flex flex-wrap gap-1">
+                                        {getSignalBadges(aoi.id).map((badge) => (
+                                            <span
+                                                key={badge}
+                                                title={badge === 'water_stress' ? 'Water Stress' : badge === 'disease_risk' ? 'Disease Risk' : 'Yield Risk'}
+                                                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full uppercase
+                                                    ${badge === 'water_stress' ? 'bg-blue-100 text-blue-700'
+                                                        : badge === 'disease_risk' ? 'bg-red-100 text-red-700'
+                                                            : 'bg-orange-100 text-orange-700'}
+                                                `}
+                                            >
+                                                {badge === 'water_stress' ? 'Water' : badge === 'disease_risk' ? 'Disease' : 'Yield'}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
 
                                 {/* Simple Sparkline Placeholder (Can be replaced with real chart later) */}
                                 {!isProcessing && (

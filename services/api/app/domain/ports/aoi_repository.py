@@ -43,3 +43,8 @@ class IAOIRepository(ABC):
         limit: int = 100,
     ) -> List[AOI]:
         raise NotImplementedError
+
+    @abstractmethod
+    async def normalize_geometry(self, geometry_wkt: str) -> tuple[str, float]:
+        """Return normalized geometry WKT and area in hectares."""
+        raise NotImplementedError

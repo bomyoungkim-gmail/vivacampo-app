@@ -24,6 +24,18 @@ import type {
     RawDerivedAssets,
     RawRadarAssets,
     WeatherData,
+    AoiSplitSimulationRequest,
+    AoiSplitSimulationResponse,
+    AoiSplitCreateRequest,
+    AoiSplitCreateResponse,
+    AoiStatusRequest,
+    AoiStatusResponse,
+    FieldCalibrationCreateRequest,
+    FieldCalibrationCreateResponse,
+    PredictionResponse,
+    InviteMemberRequest,
+    InviteMemberResponse,
+    Membership,
 } from './types'
 
 const api = axios.create({
@@ -167,6 +179,15 @@ export const aoiAPI = {
 
     getNitrogenStatus: (id: string) =>
         api.get(`/v1/app/aois/${id}/nitrogen/status`),
+
+    simulateSplit: (data: AoiSplitSimulationRequest): Promise<AxiosResponse<AoiSplitSimulationResponse>> =>
+        api.post('/v1/app/aois/simulate-split', data),
+
+    splitAois: (data: AoiSplitCreateRequest): Promise<AxiosResponse<AoiSplitCreateResponse>> =>
+        api.post('/v1/app/aois/split', data),
+
+    getStatus: (data: AoiStatusRequest): Promise<AxiosResponse<AoiStatusResponse>> =>
+        api.post('/v1/app/aois/status', data),
 }
 
 // =============================================================================
@@ -209,6 +230,18 @@ export const jobAPI = {
 }
 
 // =============================================================================
+// Analytics API
+// =============================================================================
+
+export const analyticsAPI = {
+    createFieldCalibration: (data: FieldCalibrationCreateRequest): Promise<AxiosResponse<FieldCalibrationCreateResponse>> =>
+        api.post('/v1/app/field-data', data),
+
+    getPrediction: (aoiId: string, metricType: 'biomass' | 'yield'): Promise<AxiosResponse<PredictionResponse>> =>
+        api.get('/v1/app/analytics/prediction', { params: { aoi_id: aoiId, metric_type: metricType } }),
+}
+
+// =============================================================================
 // AI Assistant API
 // =============================================================================
 
@@ -230,4 +263,16 @@ export const aiAssistantAPI = {
 
     decide: (approvalId: string, data: AIApprovalDecisionRequest): Promise<AxiosResponse<AIApproval>> =>
         api.post(`/v1/app/ai-assistant/approvals/${approvalId}/decide`, data),
+}
+
+// =============================================================================
+// Tenant Admin API
+// =============================================================================
+
+export const tenantAdminAPI = {
+    listMembers: (): Promise<AxiosResponse<Membership[]>> =>
+        api.get('/v1/admin/tenant/members'),
+
+    inviteMember: (data: InviteMemberRequest): Promise<AxiosResponse<InviteMemberResponse>> =>
+        api.post('/v1/admin/tenant/members/invite', data),
 }

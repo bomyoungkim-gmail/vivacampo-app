@@ -1,7 +1,7 @@
 """
 Farm domain entity.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID, uuid4
 from zoneinfo import available_timezones
@@ -10,11 +10,13 @@ from pydantic import Field, field_validator
 
 from app.domain.base import DomainEntity
 from app.domain.value_objects.tenant_id import TenantId
+from app.domain.entities.user import UserRole
 
 
 class Farm(DomainEntity):
     id: UUID = Field(default_factory=uuid4)
     tenant_id: TenantId
+    created_by_user_id: Optional[UUID] = None
     name: str = Field(min_length=3, max_length=100)
     timezone: str = Field(default="America/Sao_Paulo")
     aoi_count: int = 0
@@ -37,4 +39,13 @@ class Farm(DomainEntity):
 
     def update_name(self, new_name: str) -> None:
         self.name = new_name
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
+
+    def can_edit(self, user_id: UUID, user_role: UserRole) -> bool:
+        if user_role == UserRole.SYSTEM_ADMIN:
+            return True
+        if user_role == UserRole.TENANT_ADMIN:
+            return True
+        if user_role == UserRole.EDITOR:
+            return self.created_by_user_id == user_id
+        return False
