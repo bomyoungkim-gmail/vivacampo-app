@@ -33,6 +33,8 @@ import type {
     FieldCalibrationCreateRequest,
     FieldCalibrationCreateResponse,
     PredictionResponse,
+    AnalyticsEventRequest,
+    AdoptionMetricsResponse,
     InviteMemberRequest,
     InviteMemberResponse,
     Membership,
@@ -45,7 +47,7 @@ const api = axios.create({
     },
 })
 
-import useUserStore from '@/stores/useUserStore'
+import useUserStore from '../stores/useUserStore'
 
 // Add auth token to requests
 api.interceptors.request.use((config) => {
@@ -239,6 +241,12 @@ export const analyticsAPI = {
 
     getPrediction: (aoiId: string, metricType: 'biomass' | 'yield'): Promise<AxiosResponse<PredictionResponse>> =>
         api.get('/v1/app/analytics/prediction', { params: { aoi_id: aoiId, metric_type: metricType } }),
+
+    trackEvent: (data: AnalyticsEventRequest): Promise<AxiosResponse<{ status: string }>> =>
+        api.post('/v1/app/analytics/events', data),
+
+    getAdoptionSummary: (): Promise<AxiosResponse<AdoptionMetricsResponse>> =>
+        api.get('/v1/app/analytics/adoption'),
 }
 
 // =============================================================================

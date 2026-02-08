@@ -9,9 +9,9 @@ const openSans = Open_Sans({ subsets: ['latin'], weight: ['400', '500', '600'] }
 export default function ContactPage() {
     return (
         <div className={`min-h-screen bg-[#EFF6FF] text-[#1E3A8A] ${openSans.className}`}>
-            <div className="mx-auto max-w-3xl px-6 py-16">
+            <main className="mx-auto max-w-3xl px-6 py-16">
                 <h1 className={`text-3xl font-bold text-slate-900 ${poppins.className}`}>Fale com a VivaCampo</h1>
-                <p className="mt-4 text-slate-600">
+                <p className="mt-4 text-slate-700">
                     Compartilhe o tamanho da sua operação e nossos especialistas vão indicar o melhor plano.
                 </p>
 
@@ -21,6 +21,7 @@ export default function ContactPage() {
                         <input
                             id="name"
                             type="text"
+                            autoComplete="name"
                             required
                             className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500"
                             placeholder="Seu nome"
@@ -32,6 +33,8 @@ export default function ContactPage() {
                         <input
                             id="email"
                             type="email"
+                            inputMode="email"
+                            autoComplete="email"
                             required
                             className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500"
                             placeholder="seu@email.com"
@@ -43,6 +46,7 @@ export default function ContactPage() {
                         <input
                             id="company"
                             type="text"
+                            autoComplete="organization"
                             className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500"
                             placeholder="Nome da fazenda"
                         />
@@ -53,6 +57,7 @@ export default function ContactPage() {
                         <textarea
                             id="message"
                             rows={4}
+                            autoComplete="off"
                             className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500"
                             placeholder="Conte sobre seus desafios"
                         />
@@ -60,22 +65,22 @@ export default function ContactPage() {
 
                     <button
                         type="submit"
-                        className="w-full rounded-lg bg-green-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-green-700 cursor-pointer"
+                        className="w-full rounded-lg bg-green-700 px-6 py-3 font-semibold text-white transition-colors hover:bg-green-800 cursor-pointer"
                     >
                         Enviar mensagem
                     </button>
                 </form>
 
-                <div className="mt-8 text-sm text-slate-600">
+                <div className="mt-8 text-sm text-slate-700">
                     Ou fale direto pelo email: <span className="font-semibold text-slate-900">contato@vivacampo.com</span>
                 </div>
 
                 <div className="mt-8">
-                    <Link href="/" className="text-green-600 hover:text-green-700 font-semibold">
+                    <Link href="/" className="inline-flex min-h-touch items-center text-green-700 hover:text-green-800 font-semibold underline underline-offset-2">
                         Voltar para a landing page
                     </Link>
                 </div>
-            </div>
+            </main>
         </div>
     )
 }

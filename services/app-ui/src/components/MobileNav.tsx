@@ -58,7 +58,7 @@ export default function MobileNav() {
 
     return (
         <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 lg:hidden z-50 safe-area-inset-bottom">
-            <div className="grid grid-cols-5 gap-1">
+            <div className="grid grid-cols-5 gap-2">
                 {navItems.map((item) => {
                     const isActive = pathname === item.href || (item.href !== routes.dashboard && pathname.startsWith(item.href))
 
@@ -66,9 +66,14 @@ export default function MobileNav() {
                         <Link
                             key={item.href}
                             href={item.href}
-                            className={`flex flex-col items-center justify-center py-2 px-1 min-h-touch transition-colors ${isActive ? 'text-green-600' : 'text-gray-600'
+                            aria-current={isActive ? 'page' : undefined}
+                            aria-label={isActive ? `${item.label} (página atual)` : item.label}
+                            className={`relative flex flex-col items-center justify-center py-2 px-1 min-h-[44px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white ${isActive ? 'text-green-600' : 'text-gray-600'
                                 }`}
                         >
+                            {isActive && (
+                                <span className="absolute top-0 left-0 right-0 h-1 rounded-b-full bg-green-600" />
+                            )}
                             {item.icon(isActive)}
                             <span className={`text-xs mt-1 font-medium ${isActive ? 'text-green-600' : 'text-gray-600'}`}>
                                 {item.label}

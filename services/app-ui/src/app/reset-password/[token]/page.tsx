@@ -62,6 +62,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
                             <input
                                 id="password"
                                 type="password"
+                                autoComplete="new-password"
                                 required
                                 minLength={8}
                                 value={password}
@@ -78,6 +79,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
                             <input
                                 id="confirmPassword"
                                 type="password"
+                                autoComplete="new-password"
                                 required
                                 minLength={8}
                                 value={confirmPassword}
@@ -109,7 +111,7 @@ export default function ResetPasswordPage({ params }: ResetPasswordPageProps) {
                     </form>
 
                     <div className="mt-6 text-center text-sm text-gray-600">
-                        <Link href="/login" className="font-semibold text-green-600 hover:text-green-700">
+                        <Link href="/login" className="inline-flex min-h-touch items-center font-semibold text-green-600 hover:text-green-700">
                             Voltar ao login
                         </Link>
                     </div>

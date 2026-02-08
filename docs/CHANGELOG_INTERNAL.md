@@ -3,6 +3,27 @@
 > For humans. Keep it factual. Link PRs if available.
 
 ## Unreleased
+- Implemented cinematic "Portal" landing page for app-ui with 3D globe fallback, scroll animation, mobile menu overlay, and JSON-LD/Plausible scripts.
+- Added R3F/GSAP dependencies and landing page client components (Hero3D, LandingHeader).
+- Added robots/sitemap routes and CSP header updates for landing requirements.
+- Added reduced-motion safeguards, real Earth textures, CTA/scroll analytics, and landing page unit tests for hero and pricing sections.
+- Enhanced globe lighting/atmosphere, added farm/micro 3D scenes with GSAP scroll-jacking, and normalized robots/sitemap base URL via NEXT_PUBLIC_SITE_URL.
+- Added Edge Config A/B CTA, Signup Completed tracking, Video play tracker, Sentry + Vercel Analytics wiring.
+- Added Lighthouse CI workflow + budget.json and OG/Twitter assets.
+- Wired landing globe textures to KTX2 assets in public/textures/compressed with JPG/PNG fallback, including mobile LOD.
+- Added Leaflet vector tile POC using `leaflet.vectorgrid` with Protomaps tiles and raster fallback on slow connections.
+- Added network-aware base layer switching to prefer vector tiles on 4G+ and fallback to raster on 2G/3G with an economy mode indicator.
+- Added BottomSheet containment (`contain: layout`) and conditional `will-change` to keep drag animations GPU-friendly.
+- Added PWA runtime caching: cache-first AOI geometries (24h TTL), network-first dynamic AOI data, and cache invalidation per deploy.
+- Removed persistent sidebar on farm map view and replaced it with a compact overlay menu toggle.
+- Rendered management pages inside floating spatial cards over a persistent map background.
+- Added global focus-visible styles and reduced blur/animation when user prefers reduced motion/transparency.
+- Added local analytics event snapshot storage and an adoption analytics dashboard with phase metrics and key events.
+- Added analytics event ingestion/adoption endpoints and switched the adoption dashboard to backend metrics with new Spatial OS event tracking.
+- Added Storybook configuration for design-system components (via app-ui) with a11y/interactions addons.
+- Added Storybook dependencies and scripts to app-ui; expanded Tailwind content to include design-system components.
+- Aligned Storybook stack to `@storybook/nextjs` (v8.4.7) in app-ui and updated preview backgrounds/tokens import.
+- Switched Storybook framework to `@storybook/react-webpack5` for component library stability; added dependency.
 - Addressed `datetime.utcnow()` deprecation by switching to timezone-aware `datetime.now(timezone.utc)` across code/tests.
 - Bumped `python-multipart` and `planetary-computer` minimum versions to reduce deprecation warnings.
 - Added `created_by_user_id` to farm API responses for ownership-aware UI.
@@ -117,6 +138,23 @@
 - Added request ID middleware with traceId propagation in error responses.
 - Standardized rate limit handler error shape (429) and added OpenAPI error schema + per-route error docs.
 - Added `get_current_tenant_id` dependency and applied it to multi-tenant routers.
+
+## 2026-02-07
+- Added app-ui unit test tooling (Testing Library + jsdom).
+- Updated Vitest config to run design-system component tests from app-ui.
+- Added base component unit test scripts and enabled globals for Vitest.
+- Added Storybook interaction checks in base component stories and Storybook test runner setup.
+- Added `@storybook/test` to support story interactions.
+- Added axe-core-based a11y checks to base component Storybook stories.
+- Aligned app-ui theme tokens to design-system vars (light/dark) and removed hsl() dependency for core colors.
+- Added Spatial Command Center component with accessible listbox, keyboard navigation, and stories/tests.
+- Added Spatial Field Dock component with context variants, active states, and stories/tests.
+- Added glassmorphism utility classes and documented naming conventions for tokens.
+- Added a11y helpers and documented global keyboard shortcuts.
+- Added Lighthouse CI config and thresholds for app-ui (Perf >= 85, A11y >= 90).
+- Added Storybook a11y gate script and documentation.
+- Added Badge and Tooltip components with stories/tests.
+- Added MapLayout with overlay slots and full-screen map container for farms map view.
 
 ## 2026-02-06
 - Removed fallback tiling path in app-ui (`DynamicTileLayer` + removed tile prop map constant).

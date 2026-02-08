@@ -191,3 +191,34 @@ class SQLAlchemyTenantAdminRepository(ITenantAdminRepository, BaseSQLAlchemyRepo
             sql,
             {"tenant_id": str(tenant_id.value), "limit": min(limit, 100)},
         )
+
+    async def list_adoption_metrics(self, tenant_id: TenantId) -> dict:
+        events_sql = """
+            SELECT
+                metadata_json->>'event' AS event_name,
+                COUNT(*) AS count,
+                MAX(created_at) AS last_seen
+            FROM audit_log
+            WHERE tenant_id = :tenant_id
+              AND resource_type = 'frontend_event'
+              AND metadata_json ? 'event'
+            GROUP BY metadata_json->>'event'
+            ORDER BY count DESC
+            """
+
+        phases_sql = """
+            SELECT
+                metadata_json->>'phase' AS phase,
+                COUNT(*) AS count
+            FROM audit_log
+            WHERE tenant_id = :tenant_id
+              AND resource_type = 'frontend_event'
+              AND metadata_json ? 'phase'
+            GROUP BY metadata_json->>'phase'
+            ORDER BY count DESC
+            """
+
+        return {
+            "events": self._execute_query(events_sql, {"tenant_id": str(tenant_id.value)}),
+            "phases": self._execute_query(phases_sql, {"tenant_id": str(tenant_id.value)}),
+        }

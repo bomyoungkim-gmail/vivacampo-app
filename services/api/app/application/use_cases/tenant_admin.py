@@ -5,6 +5,7 @@ import json
 
 from app.application.decorators import require_tenant
 from app.application.dtos.tenant_admin import (
+    GetAdoptionMetricsCommand,
     GetTenantAuditLogCommand,
     GetTenantSettingsCommand,
     InviteMemberCommand,
@@ -122,3 +123,12 @@ class GetTenantAuditLogUseCase:
     @require_tenant
     async def execute(self, command: GetTenantAuditLogCommand) -> list[dict]:
         return await self.repo.list_audit_logs(command.tenant_id, command.limit)
+
+
+class GetAdoptionMetricsUseCase:
+    def __init__(self, repo: ITenantAdminRepository):
+        self.repo = repo
+
+    @require_tenant
+    async def execute(self, command: GetAdoptionMetricsCommand) -> dict:
+        return await self.repo.list_adoption_metrics(command.tenant_id)

@@ -5,7 +5,8 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Session
 
 from app.domain.ports.auth_repository import IAuthRepository
@@ -98,17 +99,16 @@ class SQLAlchemyAuthRepository(IAuthRepository, BaseSQLAlchemyRepository):
         self.db.commit()
 
     async def create_tenant(self, tenant_type: str, name: str, plan: str, quotas: dict) -> dict:
-        import json
         sql = text(
             """
             INSERT INTO tenants (type, name, status, plan, quotas)
             VALUES (:tenant_type, :name, 'ACTIVE', :plan, :quotas)
             RETURNING id, type, name, status, plan
             """
-        )
+        ).bindparams(bindparam("quotas", type_=JSONB))
         result = self.db.execute(
             sql,
-            {"tenant_type": tenant_type, "name": name, "plan": plan, "quotas": json.dumps(quotas)},
+            {"tenant_type": tenant_type, "name": name, "plan": plan, "quotas": quotas},
         )
         row = result.fetchone()
         self.db.commit()

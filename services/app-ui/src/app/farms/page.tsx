@@ -205,6 +205,7 @@ export default function FarmsPage() {
                                 <label className="block text-sm font-medium text-gray-700">Nome</label>
                                 <input
                                     type="text"
+                                    autoComplete="organization"
                                     required
                                     value={newFarm.name}
                                     onChange={(e) => setNewFarm({ ...newFarm, name: e.target.value })}

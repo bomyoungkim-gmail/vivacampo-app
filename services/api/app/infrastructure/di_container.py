@@ -66,6 +66,7 @@ from app.application.use_cases.system_admin import (
 )
 from app.application.use_cases.tenant_admin import (
     GetTenantAuditLogUseCase,
+    GetAdoptionMetricsUseCase,
     GetTenantSettingsUseCase,
     InviteMemberUseCase,
     ListMembersUseCase,
@@ -433,6 +434,9 @@ class ApiContainer:
 
     def tenant_audit_log_use_case(self, db: Optional[Session] = None) -> GetTenantAuditLogUseCase:
         return GetTenantAuditLogUseCase(self.tenant_admin_repository(db))
+
+    def adoption_metrics_use_case(self, db: Optional[Session] = None) -> GetAdoptionMetricsUseCase:
+        return GetAdoptionMetricsUseCase(self.tenant_admin_repository(db))
 
     def create_ai_thread_use_case(self, db: Optional[Session] = None) -> CreateThreadUseCase:
         return CreateThreadUseCase(self.ai_assistant_repository(db))

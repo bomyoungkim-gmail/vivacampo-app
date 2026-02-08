@@ -66,7 +66,7 @@ export default function VisionPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/dashboard"
-              className="p-2 -ml-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              className="inline-flex min-h-touch min-w-touch items-center justify-center p-2 -ml-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -146,7 +146,7 @@ export default function VisionPage() {
               </p>
               <button
                 disabled
-                className="mt-2 text-sm text-gray-500 dark:text-gray-500 cursor-not-allowed"
+                className="mt-2 inline-flex min-h-touch items-center text-sm text-gray-500 dark:text-gray-500 cursor-not-allowed"
               >
                 Gerenciar modelos offline (em breve)
               </button>

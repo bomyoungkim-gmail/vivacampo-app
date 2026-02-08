@@ -5,9 +5,9 @@ import Link from 'next/link'
 export default function TermsPage() {
     return (
         <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-            <div className="mx-auto max-w-3xl px-6 py-16">
+            <main className="mx-auto max-w-3xl px-6 py-16">
                 <h1 className="text-3xl font-bold text-slate-900">Termos de Uso</h1>
-                <p className="mt-4 text-slate-600">
+                <p className="mt-4 text-slate-700">
                     Estes Termos de Uso regulam o acesso e a utilização da plataforma VivaCampo.
                     Ao utilizar o serviço, você concorda com os termos descritos abaixo.
                 </p>
@@ -55,11 +55,11 @@ export default function TermsPage() {
                 </div>
 
                 <div className="mt-12">
-                    <Link href="/signup" className="text-green-600 hover:text-green-700 font-semibold">
+                    <Link href="/signup" className="inline-flex min-h-touch items-center text-green-700 hover:text-green-800 font-semibold underline underline-offset-2">
                         Voltar para cadastro
                     </Link>
                 </div>
-            </div>
+            </main>
         </div>
     )
 }

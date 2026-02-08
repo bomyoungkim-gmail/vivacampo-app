@@ -67,7 +67,7 @@ setup_tracing(app)
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3001", "http://localhost:3002", "http://localhost:3000"] if settings.env == "local" else [],
+    allow_origins=["http://localhost:3001", "http://localhost:3000"] if settings.env == "local" else [],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],

@@ -141,13 +141,13 @@ export default function AIAssistantPage() {
                         <h2 className="text-lg font-semibold text-gray-900 hidden lg:block">AI Assistant</h2>
                         <button
                             onClick={() => setShowSidebar(false)}
-                            className="lg:hidden p-2 text-gray-600 hover:text-gray-900"
+                            className="lg:hidden p-2 text-gray-600 hover:text-gray-900 min-h-touch min-w-touch"
                         >
                             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </button>
-                        <Link href="/dashboard" className="hidden lg:block text-sm text-gray-600 hover:text-gray-900">
+                        <Link href="/dashboard" className="hidden lg:inline-flex min-h-touch items-center text-sm text-gray-600 hover:text-gray-900">
                             ← Dashboard
                         </Link>
                     </div>
@@ -233,6 +233,7 @@ export default function AIAssistantPage() {
                                     value={newMessage}
                                     onChange={(e) => setNewMessage(e.target.value)}
                                     placeholder="Digite sua mensagem..."
+                                    autoComplete="off"
                                     className="flex-1 rounded-lg border border-gray-300 px-3 sm:px-4 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-green-500 min-h-touch"
                                     disabled={sending}
                                 />

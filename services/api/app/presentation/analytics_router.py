@@ -10,6 +10,9 @@ from app.schemas import (
     PredictionResponse,
     FieldFeedbackCreateRequest,
     FieldFeedbackCreateResponse,
+    AnalyticsEventRequest,
+    AnalyticsEventResponse,
+    AdoptionMetricsResponse,
 )
 from app.application.dtos.aois import (
     FieldCalibrationCreateCommand,
@@ -17,6 +20,7 @@ from app.application.dtos.aois import (
     PredictionCommand,
     FieldFeedbackCommand,
 )
+from app.application.dtos.tenant_admin import GetAdoptionMetricsCommand
 from app.domain.value_objects.tenant_id import TenantId
 from app.infrastructure.di_container import ApiContainer, get_container
 from app.metrics import field_calibration_total
@@ -158,3 +162,41 @@ async def create_field_feedback(
     )
 
     return FieldFeedbackCreateResponse(id=result.id)
+
+
+@router.post("/analytics/events", response_model=AnalyticsEventResponse)
+async def track_analytics_event(
+    payload: AnalyticsEventRequest,
+    membership: CurrentMembership = Depends(require_role("EDITOR")),
+    container: ApiContainer = Depends(get_container),
+):
+    audit = container.audit_logger()
+    audit.log(
+        tenant_id=str(membership.tenant_id),
+        actor_membership_id=str(membership.membership_id),
+        action="TRACK_EVENT",
+        resource_type="frontend_event",
+        resource_id=None,
+        metadata={
+            "event": payload.event_name,
+            "phase": payload.phase,
+            "props": payload.metadata,
+        },
+    )
+
+    return AnalyticsEventResponse()
+
+
+@router.get("/analytics/adoption", response_model=AdoptionMetricsResponse)
+async def get_adoption_metrics(
+    membership: CurrentMembership = Depends(require_role("TENANT_ADMIN")),
+    container: ApiContainer = Depends(get_container),
+):
+    use_case = container.adoption_metrics_use_case()
+    result = await use_case.execute(
+        GetAdoptionMetricsCommand(tenant_id=TenantId(value=membership.tenant_id))
+    )
+    return AdoptionMetricsResponse(
+        events=result.get("events", []),
+        phases=result.get("phases", []),
+    )

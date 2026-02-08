@@ -50,6 +50,8 @@ export default function ForgotPasswordPage() {
                             <input
                                 id="email"
                                 type="email"
+                                inputMode="email"
+                                autoComplete="email"
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -80,7 +82,7 @@ export default function ForgotPasswordPage() {
                     </form>
 
                     <div className="mt-6 text-center text-sm text-gray-600">
-                        <Link href="/login" className="font-semibold text-green-600 hover:text-green-700">
+                        <Link href="/login" className="inline-flex min-h-touch items-center font-semibold text-green-600 hover:text-green-700">
                             Voltar ao login
                         </Link>
                     </div>

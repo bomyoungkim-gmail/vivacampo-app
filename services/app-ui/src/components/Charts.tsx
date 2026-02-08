@@ -67,7 +67,9 @@ export function NDVIChart({ data }: ChartProps) {
                             name="NDVI"
                             connectNulls={false}
                             dot={({ cx, cy, payload }) => {
-                                if (cx == null || cy == null) return null
+                                if (cx == null || cy == null) {
+                                    return <circle cx={0} cy={0} r={0} />
+                                }
                                 const point = payload as ChartData
                                 if (point.ndvi == null && point.rvi != null) {
                                     return (

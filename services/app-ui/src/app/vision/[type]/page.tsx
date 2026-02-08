@@ -43,7 +43,7 @@ export default function VisionAnalysisPage() {
           </p>
           <Link
             href="/vision"
-            className="inline-block px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            className="inline-flex min-h-touch items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
           >
             Voltar para análises
           </Link>
@@ -72,7 +72,7 @@ export default function VisionAnalysisPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
-              className="p-2 -ml-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              className="inline-flex min-h-touch min-w-touch items-center justify-center p-2 -ml-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />

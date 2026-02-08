@@ -65,3 +65,7 @@ class ITenantAdminRepository(ABC):
     @abstractmethod
     async def list_audit_logs(self, tenant_id: TenantId, limit: int) -> list[dict]:
         raise NotImplementedError
+
+    @abstractmethod
+    async def list_adoption_metrics(self, tenant_id: TenantId) -> dict:
+        raise NotImplementedError

@@ -1,0 +1,360 @@
+/**
+ * VivaCampo Design Tokens
+ * Versão: 2.0.0 (Spatial AI OS)
+ *
+ * Este arquivo contém todas as variáveis CSS do design system.
+ * Importe este arquivo no seu global.css ou layout principal.
+ *
+ * Uso:
+ * @import './design-system/tokens.css';
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* ========================================
+     CORES PRIMÁRIAS — Natureza
+     ======================================== */
+
+  --primary: #16A34A;           /* Green-600: Saúde das plantas */
+  --primary-dark: #15803D;      /* Green-700: Hover states */
+  --primary-light: #4ADE80;     /* Green-400: Variantes claras */
+
+  /* ========================================
+     CORES SECUNDÁRIAS — Alertas e Status
+     ======================================== */
+
+  /* Alertas */
+  --warning: #F59E0B;           /* Amber-500: Atenção */
+  --critical: #DC2626;          /* Red-600: Crítico */
+  --healthy: #10B981;           /* Emerald-500: Saudável */
+  --info: #3B82F6;              /* Blue-500: Informação */
+
+  /* Status de NDVI */
+  --ndvi-critical: #DC2626;     /* < 0.3 */
+  --ndvi-low: #F59E0B;          /* 0.3 - 0.5 */
+  --ndvi-medium: #FDE047;       /* 0.5 - 0.7 */
+  --ndvi-good: #10B981;         /* 0.7 - 0.85 */
+  --ndvi-excellent: #16A34A;    /* > 0.85 */
+
+  /* ========================================
+     CORES NEUTRAS — Escala de Cinza (Slate)
+     ======================================== */
+
+  --gray-50: #F8FAFC;
+  --gray-100: #F1F5F9;
+  --gray-200: #E2E8F0;
+  --gray-300: #CBD5E1;
+  --gray-400: #94A3B8;
+  --gray-500: #64748B;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1E293B;
+  --gray-900: #0F172A;
+
+  /* Textos */
+  --text-primary: var(--gray-900);
+  --text-secondary: var(--gray-600);
+  --text-muted: var(--gray-400);
+  --text-on-primary: #FFFFFF;
+
+  /* ========================================
+     GLASSMORPHISM — Profundidade Espacial
+     ======================================== */
+
+  /* Backgrounds com Blur */
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-bg-dark: rgba(15, 23, 42, 0.85);
+  --glass-bg-subtle: rgba(255, 255, 255, 0.60);
+
+  /* Bordas */
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-border-dark: rgba(255, 255, 255, 0.1);
+
+  /* Blur Amount */
+  --blur-sm: blur(8px) saturate(150%);
+  --blur-md: blur(16px) saturate(160%);
+  --blur-lg: blur(24px) saturate(180%);
+
+  /* ========================================
+     SOMBRAS — Elevação
+     ======================================== */
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-floating: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-depth: 0 20px 60px rgba(0, 0, 0, 0.2);
+
+  /* ========================================
+     ESPAÇAMENTO — Múltiplos de 4px
+     ======================================== */
+
+  --space-0: 0;
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
+
+  /* ========================================
+     TIPOGRAFIA
+     ======================================== */
+
+  /* Famílias */
+  --font-family-base: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-family-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
+
+  /* Tamanhos */
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.875rem;    /* 14px */
+  --text-base: 1rem;      /* 16px */
+  --text-lg: 1.125rem;    /* 18px */
+  --text-xl: 1.25rem;     /* 20px */
+  --text-2xl: 1.5rem;     /* 24px */
+  --text-3xl: 1.875rem;   /* 30px */
+  --text-4xl: 2.25rem;    /* 36px */
+
+  /* Pesos */
+  --font-light: 300;
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+
+  /* Line Heights */
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+  --leading-loose: 2;
+
+  /* ========================================
+     ANIMAÇÕES E TRANSIÇÕES
+     ======================================== */
+
+  /* Durações */
+  --transition-instant: 0ms;
+  --transition-fast: 150ms;
+  --transition-medium: 300ms;
+  --transition-slow: 500ms;
+
+  /* Easing Functions */
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);      /* ease-in-out */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);             /* ease-in */
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);            /* ease-out */
+  --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55); /* bounce */
+
+  /* ========================================
+     Z-INDEX SCALE
+     ======================================== */
+
+  --z-base: 0;
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-fixed: 30;
+  --z-overlay: 40;
+  --z-modal: 50;
+  --z-popover: 60;
+  --z-tooltip: 70;
+
+  /* ========================================
+     BORDER RADIUS
+     ======================================== */
+
+  --radius-sm: 0.25rem;   /* 4px */
+  --radius-md: 0.5rem;    /* 8px */
+  --radius-lg: 0.75rem;   /* 12px */
+  --radius-xl: 1rem;      /* 16px */
+  --radius-2xl: 1.5rem;   /* 24px */
+  --radius-full: 9999px;  /* Circular */
+
+  /* ========================================
+     BREAKPOINTS (para uso em JS)
+     ======================================== */
+
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+}
+
+/* ========================================
+   DARK MODE
+   ======================================== */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Textos invertidos */
+    --text-primary: var(--gray-50);
+    --text-secondary: var(--gray-400);
+    --text-muted: var(--gray-500);
+
+    /* Glassmorphism escuro */
+    --glass-bg: var(--glass-bg-dark);
+    --glass-border: var(--glass-border-dark);
+
+    /* Sombras mais intensas */
+    --shadow-floating: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --shadow-depth: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ========================================
+   CLASSES UTILITÁRIAS
+   ======================================== */
+
+/* Glassmorphism */
+.glass-morphism {
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur-lg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-floating);
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur-md);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-md);
+}
+
+.glass-panel-subtle {
+  background: var(--glass-bg-subtle);
+  backdrop-filter: var(--blur-sm);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.glass-border {
+  border: 1px solid var(--glass-border);
+}
+
+/* Transições */
+.transition-fast {
+  transition: all var(--transition-fast) var(--ease-default);
+}
+
+.transition-medium {
+  transition: all var(--transition-medium) var(--ease-default);
+}
+
+.transition-colors {
+  transition: color var(--transition-fast) var(--ease-default),
+              background-color var(--transition-fast) var(--ease-default),
+              border-color var(--transition-fast) var(--ease-default);
+}
+
+.transition-transform {
+  transition: transform var(--transition-medium) var(--ease-default);
+}
+
+/* Screen Reader Only */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only-focusable:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* Touch Target */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ========================================
+   ACESSIBILIDADE
+   ======================================== */
+
+/* Foco visível para navegação por teclado */
+*:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* Remover outline padrão do navegador */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Respeitar preferências do usuário */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ========================================
+   TIPOGRAFIA BASE
+   ======================================== */
+
+body {
+  font-family: var(--font-family-base);
+  font-feature-settings: 'tnum' 1; /* Números tabulares */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+}
+
+/* ========================================
+   CONTAINER
+   ======================================== */
+
+.container {
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: var(--space-4);
+  padding-right: var(--space-4);
+}
+
+@media (min-width: 640px) {
+  .container { max-width: 640px; }
+}
+
+@media (min-width: 768px) {
+  .container { max-width: 768px; }
+}
+
+@media (min-width: 1024px) {
+  .container { max-width: 1024px; }
+}
+
+@media (min-width: 1280px) {
+  .container { max-width: 1280px; }
+}
+
+@media (min-width: 1536px) {
+  .container { max-width: 1536px; }
+}

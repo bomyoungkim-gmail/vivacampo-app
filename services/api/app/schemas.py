@@ -275,6 +275,32 @@ class PredictionResponse(BaseModel):
     source: str
 
 
+class AnalyticsEventRequest(BaseModel):
+    event_name: str = Field(..., min_length=1, max_length=80)
+    metadata: Optional[dict] = None
+    phase: Optional[Literal["F1", "F2", "F3"]] = None
+
+
+class AnalyticsEventResponse(BaseModel):
+    status: str = "ok"
+
+
+class AdoptionEventMetric(BaseModel):
+    event_name: str
+    count: int
+    last_seen: datetime
+
+
+class AdoptionPhaseMetric(BaseModel):
+    phase: Literal["F1", "F2", "F3"]
+    count: int
+
+
+class AdoptionMetricsResponse(BaseModel):
+    events: List[AdoptionEventMetric]
+    phases: List[AdoptionPhaseMetric]
+
+
 class FieldFeedbackCreateRequest(BaseModel):
     aoi_id: UUID
     type: Literal["ISSUE", "FALSE_POSITIVE"]

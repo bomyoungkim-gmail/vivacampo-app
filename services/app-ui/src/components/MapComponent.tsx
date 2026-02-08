@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import { LoadingSpinner } from './LoadingSpinner'
+import { cn } from '../lib/utils'
 import type { AOI } from '@/lib/types'
 
 const MapLeaflet = dynamic(
@@ -13,6 +14,7 @@ const MapLeaflet = dynamic(
 )
 
 interface MapComponentProps {
+    className?: string
     farmId?: string
     aois?: AOI[]
     selectedAOI?: AOI | null
@@ -59,7 +61,7 @@ interface MapComponentProps {
 
 export default function MapComponent(props: MapComponentProps) {
     return (
-        <div className="h-full w-full rounded-lg overflow-hidden shadow-lg bg-gray-100 relative group">
+        <div className={cn('relative h-full w-full overflow-hidden bg-muted', props.className)}>
             <MapLeaflet {...props} />
         </div>
     )

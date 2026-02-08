@@ -1,28 +1,134 @@
+/**
+ * VivaCampo Design Tokens (Inlined for Docker compatibility)
+ * Original: design-system/tokens.css
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* CORES PRIMÁRIAS */
+  --primary: #16A34A;
+  --primary-dark: #15803D;
+  --primary-light: #4ADE80;
+
+  /* ALERTAS E STATUS */
+  --warning: #F59E0B;
+  --critical: #DC2626;
+  --healthy: #10B981;
+  --info: #3B82F6;
+
+  /* NDVI */
+  --ndvi-critical: #DC2626;
+  --ndvi-low: #F59E0B;
+  --ndvi-medium: #FDE047;
+  --ndvi-good: #10B981;
+  --ndvi-excellent: #16A34A;
+
+  /* CORES NEUTRAS */
+  --gray-50: #F8FAFC;
+  --gray-100: #F1F5F9;
+  --gray-200: #E2E8F0;
+  --gray-300: #CBD5E1;
+  --gray-400: #94A3B8;
+  --gray-500: #64748B;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1E293B;
+  --gray-900: #0F172A;
+
+  --text-primary: var(--gray-900);
+  --text-secondary: var(--gray-600);
+  --text-muted: var(--gray-400);
+  --text-on-primary: #FFFFFF;
+
+  /* GLASSMORPHISM */
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-bg-dark: rgba(15, 23, 42, 0.85);
+  --glass-bg-subtle: rgba(255, 255, 255, 0.60);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-border-dark: rgba(255, 255, 255, 0.1);
+  --blur-sm: blur(8px) saturate(150%);
+  --blur-md: blur(16px) saturate(160%);
+  --blur-lg: blur(24px) saturate(180%);
+
+  /* SOMBRAS */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-floating: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --shadow-depth: 0 20px 60px rgba(0, 0, 0, 0.2);
+
+  /* TIPOGRAFIA */
+  --font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-family-mono: 'SF Mono', Monaco, 'Courier New', monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+
+  /* TRANSIÇÕES */
+  --transition-fast: 150ms;
+  --transition-medium: 300ms;
+  --transition-slow: 500ms;
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Z-INDEX */
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-fixed: 30;
+  --z-overlay: 40;
+  --z-modal: 50;
+  --z-tooltip: 70;
+
+  /* BORDER RADIUS */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --text-primary: var(--gray-50);
+    --text-secondary: var(--gray-400);
+    --text-muted: var(--gray-500);
+    --glass-bg: var(--glass-bg-dark);
+    --glass-border: var(--glass-border-dark);
+    --shadow-floating: 0 8px 32px rgba(0, 0, 0, 0.3);
+    --shadow-depth: 0 20px 60px rgba(0, 0, 0, 0.5);
+  }
+}
+
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 142.1 76.2% 36.3%;
-    --primary-foreground: 355.7 100% 97.3%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 142.1 76.2% 36.3%;
+    --background: var(--gray-50);
+    --foreground: var(--text-primary);
+    --card: var(--gray-50);
+    --card-foreground: var(--text-primary);
+    --popover: var(--gray-50);
+    --popover-foreground: var(--text-primary);
+    --primary-foreground: var(--text-on-primary);
+    --secondary: var(--gray-100);
+    --secondary-foreground: var(--text-secondary);
+    --muted: var(--gray-100);
+    --muted-foreground: var(--text-muted);
+    --accent: var(--gray-100);
+    --accent-foreground: var(--text-secondary);
+    --destructive: var(--critical);
+    --destructive-foreground: var(--text-on-primary);
+    --border: var(--gray-200);
+    --input: var(--gray-200);
+    --ring: var(--primary);
     --radius: 0.5rem;
 
     /* Chart colors - agricultural/satellite palette */
@@ -49,25 +155,23 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 142.1 70.6% 45.3%;
-    --primary-foreground: 144.9 80.4% 10%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 70%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 142.1 76.2% 36.3%;
+    --background: var(--gray-900);
+    --foreground: var(--text-primary);
+    --card: var(--gray-800);
+    --card-foreground: var(--text-primary);
+    --popover: var(--gray-800);
+    --popover-foreground: var(--text-primary);
+    --secondary: var(--gray-700);
+    --secondary-foreground: var(--text-primary);
+    --muted: var(--gray-700);
+    --muted-foreground: var(--text-muted);
+    --accent: var(--gray-700);
+    --accent-foreground: var(--text-primary);
+    --destructive: var(--critical);
+    --destructive-foreground: var(--text-on-primary);
+    --border: var(--gray-700);
+    --input: var(--gray-700);
+    --ring: var(--primary);
 
     /* Dark chart colors - optimized for satellite imagery contrast */
     --chart-1: 142 70% 50%;
@@ -98,14 +202,57 @@
     @apply border-border;
   }
 
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+    touch-action: manipulation;
+    overscroll-behavior-y: contain;
   }
+
 
   input,
   textarea,
   select {
-    @apply bg-background text-foreground border-input;
+    @apply bg-background text-foreground border-input min-h-[44px];
+  }
+
+  input[type='checkbox'],
+  input[type='radio'] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --blur-sm: blur(0px) saturate(100%);
+    --blur-md: blur(0px) saturate(100%);
+    --blur-lg: blur(0px) saturate(100%);
+  }
+
+  .glass-morphism,
+  .glass-panel,
+  .glass-panel-subtle {
+    backdrop-filter: none;
   }
 }
 
@@ -113,6 +260,39 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  .min-h-touch {
+    min-height: 44px;
+  }
+
+.min-w-touch {
+  min-width: 44px;
+}
+
+/* Landing v2 helpers */
+.hero-contrast {
+  background:
+    radial-gradient(circle at 30% 30%, rgba(6, 182, 212, 0.35), transparent 60%),
+    radial-gradient(circle at 15% 70%, rgba(16, 185, 129, 0.25), transparent 55%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.35) 55%, transparent 100%);
+}
+
+.hero-vignette {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 45%, rgba(5, 5, 5, 0.55) 75%, rgba(5, 5, 5, 0.9) 100%);
+  mix-blend-mode: screen;
+  opacity: 0.35;
+}
+
+.hero-scroll-layer {
+  transform: translateZ(0);
+}
+
+.landing-card-strong {
+  background-color: rgba(8, 12, 16, 0.78);
+  backdrop-filter: blur(12px);
+}
+
 
   .scrollbar-hide {
     -ms-overflow-style: none;
@@ -126,13 +306,74 @@
   .safe-area-inset-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  .content-visibility-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 1px 1000px;
+  }
 }
 
-/* Touch targets for mobile - exclude tab triggers which need compact sizing */
-button:not([role="tab"]),
+@layer utilities {
+  .grid-overlay {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+}
+
+.farm-lines path {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-18px);
+  }
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .motion-safe\:animate-\[float_10s_ease-in-out_infinite\] {
+    animation: none;
+  }
+}
+
+/* Touch targets for mobile */
+button,
 a {
   min-height: 44px;
   min-width: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Satellite imagery overlay optimizations */

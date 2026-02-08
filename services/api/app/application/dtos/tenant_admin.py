@@ -44,3 +44,7 @@ class UpdateTenantSettingsCommand(ImmutableDTO):
 class GetTenantAuditLogCommand(ImmutableDTO):
     tenant_id: TenantId
     limit: int = Field(default=50, ge=1, le=100)
+
+
+class GetAdoptionMetricsCommand(ImmutableDTO):
+    tenant_id: TenantId

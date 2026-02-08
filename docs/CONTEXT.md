@@ -1,6 +1,6 @@
 # Durable Project Context (Human-readable)
 
-Last Updated: 2026-02-06
+Last Updated: 2026-02-07
 
 ## What this is
 This file is the compact, durable memory of the project.
@@ -48,6 +48,7 @@ Keep it short (1–2 pages). Update it weekly or after major changes.
 - ✅ Radar fallback tooltip + radar mode badge
 - ✅ AI Copilot (anomaly detection, recommended actions)
 - ✅ Authentication (OIDC + Mock for dev)
+- ✅ Auth local (email/senha) + smoke tests (signup/login) com cookie httpOnly
 - ✅ Security suite for tenant isolation (`tests/security/`)
 - ✅ RLS context wiring + migration available (set_config + SQL)
 - ✅ Interactive paddock backend APIs:
@@ -63,6 +64,7 @@ Keep it short (1–2 pages). Update it weekly or after major changes.
 - ✅ Grid view + batch calibration
 - ✅ Badges por tipo de alerta (mapa/lista/grid)
 - ✅ Status polling UI para processamento
+- ✅ Invite UI (tenant admin) + UX de roles (desabilita ações sem permissão)
 
 **What is missing:**
 - ✅ TiTiler security (presigned URLs; raw S3 URIs not exposed)

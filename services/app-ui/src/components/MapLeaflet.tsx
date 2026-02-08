@@ -5,7 +5,10 @@ import { MapContainer, TileLayer, Polygon, Popup, Marker, Polyline, useMapEvents
 import L from 'leaflet'
 import { Radio } from 'lucide-react'
 import { APP_CONFIG } from '@/lib/config'
+import { trackGoal } from '@/lib/analytics'
 import type { AOI } from '@/lib/types'
+import { getZoomSemanticLevel, ZOOM_LEVELS, type ZoomSemanticLevel } from '../lib/zoomSemantic'
+import { VectorTileLayer } from './VectorTileLayer'
 import * as turf from '@turf/turf'
 import 'leaflet/dist/leaflet.css'
 import '@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css'
@@ -78,6 +81,63 @@ const getPolygonCenter = (coords: [number, number][]) => {
     const bounds = L.latLngBounds(coords)
     const center = bounds.getCenter()
     return [center.lat, center.lng] as [number, number]
+}
+
+const VECTOR_TILE_URL = 'https://protomaps.github.io/basemaps-assets/tiles/v3/{z}/{x}/{y}.pbf'
+
+function ZoomSemanticAnalytics({
+    onLevelChange,
+    onZoomMethodChange,
+}: {
+    onLevelChange?: (level: ZoomSemanticLevel) => void
+    onZoomMethodChange?: (method: 'keyboard_shortcut' | 'mouse_wheel' | 'map_control' | 'unknown') => void
+}) {
+    const lastLevelRef = useRef<ZoomSemanticLevel | null>(null)
+    const zoomStartRef = useRef<number | null>(null)
+
+    useMapEvents({
+        zoomstart() {
+            zoomStartRef.current = performance.now()
+        },
+        zoomend(event) {
+            const nextLevel = getZoomSemanticLevel(event.target.getZoom())
+            if (!lastLevelRef.current) {
+                lastLevelRef.current = nextLevel
+                onLevelChange?.(nextLevel)
+                return
+            }
+            if (lastLevelRef.current === nextLevel) return
+
+            const timeToInteract = zoomStartRef.current
+                ? Number(((performance.now() - zoomStartRef.current) / 1000).toFixed(2))
+                : 0
+
+            const originalEvent = (event as L.LeafletEvent & { originalEvent?: Event }).originalEvent
+            const method =
+                event.target?.__zoomMethod ??
+                originalEvent?.type === 'wheel'
+                    ? 'mouse_wheel'
+                    : originalEvent?.type === 'click'
+                        ? 'map_control'
+                        : 'unknown'
+
+            trackGoal('zoom_semantic_transition', {
+                from_level: lastLevelRef.current,
+                to_level: nextLevel,
+                method,
+                time_to_interact: timeToInteract,
+            })
+
+            lastLevelRef.current = nextLevel
+            onLevelChange?.(nextLevel)
+            onZoomMethodChange?.(method)
+            if (event.target) {
+                event.target.__zoomMethod = undefined
+            }
+        },
+    })
+
+    return null
 }
 
 type AoiStatus = 'normal' | 'processing' | 'alert' | 'warning' | 'split'
@@ -305,6 +365,8 @@ function LocationSearch() {
                         placeholder="Buscar cidade, local..."
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
+                        inputMode="search"
+                        autoComplete="off"
                     />
                     <button
                         type="submit"
@@ -478,7 +540,10 @@ function AOIPolygon({
             ref={polygonRef}
             positions={coords}
             eventHandlers={{
-                click: () => onSelect?.(aoi.id),
+                click: () => {
+                    trackGoal('aoi_selected', { aoi_id: aoi.id })
+                    onSelect?.(aoi.id)
+                },
             }}
             pathOptions={{
                 color: borderColor,
@@ -767,6 +832,53 @@ export default function MapLeaflet({
     const [overlayOpacity, setOverlayOpacity] = useState<number>(0.7)
     const [showAOIs, setShowAOIs] = useState<boolean>(initialShowAOIs)
     const [showAlerts, setShowAlerts] = useState<boolean>(false)
+    const [zoomSemanticLevel, setZoomSemanticLevel] = useState<ZoomSemanticLevel>('meso')
+    const zoomMethodRef = useRef<'keyboard_shortcut' | 'mouse_wheel' | 'map_control' | 'unknown'>('unknown')
+    const mapRef = useRef<any>(null)
+    const [vectorTilesAllowed, setVectorTilesAllowed] = useState<boolean>(true)
+    const userBaseLayerOverrideRef = useRef<boolean>(false)
+
+    const setActiveBaseLayerSafe = useCallback((layer: string) => {
+        userBaseLayerOverrideRef.current = true
+        setActiveBaseLayer(layer)
+    }, [])
+
+    useEffect(() => {
+        const connection = (navigator as any).connection
+        if (!connection || !connection.effectiveType) {
+            setVectorTilesAllowed(true)
+            return
+        }
+
+        const isSlow = ['slow-2g', '2g', '3g'].includes(connection.effectiveType)
+        setVectorTilesAllowed(!isSlow)
+
+        if (!userBaseLayerOverrideRef.current) {
+            if (isSlow && activeBaseLayer === 'vector') {
+                setActiveBaseLayer('satellite')
+            }
+            if (!isSlow && activeBaseLayer !== 'vector') {
+                setActiveBaseLayer('vector')
+            }
+        }
+
+        if (typeof connection.addEventListener === 'function') {
+            const handleChange = () => {
+                const nextIsSlow = ['slow-2g', '2g', '3g'].includes(connection.effectiveType)
+                setVectorTilesAllowed(!nextIsSlow)
+                if (!userBaseLayerOverrideRef.current) {
+                    if (nextIsSlow && activeBaseLayer === 'vector') {
+                        setActiveBaseLayer('satellite')
+                    }
+                    if (!nextIsSlow && activeBaseLayer !== 'vector') {
+                        setActiveBaseLayer('vector')
+                    }
+                }
+            }
+            connection.addEventListener('change', handleChange)
+            return () => connection.removeEventListener('change', handleChange)
+        }
+    }, [activeBaseLayer])
 
     // Sync prop changes to activeOverlay if needed (e.g. if User selects a new week, maybe auto-select NDVI?)
     // For now, we prefer manual control unless it's the first load
@@ -855,6 +967,30 @@ export default function MapLeaflet({
         ratio: !!ratioTileUrl
     }
 
+    useEffect(() => {
+        const handleKeydown = (event: KeyboardEvent) => {
+            if (!mapRef.current) return
+            if (event.key === '1') {
+                zoomMethodRef.current = 'keyboard_shortcut'
+                mapRef.current.__zoomMethod = 'keyboard_shortcut'
+                mapRef.current.setView(mapRef.current.getCenter(), ZOOM_LEVELS.macro)
+            }
+            if (event.key === '2') {
+                zoomMethodRef.current = 'keyboard_shortcut'
+                mapRef.current.__zoomMethod = 'keyboard_shortcut'
+                mapRef.current.setView(mapRef.current.getCenter(), ZOOM_LEVELS.meso)
+            }
+            if (event.key === '3') {
+                zoomMethodRef.current = 'keyboard_shortcut'
+                mapRef.current.__zoomMethod = 'keyboard_shortcut'
+                mapRef.current.setView(mapRef.current.getCenter(), ZOOM_LEVELS.micro)
+            }
+        }
+
+        window.addEventListener('keydown', handleKeydown)
+        return () => window.removeEventListener('keydown', handleKeydown)
+    }, [])
+
     return (
         <>
             <link
@@ -873,6 +1009,9 @@ export default function MapLeaflet({
                     Modo Radar / Estimativa
                 </div>
             )}
+            <div className="absolute right-4 top-4 z-[1000] rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground shadow">
+                {zoomSemanticLevel === 'macro' ? 'Macro' : zoomSemanticLevel === 'meso' ? 'Meso' : 'Micro'}
+            </div>
 
             <MapContainer
                 center={center}
@@ -882,12 +1021,26 @@ export default function MapLeaflet({
                 zoomControl={false} // Disable default zoom control
             >
                 <MapResizer />
-                <MapReady onMapReady={onMapReady} />
+                <ZoomSemanticAnalytics
+                    onLevelChange={(level) => setZoomSemanticLevel(level)}
+                    onZoomMethodChange={(method) => {
+                        zoomMethodRef.current = method
+                    }}
+                />
+                <MapReady
+                    onMapReady={(map) => {
+                        mapRef.current = map
+                        setZoomSemanticLevel(getZoomSemanticLevel(map.getZoom()))
+                        onMapReady?.(map)
+                    }}
+                />
                 <ViewController center={center} aois={aois} />
                 <FlyToSelected aoi={selectedAOI} />
 
                 {/* 1. Base Layers */}
-                {activeBaseLayer === 'satellite' ? (
+                {activeBaseLayer === 'vector' && vectorTilesAllowed ? (
+                    <VectorTileLayer url={VECTOR_TILE_URL} />
+                ) : activeBaseLayer === 'satellite' ? (
                     <TileLayer
                         url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                         attribution="Tiles &copy; Esri"
@@ -917,6 +1070,14 @@ export default function MapLeaflet({
                         maxNativeZoom={17}
                         maxZoom={19}
                     />
+                )}
+
+                {!vectorTilesAllowed && activeBaseLayer === 'vector' && (
+                    <div className="leaflet-top leaflet-left" style={{ marginTop: '10px', marginLeft: '10px' }}>
+                        <div className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 shadow-sm">
+                            Modo economico: raster ativo
+                        </div>
+                    </div>
                 )}
 
                 {/* 3. Overlays (Z-Index handled by order) */}
@@ -1085,7 +1246,7 @@ export default function MapLeaflet({
                 {/* 6. NEW CONTROL CLUSTER */}
                 <MapControlCluster
                     activeBaseLayer={activeBaseLayer}
-                    setActiveBaseLayer={setActiveBaseLayer}
+                    setActiveBaseLayer={setActiveBaseLayerSafe}
                     activeOverlay={activeOverlay}
                     setActiveOverlay={setActiveOverlay}
                     overlayOpacity={overlayOpacity}

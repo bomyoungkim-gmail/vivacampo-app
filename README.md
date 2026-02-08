@@ -11,6 +11,7 @@
 
 ## Docs
 - docs/CONTEXT.md (durable memory)
+- docs/MOBILE_FIRST_GUIDELINES.md (mobile-first checklist)
 - docs/features (feature specs)
 - docs/adr (architecture decisions)
 - docs/runbooks (deploy/rollback/incidents)

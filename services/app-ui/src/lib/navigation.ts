@@ -14,12 +14,20 @@ export const routes = {
     home: '/',
     login: '/login',
     dashboard: '/dashboard',
+    mapLanding: '/farms',
     farms: '/farms',
     signals: '/signals',
     aiAssistant: '/ai-assistant',
     vision: '/vision',
     settings: '/settings',
+    analytics: '/analytics',
 } as const
+
+export type LandingPreference = 'dashboard' | 'map'
+
+export function getLandingRoute(preference: LandingPreference): string {
+    return preference === 'map' ? routes.mapLanding : routes.dashboard
+}
 
 /**
  * Type-safe navigation helper

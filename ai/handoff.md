@@ -1,1599 +1,546 @@
-# Handoff — 2026-02-05 15:16
+# Handoff — 2026-02-07 15:16
 
 ## Current Objective
-Fase 5 em andamento: routers restantes (tiles/system_admin/tenant_admin/ai_assistant) refatorados; revisar outros routers com SQL direto e ajustar testes.
+Fase 3 (Post-Map First) em andamento: remover sidebar e preparar cards espaciais + hardening de performance/a11y.
+
+## Session Note
+- TASK-MOBILE sprint encerrado. Documentação e handoff atualizados.
 
 ---
 
 ## Progress Log
 
-- 2026-02-07: **TASK-PERM-0217 + TASK-AUTH-0218 (parcial)**
-  - App-ui: criada página `Settings` com lista de membros e modal de convite (EDITOR/VIEWER).
-  - App-ui: guards de UI para criação/exclusão de fazendas por role + badge “Criada por você”.
-  - API: `FarmView` agora inclui `created_by_user_id` para suportar UX de ownership.
-  - Tests: `pytest tests/unit/application/test_auth_use_cases.py tests/unit/application/test_farm_use_cases.py tests/unit/application/test_tenant_admin_use_cases.py -q` → **6 passed** (2 warnings de deps).
-  - Fix deps: `bcrypt<4` fixado em `services/api/requirements.txt` + rebuild API.
-  - Fix backend: `auth_repository.create_tenant` agora envia `quotas` como JSON (json.dumps) para `jsonb`.
-  - Smoke tests (local): `/v1/auth/signup` **201** + `Set-Cookie` ok; `/v1/auth/login` **200** + `Set-Cookie` ok.
-  - Próxima ação: nenhuma (TASK-AUTH-0218 concluída).
-
-- 2026-02-07: **Warnings/Deprecations — verificação**
-  - `pytest tests -q`: **154 passed, 2 skipped, 42 warnings**.
-  - Warnings restantes vêm de dependências (`starlette`/`python-multipart`, `planetary_computer` pydantic v2, `python-jose`, `botocore`, `pydantic`, `rasterio`).
-  - Confirmado: não há `datetime.utcnow()` no repo (uso local já atualizado).
-  - Decisão: manter warnings como backlog por ora (sem mudanças de dependências).
-  - Próxima ação: opcional — avaliar atualização de dependências ou filtros de warnings quando fizer upgrade.
-
-- 2026-02-07: **Tests — correções e suíte verde**
-  - Corrigidos testes de storage local (diretório estável em `.tmp`), correlation service (repo correto), E2E workspace switch (auth header/skip seguro).
-  - Ajustados testes de farms e worker jobs (backfill com datas `date`, alerts/signal handlers sync, sinais com dataset >=4 semanas + patch de settings).
-  - Adicionado `has_season` ao `SqlSeasonRepository` de `forecast_adapters` (evita conflito do DI em backfill).
-  - `pytest tests -q`: **154 passed, 2 skipped** (warnings deprecations permanecem).
-  - Próxima ação: decidir se vamos atacar warnings/deprecations (datetime.utcnow, pydantic) ou manter como backlog.
-
-- 2026-02-07: **Deprecation warnings — datetime + deps**
-  - Troquei `datetime.utcnow()` por `datetime.now(timezone.utc)` em código e testes.
-  - Atualizei mínimos de `python-multipart` e `planetary-computer`.
-  - Próxima ação: decidir se vamos rodar `pip/conda` para atualizar deps locais e revalidar warnings.
-
-- 2026-02-06: **Env — dependencias locais (tentativa)**
-  - `conda` no modo elevado: instalado Python 3.11 + pip no env `vivacampo`.
-  - Instalados `planetary-computer` e `hypothesis` via `conda-forge`.
-  - `pip install -r ...` falhou por falta de acesso ao PyPI (sem index configurado).
-  - Próxima ação: fornecer `PIP_INDEX_URL`/proxy interno para concluir installs e rodar a suíte local.
-
-- 2026-02-06: **Env — conda somente (parcial)**
-  - Instalei via conda: fastapi/uvicorn/sqlalchemy/geoalchemy2/pydantic(+settings), python-jose/passlib/bcrypt, boto3, redis/tenacity/bleach/structlog, prometheus_client, opentelemetry (api/sdk/exporter/instrumentation), slowapi, aiohttp, numpy (OpenBLAS), shapely, mercantile, pytest(+cov/+asyncio), psycopg.
-  - `aioboto3` não resolveu (timeout) e `rasterio` não instalou mesmo com timeout longo.
-  - `pytest tests` ainda falha por falta de `rasterio` (e antes por `psycopg` já resolvido).
-  - Próxima ação: instalar `rasterio` (talvez via mamba/conda em sessão local) e retentar `pytest tests`.
-
-- 2026-02-07: **Tests — suíte local executada**
-  - `pytest tests` executado após instalação manual de deps; resultado: 11 falhas, 140 passed, 6 skipped.
-  - Falhas principais: temp dir sem permissão em `LocalFileSystemAdapter`; FK em `test_correlation_service` (membership antes de identity); E2E workspace switch 401; STAC/integrações; nitrogen/worker jobs (atributos faltando); stubs de farm repo com métodos abstratos não implementados.
-  - OTel: `Exception while exporting Span` no teardown (stdout fechado).
-  - Próxima ação: decidir se corrigimos as falhas (tests/fixtures) ou se marcamos skips/ajustamos env para E2E/integrações.
-
-- 2026-02-06: **Docs — Plano Auth/Landing**
-  - Criado plano detalhado com tasks auditáveis em `ai/IMPLEMENTATION_PLAN_AUTH_LANDING.md`.
-  - Próxima ação: revisar e aprovar o plano para iniciar implementação da Fase 1 (backend auth).
-
-- 2026-02-06: **Docs — Plano Auth/Landing (cobertura total)**
-  - Atualizado o plano em `ai/IMPLEMENTATION_PLAN_AUTH_LANDING.md` para cobrir 100% do `ai/AUTHENTICATION_AND_LANDING_PAGE_PLAN.md` (contact/terms/privacy, design tokens, navbar, auto-login, basePath).
-  - Próxima ação: revisar a versão atualizada e aprovar início da implementação.
-
-- 2026-02-06: **Docs — Permissões/Roles incluídos na Fase 2**
-  - Lido `ai/PERMISSIONS_AND_ROLES_ARCHITECTURE.md`.
-  - Incluídas tasks de permissões/roles na Fase 2 do plano em `ai/IMPLEMENTATION_PLAN_AUTH_LANDING.md`.
-  - Próxima ação: revisar a seção “Phase 2 — Permissions & Roles (Included)”.
-
-- 2026-02-06: **Docs — Ordem de execução ajustada**
-  - Atualizada a ordem de execução para explicitar Phase 2 (Frontend Auth) em paralelo com Phase 2 Permissions & Roles.
-  - Próxima ação: confirmar aprovação do plano completo.
-
-- 2026-02-06: **Docs — Tasks adicionadas**
-  - Adicionadas tasks de Auth/Landing/Permissions em `ai/tasks.md` (seção P1 — Soon).
-  - Próxima ação: revisar prioridades e iniciar execução da TASK-AUTH-0200.
-
-- 2026-02-06: **Docs — TASK-AUTH-0200 iniciada**
-  - Contrato de auth (draft) e política de senha adicionados ao plano em `ai/IMPLEMENTATION_PLAN_AUTH_LANDING.md`.
-  - Próxima ação: validar o contrato com o time e marcar TASK-AUTH-0200 como concluída.
-
-- 2026-02-06: **Docs — Decisões do contrato**
-  - Registradas decisões: OPERATOR→EDITOR, DTOs em `app/presentation/dtos/auth_dtos.py`, cookie `secure` por ambiente, error shape padrão, access_token em body+cookie, reset JWT TTL 15min.
-  - Próxima ação: aplicar os próximos passos do “Contract Closeout”.
-
-- 2026-02-06: **Tasks — TASK-AUTH-0200 concluída**
-  - Marquei a TASK-AUTH-0200 como concluída em `ai/tasks.md`.
-  - Próxima ação: iniciar TASK-AUTH-0201 (migration local credentials).
-
-- 2026-02-06: **Tasks — TASK-AUTH-0201 concluída**
-  - Migration criada: `infra/migrations/sql/011_add_identity_local_credentials.sql`.
-  - Runbook atualizado com rollback: `docs/runbooks/migrations.md`.
-  - TASK-AUTH-0201 marcada como concluída em `ai/tasks.md`.
-  - Próxima ação: iniciar TASK-AUTH-0202 (use cases de auth).
-
-- 2026-02-06: **Tasks — TASK-AUTH-0202 (iniciado)**
-  - Criados DTOs e use cases de auth (signup/login/forgot/reset).
-  - Adicionado port `IAuthRepository` e adapter SQLAlchemy para auth.
-  - Atualizado `auth/utils.py` com JWT de reset (TTL 15min).
-  - Atualizado modelo `Identity` com campos de senha/reset.
-  - Próxima ação: revisar wiring dos endpoints e validar fluxos (TASK-AUTH-0203).
-
-- 2026-02-06: **Tasks — TASK-AUTH-0202 concluída**
-  - Use cases e DTOs de auth finalizados.
-  - TASK-AUTH-0202 marcada como concluída em `ai/tasks.md`.
-  - Próxima ação: finalizar TASK-AUTH-0203 (routers/cookies).
-
-- 2026-02-06: **Tasks — TASK-AUTH-0203 concluída**
-  - Endpoints `/v1/auth/*` adicionados no `auth_router` com DTOs e cookies httpOnly.
-  - `cookie_secure` adicionado em `settings`.
-  - TASK-AUTH-0203 marcada como concluída em `ai/tasks.md`.
-  - Próxima ação: iniciar TASK-AUTH-0204 (frontend auth pages).
-
-- 2026-02-06: **Tasks — TASK-AUTH-0204 concluída**
-  - Atualizado `/login` para autenticação por email/senha.
-  - Criadas páginas `/signup`, `/forgot-password`, `/reset-password/[token]`.
-  - TASK-AUTH-0204 marcada como concluída em `ai/tasks.md`.
-  - Próxima ação: iniciar TASK-AUTH-0205 (terms/privacy).
-
-- 2026-02-06: **Tasks — TASK-AUTH-0205 concluída**
-  - Criadas páginas `/terms` e `/privacy` no app-ui.
-  - TASK-AUTH-0205 marcada como concluída em `ai/tasks.md`.
-  - Próxima ação: iniciar TASK-AUTH-0206 (middleware + route protection).
-
-- 2026-02-06: **Tasks — TASK-AUTH-0206 concluída**
-  - Middleware atualizado para cookie `access_token`, rotas públicas e guards de role.
-  - `setAuthCookie` agora usa httpOnly e nome `access_token`.
-  - Login/signup passam a setar cookie via server action.
-  - TASK-AUTH-0206 marcada como concluída em `ai/tasks.md`.
-  - Próxima ação: iniciar TASK-AUTH-0207 (URL simplification).
-
-- 2026-02-06: **Tasks — TASK-AUTH-0207 concluída**
-  - `basePath` removido e rewrites adicionados para `/app/*` em `services/app-ui/next.config.js`.
-  - Manifest e metadata ajustados para URLs sem `/app`.
-  - `NEXT_PUBLIC_BASE_PATH` default atualizado para vazio.
-  - TASK-AUTH-0207 marcada como concluída em `ai/tasks.md`.
-  - Próxima ação: iniciar TASK-LANDING-0210 (landing page).
-
-- 2026-02-06: **Tasks — Landing Page concluída**
-  - Landing page implementada em `services/app-ui/src/app/page.tsx` com hero, features, pricing, testimonials, contact e footer.
-  - Design tokens aplicados (Poppins/Open Sans, cores do plano).
-  - Página de contato criada em `services/app-ui/src/app/contact/page.tsx`.
-  - TASK-LANDING-0210/0211/0212 marcadas como concluídas em `ai/tasks.md`.
-  - Próxima ação: iniciar TASK-PERM-0213 (roles + ownership).
-
-- 2026-02-06: **Tasks — TASK-PERM-0213 concluída**
-  - Criado `UserRole` em `services/api/app/domain/entities/user.py`.
-  - `Farm` agora inclui `created_by_user_id` e `can_edit()` com regras de role.
-  - TASK-PERM-0213 marcada como concluída em `ai/tasks.md`.
-  - Próxima ação: iniciar TASK-PERM-0214 (use cases permissions).
-
-- 2026-02-06: **Tasks — TASK-PERM-0214 concluída**
-  - Use cases de farm atualizados com regras de role/ownership.
-  - Criados comandos Update/Delete e métodos update/delete no repo.
-  - TASK-PERM-0214 marcada como concluída em `ai/tasks.md`.
-  - Próxima ação: iniciar TASK-PERM-0215 (migration farm ownership).
-
-- 2026-02-06: **Tasks — TASK-PERM-0215 concluída**
-  - Migration criada: `infra/migrations/sql/012_add_farm_created_by_user.sql` com backfill.
-  - Runbook atualizado: `docs/runbooks/migrations.md`.
-  - ORM atualizado com `created_by_user_id` e índice.
-  - Farm repo passa a mapear `created_by_user_id`.
-  - TASK-PERM-0215 marcada como concluída em `ai/tasks.md`.
-  - Próxima ação: iniciar TASK-PERM-0216 (guards + invite API).
-
-- 2026-02-06: **Tasks — TASK-PERM-0216 concluída**
-  - Guards atualizados para `EDITOR` (routers AOI/Jobs/Weather/Farms) e compatibilidade com OPERATOR mantida em `require_role`.
-  - Invite API reforçada para aceitar apenas `EDITOR`/`VIEWER` e retornar 400 para roles inválidas.
-  - Testes ajustados para `EDITOR` (rbac, tenant isolation, tenant_admin use cases).
-  - Comentários e docs atualizados para refletir `EDITOR`.
-  - TASK-PERM-0216 marcada como concluída em `ai/tasks.md`.
-  - Próxima ação: iniciar TASK-PERM-0217 (frontend invite UI + role UX).
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-005 (UI Map View, parcial)**
-  - Adicionados controles de split no mapa (simulação, confirmação, preview).
-  - Polígonos agora usam bordas por status e fill por NDVI (se disponível).
-  - Ícones centrais por status (alerta/processing/warning) e preview de split.
-  - Alerta visual quando talhão > 2.000 ha.
-  - Status: em andamento (merge/ajuste avançado pendente).
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-005 (UI Map View, merge)**
-  - Multi-select de talhões em preview + ação de merge via Turf.
-  - Ajuste fino permitido em preview com Geoman (edit/drag) no talhão selecionado.
-  - Task marcada como concluída em `ai/tasks.md`.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-018 (UI Merge de talhões)**
-  - Modo Merge no mapa: seleção multi-AOI e consolidação via Turf union.
-  - Persistência: cria AOI consolidado e remove AOIs originais (com validação de área máxima).
-  - Task marcada como concluída em `ai/tasks.md`.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-006 (Grid View + batch calibration)**
-  - Grid view com filtros de status, coluna editável para valor real e ação de salvar em lote.
-  - Controles de data/métrica/unidade e carregamento opcional de estimativas.
-  - Task marcada como concluída em `ai/tasks.md`.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-019 (Badges por tipo de alerta)**
-  - Badges visuais por tipo (water/disease/yield) no mapa, lista e grid.
-  - Tooltip com descrição do risco em badges.
-  - Task marcada como concluída em `ai/tasks.md`.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-017 (UX estados vazios/erros)**
-  - Empty states para lista/grid e CTA para criar talhão.
-  - Mensagens de erro amigáveis para 403/422 em split/merge.
-  - Task marcada como concluída em `ai/tasks.md`.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-007 (UI polling de status)**
-  - Polling via `/v1/app/aois/status` para atualizar estados de processamento.
-  - `processingAois` agora reflete status do backend sem polling de jobs.
-  - Task marcada como concluída em `ai/tasks.md`.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-008 (testes, parcial)**
-  - Dependências instaladas no container `api` (hypothesis, planetary-computer).
-  - `docker compose exec api pytest -q`: 3 passed, 1 warning.
-  - Observação: container não possui `tests/unit` completos; suite total não executada.
-  - OTel: erro "Exception while exporting Span" após execução (stdout fechado).
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-008 (testes completos)**
-  - `docker compose run --rm -v C:\projects\vivacampo-app:/workspace worker ... pytest /workspace/tests/unit -q`
-  - Resultado: 92 passed, 2 warnings (NotGeoreferencedWarning).
-  - Correções de testes: async marker + TenantId UUID + mock de provider STAC.
-  - Task marcada como concluída em `ai/tasks.md`.
-
-- 2026-02-06: **Arquitetura — TASK-ARCH-TEST-001**
-  - `docker compose run ... pytest /workspace/tests/unit/domain/test_value_objects_property.py -q`
-  - Resultado: 5 passed.
-  - Dependências instaladas no container (hypothesis, python-jose).
-  - Task marcada como concluída em `ai/tasks.md`.
-
-- 2026-02-06: **Arquitetura — TASK-ARCH-OBS-001**
-  - Validado OpenTelemetry no container `api` (imports OK: opentelemetry sdk/exporter/instrumentation).
-  - `OTEL_ENDPOINT` não definido em `.env.local` — mantendo console exporter padrão.
-  - Task marcada como concluída em `ai/tasks.md`.
-
-- 2026-02-06: **Arquitetura — TASK-ARCH-INDEX-001 (parcial)**
-  - Índices compostos confirmados no DB local (`pg_indexes`): jobs/aois/opportunity_signals.
-  - Staging/prod pendentes.
-
-- 2026-02-06: **Sessão — encerramento**
-  - Log criado em `ai/sessions/2026-02-06-1845.md`.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-012 (RBAC)**
-  - Confirmado RBAC `TENANT_ADMIN` em endpoints de split, calibração e feedback (403 padronizado).
-  - Task marcada como concluída em `ai/tasks.md`.
-
-- 2026-02-06: **Docs — roadmap/context atualizados**
-  - `ai/roadmap.md` atualizado com status do Interactive Paddock (backend completo; frontend pendente) e observabilidade parcial.
-  - `ai/context.md` atualizado com capacidades do paddock (APIs backend), gaps de frontend/RBAC e entidades adicionais.
-
-- 2026-02-06: **Planejamento — Interactive Paddock**
-  - Revisado plano e adicionadas tasks `TASK-PADDOCK-001` a `TASK-PADDOCK-008` em `ai/tasks.md`.
-  - Próxima ação: priorizar tasks e iniciar pela modelagem de dados (migrations/DTOs).
-
-- 2026-02-06: **Planejamento — Interactive Paddock (complemento)**
-  - Adicionadas tasks `TASK-PADDOCK-009` (confirmar split + batch create) e `TASK-PADDOCK-010` (feedback de campo) em `ai/tasks.md`.
-  - Prioridade confirmada: P1 para todas as tasks PADDOCK.
-
-- 2026-02-06: **Planejamento — Interactive Paddock (contratos)**
-  - Atualizados drafts de request/response para `simulate-split`, `field-data`, `analytics/calibration`, `analytics/prediction`, `aois/split`, `field-feedback` em `ai/tasks.md`.
-
-- 2026-02-06: **Planejamento — Interactive Paddock (gaps adicionados)**
-  - Adicionadas tasks `TASK-PADDOCK-011` a `TASK-PADDOCK-017` cobrindo governanca, RBAC, idempotencia, validacao geoespacial, observabilidade, unidades e UX de estados vazios.
-
-- 2026-02-06: **Planejamento — Interactive Paddock (sequencia e regras)**
-  - Reordenadas tasks PADDOCK em `ai/tasks.md` para sequencia de execucao.
-  - RBAC atualizado para `TENANT_ADMIN` e unidade padrao definida como kg/ha.
-
-- 2026-02-06: **Planejamento — Interactive Paddock (dependencias)**
-  - Adicionadas dependencias explicitas para todas as tasks PADDOCK em `ai/tasks.md`.
-
-- 2026-02-06: **Planejamento — Interactive Paddock (UX completos)**
-  - Adicionadas tasks `TASK-PADDOCK-018` (merge de talhoes) e `TASK-PADDOCK-019` (badges por tipo) em `ai/tasks.md`.
-
-- 2026-02-06: **Planejamento — Interactive Paddock (ordem de execucao)**
-  - Ordem P1 registrada em `ai/tasks.md` (Execution Order).
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-001 (data model) iniciado**
-  - Migration criada: `infra/migrations/sql/008_add_aoi_parent_and_field_calibrations.sql`.
-  - Modelos atualizados: `services/api/app/infrastructure/models.py` (parent_aoi_id + FieldCalibration).
-  - Runbook atualizado: `docs/runbooks/migrations.md`.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-014 (validacao geoespacial)**
-  - Normalizacao de geometria no AOI repo (make valid + simplify) e rejeicao de geometria invalida.
-  - Router de AOI agora retorna 422 em erros de geometria.
-  - Teste unitario adicionado em `tests/unit/infrastructure/test_aoi_repository_geometry.py`.
-  - Changelog interno atualizado.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-002 (simulate split)**
-  - Endpoint `POST /v1/app/aois/simulate-split` implementado (voronoi/grid) com RBAC TENANT_ADMIN.
-  - Spatial repo agora gera split via PostGIS (Voronoi/Grid) com retorno de area_ha.
-  - Use case e DTOs adicionados + teste unitario de warnings.
-  - Changelog interno atualizado.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-009 (confirmar split)**
-  - Endpoint `POST /v1/app/aois/split` criado para persistir AOIs filhos com parent_aoi_id.
-  - Use case de split + DTOs adicionados; validacao de area maxima e parent.
-  - Backfill opcional por AOI criado no router (8 semanas).
-  - Changelog interno atualizado.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-013 (idempotencia)**
-  - Adicionado header `Idempotency-Key` para split e fallback via hash do payload.
-  - Criada tabela `split_batches` e repositorio de idempotencia.
-  - Use case de split retorna batch existente quando chave ja usada.
-  - Backfill nao reexecuta quando request idempotente.
-  - Changelog interno e runbook de migracoes atualizados.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-007 (status polling, parcial)**
-  - Endpoint `POST /v1/app/aois/status` para polling de status por AOI.
-  - Use case `AoiStatusUseCase` + method `latest_status_by_aois` no job repo.
-  - Teste unitario adicionado para status.
-  - Changelog interno atualizado.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-003 (calibracao)**
-  - Endpoints `POST /v1/app/field-data` e `GET /v1/app/analytics/calibration`.
-  - Repositorio de calibracao + uso de NDVI semanal para regressao linear (r2/slope/intercept).
-  - Use cases e testes unitarios adicionados.
-  - Changelog interno atualizado.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-011 (governanca de calibracao)**
-  - Calibracoes versionadas com apenas 1 ativa por data/metric_type.
-  - Repositorio agora cria nova versao e desativa anterior.
-  - Migracao 008 atualizada com indices ativos/versao.
-  - Changelog interno atualizado.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-004 (predicao)**
-  - Endpoint `GET /v1/app/analytics/prediction` implementado.
-  - Usa yield_forecasts do AOI e fallback por media do tenant.
-  - Use case + repositorio + testes adicionados.
-  - Changelog interno atualizado.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-016 (unidades)**
-  - Conversao de `sc_ha` para `kg_ha` (padrao) em calibrações.
-  - Schema agora aceita `kg_ha` e `sc_ha`.
-  - Teste unitario cobre conversao.
-  - Changelog interno atualizado.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-015 (observabilidade/auditoria)**
-  - Log de auditoria para calibracao (field_calibration).
-  - Contador Prometheus para submissões de calibracao.
-  - Changelog interno atualizado.
-
-- 2026-02-06: **Paddock — TASK-PADDOCK-010 (feedback)**
-  - Endpoint `POST /v1/app/field-feedback` implementado.
-  - Persistencia em `field_feedback` + auditoria basica.
-  - Use case + repositorio + testes adicionados.
-  - Changelog interno atualizado.
-
-- 2026-02-06: **API — fix OIDC login duplicate email**
-  - `auth_router.oidc_login` agora reutiliza Identity existente por email, atualiza `name` e tenta alinhar `provider/subject` quando seguro.
-  - Tratado `IntegrityError` na criação de Identity para evitar falha por `identities_email_key`.
-  - Restante: rebuild/restart do `api` e validar login; adicionar/ajustar teste para login com email duplicado.
-  - Próxima ação: `docker compose build api && docker compose up -d api`, depois repetir login com `test@vivacampo.com`.
-  - Testes não executados nesta etapa.
-
-- 2026-02-06: **E2E manual — criação de fazenda (API)**
-  - Health check OK: `GET /health` -> 200.
-  - Autenticação mock do doc falhou (endpoint `/api/v1/auth/mock-login` não existe).
-  - Login via OIDC local: `POST /v1/auth/oidc/login` com JWT HS256 (ENV local).
-  - Endpoints reais: `/v1/app/farms` (não `/api/v1/farms`).
-  - Criadas 3 fazendas com sucesso (201); quota não bloqueou (tenant `COMPANY`/`ENTERPRISE`, quotas vazias).
-  - Divergências encontradas no `ai/FARM_CREATION_TEST.md`: paths e payload (`location` vs `timezone`) estão desatualizados.
-
-- 2026-02-06: **Arquitetura — Fase 1 validada**
-  - Verificado que refactors de quotas/audit/routers e fallback SQS/S3 já estão aplicados no código.
-  - `python scripts/validate_architecture.py` (com `PYTHONIOENCODING=utf-8`): PASS.
-
-- 2026-02-06: **Arquitetura — Fase 2 verificada**
-  - SRRE já está implementado via TiTiler (`services/tiler/tiler/expressions.py`) e usado no Nitrogen API.
-  - Harvest detection já existe como job `DETECT_HARVEST` no worker (use case + handler + adapters).
-  - Frost risk não foi encontrado no código; requer definição do escopo antes de implementar.
-
-- 2026-02-06: **Arquitetura — Fase 2 (presentation cleanup) executada**
-  - Routers agora usam `ApiContainer` via `Depends(get_container)` e não importam `get_db`.
-  - `ApiContainer` passou a aceitar `db` opcional e resolve sessão internamente.
-  - `auth_router` usa `container.db_session()` para operações diretas de ORM.
-  - `tiles_router` corrigido para background task criar container com `SessionLocal`.
-  - Testes não executados nesta etapa.
-
-- 2026-02-06: **Arquitetura — Fase 3 (DI wiring) verificada**
-  - `ApiContainer` já expõe repos/services e resolve sessão via `db` opcional.
-  - Não há use cases usando `check_*_quota` diretamente; quotas continuam aplicadas nos routers.
-  - Nenhuma alteração adicional necessária nesta fase.
-
-- 2026-02-06: **Sessão — log registrado**
-  - Criado log de sessão em `ai/sessions/2026-02-06-1620.md`.
-
-- 2026-02-06: **Data Provider Resilience — Fase 1 (parcial)**
-  - Criados `SatelliteDataProvider`/`WeatherDataProvider` em `services/worker/worker/pipeline/providers/base.py`.
-  - Adicionado `IndexCalculator` em `services/worker/worker/pipeline/index_calculator.py` + testes `tests/test_index_calculator.py`.
-  - Implementados `PlanetaryComputerProvider` e `OpenMeteoProvider` + registry inicial em `services/worker/worker/pipeline/providers/`.
-  - `StacTopographyProvider` agora usa `get_satellite_provider()` (sem `stac_client`).
-  - Testes nao executados nesta etapa.
-
-- 2026-02-06: **Data Provider Resilience — migracao radar**
-  - `StacRadarProvider` agora usa `get_satellite_provider()` em `services/worker/worker/infrastructure/adapters/jobs/radar_adapters.py`.
-  - Testes nao executados nesta etapa.
-
-- 2026-02-06: **Data Provider Resilience — migracao weather**
-  - `WeatherProvider` agora retorna lista normalizada; adapter usa `get_weather_provider()` do registry.
-  - `ProcessWeatherUseCase` aceita lista e mantem compatibilidade com payload antigo.
-  - Teste ajustado em `tests/unit/worker/test_process_weather_use_case.py`.
-  - Testes nao executados nesta etapa.
-
-- 2026-02-06: **Data Provider Resilience — migracao create_mosaic**
-  - `PlanetaryComputerMosaicProvider` agora usa `get_satellite_provider().search_raw_items()` via registry.
-  - Testes nao executados nesta etapa.
-
-- 2026-02-06: **Data Provider Resilience — limpeza stac_client**
-  - `planetary_computer_adapter` agora usa `get_satellite_provider()` (sem `stac_client`).
-  - `services/worker/worker/pipeline/stac_client.py` removido apos migrações e grep sem referencias.
-
-- 2026-02-06: **Data Provider Resilience — Fase 4 (parcial)**
-  - Adicionados `FallbackChainProvider` + `ProviderCircuitBreaker` e `ProviderMetrics` em `services/worker/worker/pipeline/providers/`.
-  - Registry agora monta chain com fallbacks via `satellite_fallback_providers`.
-  - Endpoint `/admin/providers/status` adicionado (retorna status/metricas como `unknown` ate fase 3).
-  - Configs adicionadas em `services/worker/worker/config.py` e `services/api/app/config.py`.
-
-- 2026-02-06: **Data Provider Resilience — Fase 3 (parcial)**
-  - Migration `infra/migrations/sql/007_add_stac_scene_cache.sql` criada (cache STAC).
-  - `SceneCacheRepository` e `CachedSatelliteProvider` adicionados.
-  - Registry agora envolve provider com cache (`CachedSatelliteProvider`).
-  - Endpoint admin `/admin/jobs/reprocess` criado para reprocessar jobs.
-
-- 2026-02-06: **Data Provider Resilience — Fase 2 (providers alternativos)**
-  - Adicionados providers `AWSEarthSearchProvider` e `CDSEProvider` em `services/worker/worker/pipeline/providers/`.
-  - Registry já suporta fallbacks via `satellite_fallback_providers`.
-
-- 2026-02-06: **API — fix quota/audit repository init**
-  - `SQLAlchemyQuotaRepository` e `SQLAlchemyAuditRepository` agora chamam `BaseSQLAlchemyRepository.__init__` explicitamente para garantir `self.db` em runtime.
-
-- 2026-02-06: **API — fix BaseSQLAlchemyRepository**
-  - `_execute_query` agora aceita `str` ou `TextClause` (evita `text(text(...))`).
-
-- 2026-02-06: **Sessão — encerramento**
-  - Data Provider Resilience Fases 1–4 concluídas (com cache STAC e fallbacks configuráveis).
-  - API corrigida para quota/audit repos e `_execute_query`.
-  - Changelog interno atualizado.
-  - Próximo: rodar build/testes completos em Docker e validar endpoints admin.
-
-- 2026-02-06: **API — fix JobResult aoi_id**
-  - `JobResult.aoi_id` agora é opcional para suportar jobs globais (ex: CREATE_MOSAIC).
-
-- 2026-02-06: **Arquitetura — Fase 1 (parte) quotas/audit**
-  - `domain/quotas.py` e `domain/audit.py` refatorados para usar ports (sem SQLAlchemy).
-  - Adicionados ports e adapters SQLAlchemy: `quota_repository.py`, `audit_repository.py`.
-  - DI container agora expõe `quota_service` e `audit_logger`; routers atualizados para usar via container.
-  - Testes não executados nesta etapa.
-
-- 2026-02-06: **Arquitetura — Fase 2 (presentation cleanup)**
-  - Removidos imports `Session` e anotações `db: Session` dos routers em `services/api/app/presentation`.
-  - Mantido `db = Depends(get_db)` para injeção sem acoplamento à SQLAlchemy.
-  - Testes não executados nesta etapa.
-
-- 2026-02-06: **Arquitetura — Fase 3 (infra)**
-  - Criado `BaseSQLAlchemyRepository` com helpers comuns.
-  - Adicionados circuit breaker + retry síncronos em `sqs_client.py` e métodos do `S3Client`.
-  - Utilitários sync adicionados em `infrastructure/resilience.py`.
-  - Testes não executados nesta etapa.
-
-- 2026-02-06: **Validação — arquitetura**
-  - `python scripts/validate_architecture.py` falhou por Unicode (cp1252); rerodado com `PYTHONIOENCODING=utf-8`.
-  - Resultado: 2 erros (imports `sqlalchemy.orm` em `services/api/app/application/correlation.py` e `services/api/app/application/nitrogen.py`).
-
-- 2026-02-06: **Arquitetura — correção application imports**
-  - Removidos imports de `sqlalchemy.orm` de `application/correlation.py` e `application/nitrogen.py`.
-  - Wrappers agora recebem repository por injeção (sem `Session`).
-  - `python scripts/validate_architecture.py` passou com `PYTHONIOENCODING=utf-8`.
-
-- 2026-02-06: **Testes — unit**
-  - `pytest tests\unit -q --ignore=scripts/poc`: 67 passed, 2 skipped, 39 warnings.
-
-- 2026-02-06: **Arquitetura — validação tenant_id**
-  - DTOs já usam `ImmutableDTO` (frozen) via `domain/base.py`.
-  - Adicionado decorator `require_tenant` em `application/decorators.py` e aplicado nos use cases com `tenant_id`.
-
-- 2026-02-06: **Validação — arquitetura**
-  - `python scripts/validate_architecture.py` passou com `PYTHONIOENCODING=utf-8`.
-
-- 2026-02-06: **Testes — unit + security**
-  - `pytest tests\unit -q --ignore=scripts/poc`: 67 passed, 2 skipped, 39 warnings.
-  - `pytest tests\unit\application -q`: 29 passed, 18 warnings.
-  - `pytest tests\security -v`: 7 passed, 6 warnings.
-
-- 2026-02-06: **Arquitetura — índices compostos**
-  - Criada migration `infra/migrations/sql/006_add_tenant_query_indexes.sql` (jobs, aois, opportunity_signals).
-  - Runbook atualizado com plano/rollback em `docs/runbooks/migrations.md`.
-
-- 2026-02-06: **Migrations — validação local**
-  - Índices aplicados no DB local via `CREATE INDEX CONCURRENTLY` (jobs, aois, opportunity_signals).
-  - Comandos de `psql` levaram >120s e estouraram timeout do shell, mas os índices foram criados com sucesso (verificado em `pg_indexes`).
-
-- 2026-02-06: **Arquitetura — BaseSQLAlchemyRepository (lote 1)**
-  - `ai_assistant_repository`, `correlation_repository`, `nitrogen_repository` agora usam `BaseSQLAlchemyRepository`.
-  - Normalizada leitura de rows via `_execute_query` (mapeamento por dict).
-
-- 2026-02-06: **Arquitetura — BaseSQLAlchemyRepository (lote 2)**
-  - `aoi_data_repository`, `radar_data_repository`, `weather_data_repository` agora usam `BaseSQLAlchemyRepository`.
-
-- 2026-02-06: **Testes — unit (application)**
-  - `pytest tests\unit\application -q`: 29 passed, 18 warnings.
-
-- 2026-02-06: **Arquitetura — BaseSQLAlchemyRepository (lote 5)**
-  - `quota_repository` e `audit_repository` agora usam `BaseSQLAlchemyRepository`.
-
-- 2026-02-06: **Testes — unit (application)**
-  - `pytest tests\unit\application -q`: 29 passed, 18 warnings.
-
-- 2026-02-06: **Testes — unit + security**
-  - `pytest tests\unit -q --ignore=scripts/poc`: 67 passed, 2 skipped, 39 warnings.
-  - `pytest tests\security -v`: 7 passed, 6 warnings.
-
-- 2026-02-06: **Validação — arquitetura + unit**
-  - `python scripts/validate_architecture.py` (com `PYTHONIOENCODING=utf-8`): PASS.
-  - `pytest tests\unit -q --ignore=scripts/poc`: 67 passed, 2 skipped, 39 warnings.
-
-- 2026-02-06: **Fase 3 — property-based tests**
-  - Adicionado Hypothesis em `services/api/requirements.txt`.
-  - Criado `tests/unit/domain/test_value_objects_property.py` para AreaHectares/GeometryWkt/TenantId.
-
-- 2026-02-06: **Testes — property-based (falha)**
-  - `pytest tests/unit/domain/test_value_objects_property.py -q` falhou: `ModuleNotFoundError: hypothesis`.
-  - `python -m pip install hypothesis` falhou (sem distribuição disponível no ambiente).
-
-- 2026-02-06: **Fase 3 — OpenTelemetry**
-  - Adicionado setup de tracing em `app/observability.py` e ligação no `app/main.py`.
-  - Novas settings: `otel_enabled`, `otel_endpoint`, `otel_service_name`.
-  - Dependencias adicionadas em `services/api/requirements.txt`.
-
-- 2026-02-06: **Fase 3 — Documentação DI**
-  - Adicionadas instruções de uso/overrides no docstring do `ApiContainer`.
-
-- 2026-02-06: **Fase 3 — Rate limiting por tenant**
-  - Limiter usa `tenant_id` quando disponível (fallback para IP).
-  - `get_current_membership` agora registra `request.state.tenant_id`.
-
-- 2026-02-06: **Observability — fallback + testes**
-  - `app/observability.py` agora ignora tracing se OpenTelemetry não estiver instalado.
-  - Ajustado `get_current_membership`/`get_current_system_admin` para aceitar `Request` opcional sem erro de FastAPI.
-  - `pytest tests/security -v`: 7 passed, 6 warnings.
-
-- 2026-02-06: **Observability — tracing ativado**
-  - `otel_enabled` agora default `True` (usa console exporter se `otel_endpoint` ausente).
-
-- 2026-02-06: **Tasks — pendências adicionadas**
-  - `TASK-ARCH-OBS-001`: instalar deps OTel e validar tracing em runtime.
-  - `TASK-ARCH-TEST-001`: instalar Hypothesis e rodar property-based tests.
-
-- 2026-02-06: **Plano — fase 3 encerrada + fase 4 aberta**
-  - `ai/ARCHITECTURE_IMPLEMENTATION_PLAN.md`: Phase 3 marcada como concluída; Phase 4 adicionada (follow-up operacional).
-
-- 2026-02-06: **Tasks — checklist índices**
-  - Adicionada task `TASK-ARCH-INDEX-001` em `ai/tasks.md` para aplicar/validar índices compostos em staging/prod.
-
-- 2026-02-06: **Plano — fase 2 marcada**
-  - `ai/ARCHITECTURE_IMPLEMENTATION_PLAN.md`: Phase 2 (Presentation cleanup) marcada como concluída.
-- 2026-02-06: **Arquitetura — BaseSQLAlchemyRepository (lote 4)**
-  - `aoi_spatial_repository`, `aoi_repository`, `system_admin_repository` agora usam `BaseSQLAlchemyRepository`.
-
-- 2026-02-06: **Testes — unit (application)**
-  - `pytest tests\unit\application -q`: 29 passed, 18 warnings.
-- 2026-02-06: **Arquitetura — BaseSQLAlchemyRepository (lote 3)**
-  - `job_repository`, `signal_repository`, `tenant_admin_repository` agora usam `BaseSQLAlchemyRepository`.
-
-- 2026-02-06: **Testes — unit (application)**
-  - `pytest tests\unit\application -q`: 29 passed, 18 warnings.
-- 2026-02-06: **Fase 8 (Limpeza legado) — app-ui tiles**
-  - Removido suporte a legacy tiles no frontend.
-  - `DynamicTileLayer` agora usa apenas tiling dinamico; removidos `legacyTileUrl`, colormap/rescale legacy e constantes.
-  - Removido `LEGACY_TILE_PROP_MAP` de `services/app-ui/src/lib/tiles.ts`.
-  - Pendentes: avaliar outros pontos de legado (process_week legacy pipeline, legacy_processor, etc.).
-
-- 2026-02-06: **Fase 8 (Limpeza legado) — process_week use case**
-  - Removido suporte ao legacy pipeline no `ProcessWeekUseCase`.
-  - Agora sempre executa o processor dinamico; se `use_dynamic_tiling=False`, registra warning e segue o fluxo dinamico.
-  - Atualizado handler para nao injetar `legacy_processor`.
-
-- 2026-02-06: **Fase 8 (Limpeza legado) — process_week handler**
-  - Removido pipeline legacy completo de `services/worker/worker/jobs/process_week.py`.
-  - Handler agora apenas delega para `calculate_stats_handler` via `ProcessWeekUseCase`.
-
-- 2026-02-06: **Fase 8 (Limpeza legado) — worker main**
-  - Removida referencia/rotulo legacy no mapping de `JOB_HANDLERS` em `services/worker/worker/main.py`.
-
-- 2026-02-06: **Fase 8 (Limpeza legado) — mensagens legacy**
-  - Ajustado log para `process_week_dynamic_tiling_forced` quando `use_dynamic_tiling=False`.
-  - Removida mencao legacy no docstring de `process_week`.
-
-- 2026-02-06: **Docs — Fase 8 inventario + changelog**
-  - Atualizado inventario da Fase 8 no `ai/HEXAGONAL_EXECUTION_PLAN.md` para refletir remocoes.
-  - Adicionada entrada em `docs/CHANGELOG_INTERNAL.md` para a limpeza de legacy tiling e process_week.
-
-- 2026-02-06: **Docs — ajustes legacy**
-  - Atualizado `ai/decisions.md` (ADR-0007) para marcar fases 3 e 4 como concluidas.
-  - Atualizado `ai/tasks.md` para refletir remocao do COG legacy.
-  - Ajuste leve em `docs/runbooks/migrations.md` (terminologia).
-
-- 2026-02-06: **Docs — limpeza adicional**
-  - Ajustado texto no inventario da Fase 8 em `ai/HEXAGONAL_EXECUTION_PLAN.md`.
-  - Atualizada linha residual em `ai/tasks.md` sobre COG legacy.
-
-- 2026-02-06: **Docs (human-owned) — terminologia legacy**
-  - Substituido "legacy" por "prior" em `ai/roadmap.md` e `ai/sessions/2026-02-04-2008-dynamic-tiling.md`.
-
-- 2026-02-06: **Docs/Testes — limpeza de referencias legacy**
-  - Atualizado `docs/CHANGELOG_INTERNAL.md` e `scripts/README.md` para evitar "legacy".
-  - Ajustados testes de `ProcessWeekUseCase` para remover o caminho legacy.
-
-- 2026-02-06: **Docs — ajuste final**
-  - Atualizado `docs/CHANGELOG_INTERNAL.md` para remover o ultimo "legacy" remanescente.
-
-- 2026-02-06: **Tasks — planejamento Fase 7**
-  - Adicionada task `TASK-HEX-007` em `ai/tasks.md` para concluir E2E e validar Fase 7 futuramente.
-
-- 2026-02-06: **Hexagonal Fase 8 — checklist atualizado**
-  - Marcado como concluido: remocao de legado e atualizacao de docs/ADRs/changelog.
-  - Pendente: confirmar novos fluxos em prod/staging.
-
-- 2026-02-06: **Hexagonal Fase 8 — checklist de validacao**
-  - Adicionado checklist rapido de validacao (prod/staging) no plano de execucao.
-
-- 2026-02-06: **Seguranca multi-tenant — suite de testes**
-  - Criada suite `tests/security/` com testes de isolamento por tenant.
-  - Adicionados markers `security` no `pytest.ini` e auto-mark em `tests/conftest.py`.
-
-- 2026-02-06: **Seguranca multi-tenant — fix Farm repository**
-  - Ajustado `SQLAlchemyFarmRepository` para suportar `updated_at` ausente (usa `getattr`).
-  - Motivo: testes de seguranca falharam por `AttributeError: Farm.updated_at`.
-
-- 2026-02-06: **Seguranca multi-tenant — ajuste testes**
-  - Ajustado teste de backfill cross-tenant para validar o shape padrao de erro (`error.message`).
-
-- 2026-02-06: **Seguranca multi-tenant — RLS prep**
-  - Criada migration `infra/migrations/sql/005_enable_rls.sql` com policies de tenant e bypass system admin.
-  - API e Worker agora setam `app.tenant_id`/`app.is_system_admin` via `set_config` para RLS.
-  - Runbook atualizado em `docs/runbooks/migrations.md`.
-
-- 2026-02-06: **Seguranca multi-tenant — linter SQL**
-  - Adicionado teste `tests/security/test_sql_tenant_filters.py` para validar tenant_id em SQL raw.
-  - Tentativa de aplicar migration RLS via Docker falhou por permissao no Docker Desktop.
-
-- 2026-02-06: **Seguranca multi-tenant — ajustes e testes**
-  - Adicionado filtro `tenant_id` em `job_repository.list_runs` (SQL raw).
-  - Testes `pytest tests/security -v`: 3 passed.
-
-- 2026-02-06: **Seguranca multi-tenant — validação de claims**
-  - `get_current_membership` agora valida `tenant_id` e `identity_id` do token contra a membership.
-  - Adicionado teste `test_membership_token_mismatch_rejected`.
-
-- 2026-02-06: **Seguranca multi-tenant — testes**
-  - `pytest tests/security -v`: 4 passed (warnings de Pydantic/utcnow).
-
-- 2026-02-06: **Seguranca multi-tenant — guardrails**
-  - Adicionadas suites: `test_router_tenant_dependency.py` (tenant dep em routers) e `test_system_admin_guard.py` (guard system-admin).
-  - Runbook de migrations atualizado com checklist de rollout RLS.
-
-- 2026-02-06: **Seguranca multi-tenant — testes**
-  - `pytest tests/security -v`: 6 passed (warnings de Pydantic/utcnow).
-
-- 2026-02-06: **Seguranca multi-tenant — workspace switch**
-  - `auth/workspaces/switch` agora exige auth e valida identity_id.
-  - Adicionado teste `test_workspace_switch_rejects_other_identity_membership`.
-
-- 2026-02-06: **Seguranca multi-tenant — warnings Pydantic/UTC**
-  - Migrados validators para Pydantic v2 (`field_validator`, `ConfigDict`, `json_schema_extra`).
-  - Substituido `datetime.utcnow()` por `datetime.now(UTC)` em auth utils e tests.
-  - Testes `pytest tests/security -v`: 7 passed (6 warnings restantes em deps externas: `starlette.formparsers` e `jose.jwt`).
-
-- 2026-02-06: **Hexagonal Fase 8 — concluida (validacao adiada)**
-  - Checklist de limpeza marcado como concluido.
-  - Validacao prod/staging movida para Fase 7 (E2E/validacao).
-
-- 2026-02-06: **Hexagonal Fase 8 — checklist reaberto**
-  - Item "Confirmar novos fluxos em prod/staging" marcado como pendente.
-
-- 2026-02-06: **Plano Hexagonal — encerrado**
-  - Pendencias migradas para `ai/tasks.md` (Fase 7 E2E/validacao e validacao prod/staging).
-
-- 2026-02-06: **Docs — atualizacao de contexto/roadmap**
-  - Atualizados `ai/context.md`, `docs/CONTEXT.md` e `ai/roadmap.md` com estado da migracao hexagonal e pendencias de validacao.
-
-- 2026-02-06: **Seguranca multi-tenant — fix docstring**
-  - Corrigido docstring em `auth_router.switch_workspace` (removido triple-quote extra).
-
-- 2026-02-06: **Hexagonal Fase 7 (E2E) — ajustes e novo resultado**
-  - Ajustes nos testes E2E (basePath `/app`, textos do admin, seletor AI Assistant, navegação mobile, redirects).
-  - Resultado local (log `e2e_test_log.txt`): `63 passed, 2 failed (57.8s)`.
-  - Falhas restantes: Admin UI login com token em WebKit e Mobile Safari (timeout esperando `/admin/dashboard`).
-
-- 2026-02-05: **Hexagonal Fase 7 (E2E) — tentativa**
-  - Comando: `npx playwright test`.
-  - Falhou por `npm` em modo `only-if-cached` sem cache (`ENOTCACHED`) e sem logs (erro ao escrever em `%LOCALAPPDATA%\\npm-cache`).
-  - Necessario permitir download de dependencias ou ajustar cache para executar E2E localmente.
-
-- 2026-02-05: **Hexagonal Fase 7 (Testes) — Unit tests < 5s**
-  - Ajustado `_StubAoiRepo` para cumprir interface (get_by_id/update/delete) em `tests/unit/application/test_aoi_use_cases.py`.
-  - Atualizado `tests/unit/infrastructure/test_local_fs_adapter.py` para usar tmp em `tests/.tmp` e cleanup seguro.
-  - Testes executados: `pytest tests\\unit -q` -> `67 passed, 2 skipped, 39 warnings in 2.30s`.
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — Ajuste de tmpdir e testes**
-  - Ajustado `ProcessRadarUseCase` e `ProcessTopographyUseCase` para criar e limpar workdir manualmente em `.tmp` (evita erro de permissao no Windows).
-  - Mantido suporte a `WORKER_TMP_DIR`/`TMPDIR`/`TEMP`/`TMP` para configurar temp.
-  - Testes executados: `pytest tests/unit/worker -v` com `WORKER_TMP_DIR=C:\projects\vivacampo-app\.tmp`.
-  - Resultado: `23 passed, 1 skipped, 2 warnings` (warnings do rasterio sobre georreferencia em testes).
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — Idempotencia**
-  - `opportunity_signals`: insert agora usa `ON CONFLICT` para atualizar score/evidence/features.
-  - `alerts`: insert agora evita duplicidade com `WHERE NOT EXISTS` (OPEN/ACK).
-  - Arquivos: `services/worker/worker/infrastructure/adapters/jobs/signals_adapters.py`, `services/worker/worker/infrastructure/adapters/jobs/alerts_adapters.py`.
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — Testes de integracao S3/SQS/DB**
-  - Adicionado `tests/test_worker_aws_integration.py` com checks de LocalStack S3/SQS e SqlJobRepository.
-  - Documentado em `tests/README_TESTING.md`.
-  - Testes executados: `pytest tests/test_worker_aws_integration.py -v` (3 passed, 10 warnings de `datetime.utcnow`).
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — Validacao tenant_id**
-  - `worker/main.py` valida campos obrigatorios por job (tenant_id/aoi_id) antes de executar.
-  - Jobs com payload incompleto sao marcados como FAILED e nao reprocessam.
-
-- 2026-02-05: **Hexagonal Fase 2 (Infra) — Timeouts + fallbacks + integracao LocalStack**
-  - Adicionados timeouts AWS em config (connect/read) e flags de fallback (`USE_LOCAL_QUEUE`, `USE_LOCAL_STORAGE`).
-  - DI agora respeita flags para queue/storage local.
-  - Adicionado `tests/test_api_aws_integration.py` (S3/SQS) e documentado em `tests/README_TESTING.md`.
-  - Testes executados: `pytest tests/test_api_aws_integration.py -v` (2 passed, 9 warnings de `datetime.utcnow`).
-
-- 2026-02-05: **Hexagonal Fase 4 (DI) — Overrides para testes**
-  - `ApiContainer` e `WorkerContainer` agora aceitam `overrides` (instancia ou factory).
-  - Permite injetar fakes sem alterar o wiring de producao.
-  - Exemplo rapido de uso em `tests/README_TESTING.md`.
-
-- 2026-02-05: **Hexagonal Fase 7 (Testes) — Marcacoes + contratos**
-  - Adicionado `pytest.ini` com markers `unit/integration/e2e/contract`.
-  - `tests/conftest.py` agora aplica markers automaticamente por caminho/arquivo.
-  - Adicionados contratos: `tests/contract/test_message_queue_contract.py`, `tests/contract/test_object_storage_contract.py`, `tests/contract/test_worker_job_repository_contract.py`.
-  - `tests/README_TESTING.md` atualizado com suite de contratos e exemplos de markers.
-  - Adicionada nota de Testcontainers (Postgres/Redis) em `tests/README_TESTING.md` (ainda nao habilitado).
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — BACKFILL**
-  - Added worker application layer (`application/dtos`, `application/use_cases`) with `BackfillUseCase`.
-  - Added worker ports/adapters: JobRepository, SeasonRepository, JobQueue (SQS) and wired in worker DI container.
-  - Updated backfill job handler to delegate to BackfillUseCase.
-  - Added unit tests: `tests/unit/worker/test_backfill_use_case.py`.
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — PROCESS_WEEK**
-  - Added `ProcessWeekCommand` + `ProcessWeekUseCase` and wired to job handler.
-  - Dynamic mode now marked DONE via JobRepository after CALCULATE_STATS delegation.
-  - Added unit tests: `tests/unit/worker/test_process_week_use_case.py`.
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — PROCESS_WEATHER**
-  - Added `ProcessWeatherCommand` + `ProcessWeatherUseCase` with AOI geometry + weather provider ports.
-  - Added adapters for AOI geometry, weather persistence, and Open-Meteo provider; wired in worker DI.
-  - Updated PROCESS_WEATHER handler to delegate to use case.
-  - Added unit tests: `tests/unit/worker/test_process_weather_use_case.py`.
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — CREATE_MOSAIC**
-  - Added `CreateMosaicCommand` + `CreateMosaicUseCase` and mosaic ports (provider/storage/registry).
-  - Added adapters for Planetary Computer STAC, S3 storage, and mosaic registry; wired in worker DI.
-  - Updated CREATE_MOSAIC handler to delegate to use case.
-  - Added unit tests: `tests/unit/worker/test_create_mosaic_use_case.py`.
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — PROCESS_RADAR_WEEK**
-  - Added `ProcessRadarCommand` + `ProcessRadarUseCase` and radar ports (provider/repository/storage).
-  - Added adapters for STAC radar provider, S3 storage, and radar repository; wired in worker DI.
-  - Updated PROCESS_RADAR_WEEK handler to delegate to use case.
-  - Added unit tests: `tests/unit/worker/test_process_radar_use_case.py`.
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — PROCESS_TOPOGRAPHY**
-  - Added `ProcessTopographyCommand` + `ProcessTopographyUseCase` and topography ports (provider/repository).
-  - Added adapters for STAC topography provider and topography repository; wired in worker DI.
-  - Updated PROCESS_TOPOGRAPHY handler to delegate to use case.
-  - Added unit tests: `tests/unit/worker/test_process_topography_use_case.py`.
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — CALCULATE_STATS**
-  - Added `CalculateStatsCommand` + `CalculateStatsUseCase` and tiler stats/observations ports.
-  - Added adapters for TiTiler stats and observations persistence; wired in worker DI.
-  - Updated CALCULATE_STATS handler to delegate to use case.
-  - Added unit tests: `tests/unit/worker/test_calculate_stats_use_case.py`.
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — SIGNALS_WEEK**
-  - Added `SignalsWeekCommand` + `SignalsWeekUseCase` and signals ports (observations, AOI info, signals repo).
-  - Added adapters for signals observations, AOI info, and signal persistence; wired in worker DI.
-  - Updated SIGNALS_WEEK handler to delegate to use case.
-  - Added unit tests: `tests/unit/worker/test_signals_week_use_case.py`.
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — ALERTS_WEEK**
-  - Added `AlertsWeekCommand` + `AlertsWeekUseCase` and alerts ports (tenant settings, observations, alerts repo).
-  - Added adapters for alerts observations, tenant settings, and alert persistence; wired in worker DI.
-  - Updated ALERTS_WEEK handler to delegate to use case.
-  - Added unit tests: `tests/unit/worker/test_alerts_week_use_case.py`.
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — FORECAST_WEEK**
-  - Added `ForecastWeekCommand` + `ForecastWeekUseCase` and forecast ports (seasons, observations, yield forecasts).
-  - Added adapters for seasons, forecast observations, and yield forecast persistence; wired in worker DI.
-  - Updated FORECAST_WEEK handler to delegate to use case.
-  - Added unit tests: `tests/unit/worker/test_forecast_week_use_case.py`.
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — WARM_CACHE**
-  - Added `WarmCacheCommand` + `WarmCacheUseCase` and warm cache ports (AOI bounds, tile client).
-  - Added adapters for AOI bounds and tile warm HTTP client; wired in worker DI.
-  - Updated WARM_CACHE handler to delegate to use case.
-  - Added unit tests: `tests/unit/worker/test_warm_cache_use_case.py`.
-
-- 2026-02-05: **Hexagonal Fase 6 (Worker Jobs) — DETECT_HARVEST**
-  - Added `DetectHarvestCommand` + `DetectHarvestUseCase` and harvest ports (radar metrics + signal repo).
-  - Added adapters for radar metrics and harvest signal persistence; wired in worker DI.
-  - Updated DETECT_HARVEST handler to delegate to use case.
-  - Added unit tests: `tests/unit/worker/test_detect_harvest_use_case.py`.
-
-- 2026-02-05: **Hexagonal Fase 5 (Presentation) — tiles/system_admin/tenant_admin/ai_assistant**
-  - Refactored tiles router to use use cases and AOI spatial repository (no direct SQL/S3).
-  - Added tile config/use cases and AOI spatial repository adapter.
-  - Added system admin, tenant admin, and AI assistant repositories + use cases.
-  - Updated system_admin, tenant_admin, and ai_assistant routers to use use cases.
-  - Added unit tests for tiles, system admin, tenant admin, and AI assistant use cases.
-  - Changelog updated.
-
-- 2026-02-05: Atualizado checklist de implementacao ate Fase 5 em `ai/HEXAGONAL_EXECUTION_PLAN.md`.
-- 2026-02-05: Refatorado geocode em farms para use case + adapter Nominatim e testes unitarios.
-- 2026-02-05: Padronizado erro HTTP/validacao no FastAPI e adicionados testes de error handler.
-- 2026-02-05: Padronizado rate limit handler, adicionada traceId via middleware e schema de erro no OpenAPI (hibrido).
-- 2026-02-05: Adicionado `get_current_tenant_id` e aplicado em routers multi-tenant (dependency global).
-- 2026-02-05: Rodado `pytest -q --ignore=scripts/poc` e falhou (fixtures async, FK seed e E2E/integration dependem de ambiente).
-
-- 2026-02-05: **Hexagonal Fase 5 (Presentation) — radar/weather**
-  - Added radar/weather DTOs, use cases, and SQLAlchemy data repositories.
-  - Updated radar and weather routers to use use cases + DI container.
-  - Added weather sync job creation to job repository adapter.
-  - Refactored AOI auto-backfill on create to use RequestBackfill use case (removed direct SQL).
-  - Added unit tests for radar and weather use cases.
-  - Changelog updated.
-
-- 2026-02-05: **Hexagonal Fase 4 (DI) concluida**
-  - Added DI containers for API and worker.
-  - Wired API routers to resolve use cases through DI container.
-  - Added basic container tests.
-  - Changelog updated.
-
-- 2026-02-05: **Hexagonal Fase 3 (Application Use Cases) concluida**
-  - Added correlation/nitrogen DTOs, use cases, and SQLAlchemy adapters.
-  - Updated correlation and nitrogen routers to use use cases/DTOs.
-  - Added unit tests for correlation and nitrogen use cases.
-  - Changelog updated.
-
-- 2026-02-05: **Hexagonal Fase 3 (Application Use Cases) expandida**
-  - Added AOI DTOs/use cases and SQLAlchemy AOI repository adapter.
-  - Updated AOI router (create/list) to use DTOs/use cases.
-  - Added signal DTOs/use cases and SQLAlchemy signal repository adapter.
-  - Updated signals router to use DTOs/use cases.
-  - Added job DTOs/use cases and SQLAlchemy job repository adapter.
-  - Updated jobs router to use DTOs/use cases.
-  - Added unit tests for AOI, signal, and job use cases.
-  - Changelog updated.
-
-- 2026-02-05: **Hexagonal Fase 3 (Application Use Cases) iniciada**
-  - Added application DTOs/use cases for farms.
-  - Added SQLAlchemy farm repository adapter.
-  - Updated farms router to use DTOs/use cases.
-  - Added unit tests for farm use cases.
-  - Changelog updated.
-
-- 2026-02-05: **Hexagonal Fase 2 (Infrastructure Adapters) concluida**
-  - Added API adapters: `SQSAdapter`, `S3Adapter`, `LocalQueueAdapter`, `LocalFileSystemAdapter`.
-  - Added worker satellite adapters: `PlanetaryComputerAdapter`, `ResilientSatelliteAdapter`, `MemorySatelliteCache`.
-  - Added circuit breaker usage for SQS/S3 adapters and resilient satellite adapter.
-  - Added validation for external satellite payloads and fallback chain.
-  - Added unit tests in `tests/unit/infrastructure/`.
-  - Changelog updated.
-
-- 2026-02-05: **Hexagonal Fase 1 (Domain) concluida**
-  - Added Pydantic base classes in `services/api/app/domain/base.py` and `services/worker/worker/domain/base.py`.
-  - Added value objects: TenantId, UserId, GeometryWkt, AreaHectares.
-  - Added domain entities: Farm, AOI.
-  - Added ports: message queue, object storage, farm repository; worker satellite provider.
-  - Added unit tests in `tests/unit/domain/`.
-  - Changelog updated.
-
-- 2026-02-05: **WIP: Interactive Map Embed & Tests**
-  - Added interactive map component in `services/app-ui/src/app/map-embed/`
-  - Added tests: `test_correlation_service.py`, `test_nitrogen_usecase.py`, `test_process_weather.py`
-  - Updated `constants.ts`
-
-- 2026-02-05: Added granular implementation details and per-phase checklists to `ai/HEXAGONAL_EXECUTION_PLAN.md`.
-- 2026-02-05: **DESIGN SYSTEM PHASE 3 COMPLETED** (Admin UI - Refinement)
-  - **Typography Upgrade**: Replaced Inter with professional font pairing
-    - **Fira Sans** (UI): Highly legible, professional font for all interface text
-    - **Fira Code** (Monospace): Programming ligatures for code/technical data
-    - Weights: 300/400/500/600/700 (Sans), 400/500/600 (Code)
-    - CSS variables: --font-sans, --font-mono
-  - **Typography System**: Implemented modular scale (1.250 - Major Third)
-    - 9 font size variables (--font-size-xs through --font-size-4xl)
-    - 3 line height variables (--leading-tight/normal/relaxed)
-    - 5 font weight variables (--font-light through --font-bold)
-    - Semantic heading styles (h1-h6) with optimized line heights
-  - **Utility Classes**: Added semantic typography utilities
-    - `.heading-1/2/3` for consistent heading styles
-    - `.body-lg/base/sm` for text sizing
-    - `.text-mono` for code/technical content
-  - **Color Documentation**: Enhanced palette with detailed comments
-    - Added hex color values for all design tokens
-    - Documented WCAG AAA compliance (4.5:1 minimum contrast)
-    - Added semantic descriptions for each color's purpose
-    - Improved dark mode color documentation
-  - **Files Modified**:
-    - `src/app/layout.tsx` - Font imports and configuration
-    - `tailwind.config.js` - Font family configuration
-    - `src/app/globals.css` - Typography scale, utilities, enhanced color comments
-    - `DESIGN_SYSTEM.md` - Updated typography section, added Phase 3 changelog (v1.3)
-  - **Result**: Professional typography, better code readability, comprehensive documentation
-- 2026-02-05: **TASK-INTEL-004 (Nitrogen API) validation + fix**
-  - Fixed `settings.API_BASE_URL` reference to `settings.api_base_url` in `services/api/app/presentation/nitrogen_router.py`.
-  - Seeded local nitrogen data and validated `/v1/app/aois/{aoi_id}/nitrogen/status` (returns DEFICIENT with SRRE zone URL).
-  - Added unit test: `tests/test_nitrogen_usecase.py` (passes).
-  - Next: start frontend validation (Analysis tab, Nitrogen alert, Radar tooltip).
-- 2026-02-05: **Analysis tab empty-state aligned**
-  - Updated `services/app-ui/src/components/AnalysisTab.tsx` to render a Card-based empty state matching the Health tab pattern.
-- 2026-02-05: **Analysis tab chart styling aligned**
-  - Updated `services/app-ui/src/components/CorrelationChart.tsx` and `services/app-ui/src/components/YearOverYearChart.tsx` to match the light chart card style used in other tabs (Weather/Health).
-- 2026-02-05: **Alerts tab includes nitrogen alert**
-  - Added nitrogen status fetch in `services/app-ui/src/components/AOIDetailsPanel.tsx` and included Nitrogen alert in the Alerts tab.
-  - Added `getNitrogenStatus` to `services/app-ui/src/lib/api.ts` and shared `NitrogenStatus` type in `services/app-ui/src/lib/types.ts`.
-- 2026-02-05: **UI validation complete (Intelligence P0/P1)**
-  - Analysis tab, Nitrogen alert, and Radar fallback tooltip validated with local data.
-  - Styles aligned across Analysis charts to match other tabs.
-  - tasks.md updated to reflect completed validations.
-- 2026-02-05: **TASK-INTEL-003 (Correlation API) validation + fix**
-  - Fixed weather column mapping in `services/api/app/application/correlation.py` (use `precip_sum`, temp_avg from `temp_max`/`temp_min`).
-  - Local seed added for correlation testing: `scripts/seed_correlation_test.sql`.
-  - Manual API check succeeded for `/v1/app/aois/{aoi_id}/correlation/vigor-climate` (local).
-  - Added unit test: `tests/test_correlation_service.py` (passes).
-  - Next: start TASK-INTEL-004 (Nitrogen API tests).
-- 2026-02-05: **Real data validation (local) — Correlation + Nitrogen**
-  - Authenticated with mock OIDC for `bomyoungkim@gmail.com`.
-  - AOI `7cc66958-e6fa-42ed-af3d-1dcfa1cfaa4e` (Talhão 1): Correlation OK (12 points), Nitrogen status DEFICIENT.
-  - AOI `234e7fe5-8b63-48cc-b13b-e1459edf6ece` (Talhão Auto 3): Correlation OK (8 points), Nitrogen status UNKNOWN.
-- 2026-02-05: **UI validation (manual) — app-ui**
-  - AOI Talhão 1: Nitrogen alert rendered (image provided).
-  - Analysis tab chart + insights rendered.
-  - Radar fallback tooltip rendered (image provided).
-  - Note: All alerts should also appear in the Alerts tab (pending confirmation/adjustment).
-- 2026-02-05: **Alerts tab aggregation fix (app-ui)**
-  - Alerts tab now lists all signals (no day/type de-duplication for the tab).
-  - Alerts count now reflects total signals + nitrogen alert.
-  - Overview "Atenção Necessária" uses total alert count.
-  - File: `services/app-ui/src/components/AOIDetailsPanel.tsx`.
-- 2026-02-05: **Endpoint validation (local) — Talhão 1**
-  - Correlation OK: 12 data points, 3 insights.
-  - Nitrogen OK: status DEFICIENT, confidence 0.7.
-  - Signals list OK: 0 alerts returned for AOI.
-- 2026-02-05: **Seed alerts for UI validation (Talhão 1)**
-  - Inserted 2 `opportunity_signals` for AOI `7cc66958-e6fa-42ed-af3d-1dcfa1cfaa4e`.
-  - Ensured `severity/confidence` enums match schema and `evidence_json` includes required fields.
-  - `/v1/app/signals` now returns the seeded alerts correctly.
-- 2026-02-05: **Data acquisition validation (admin ops)**
-  - Admin jobs list working: total 50, RUNNING 18, DONE 50 (via `/v1/admin/jobs`).
-  - Error column path validated: 1 FAILED job with `error_message` surfaced (PROCESS_WEATHER, Open-Meteo 400).
-  - Missing weeks report: `/v1/admin/ops/missing-weeks?weeks=12` returned 9 items.
-  - Reprocess missing weeks: queued 2 BACKFILL jobs (limit=2, max_runs_per_aoi=1).
-  - Worker logs show `process_weather_failed` with Open-Meteo 400 for 2025-11-17 → 2026-02-08.
-- 2026-02-05: **Fix Open-Meteo 400 (future end_date)**
-  - Clamp weather date range to avoid future `end_date` in Open-Meteo archive requests.
-  - Added unit tests for date clamping.
-  - Files: `services/worker/worker/jobs/process_weather.py`, `tests/test_process_weather.py`.
-- 2026-02-05: **Fix PROCESS_WEATHER table mismatch**
-  - Ensured `derived_weather_daily` gets `updated_at` column via `ALTER TABLE IF NOT EXISTS` in `ensure_weather_table_exists`.
-  - Added migration plan note to `docs/runbooks/migrations.md`.
-  - Local DB manual fix applied: `ALTER TABLE derived_weather_daily ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();`.
-  - Re-enqueued PROCESS_WEATHER job: status DONE, no error_message.
-- 2026-02-05: **DESIGN SYSTEM PHASE 4 COMPLETED** (Admin UI - Application)
-  - Refactored 5 admin pages to use design system components
-  - **jobs/page.tsx**: Replaced 142 lines of inline HTML with DataTable (283→291 lines, -23% complexity)
-    - Replaced 7 inline buttons with Button component (filter buttons, reprocess button, retry buttons)
-    - Replaced 10+ inline badges with Badge component (status display in table/cards)
-    - Replaced 2 inline inputs with Input component (reprocess days/limit)
-    - Added TypeScript Job interface (type safety)
-    - Added sortable columns and custom mobile card renderer
-  - **tenants/page.tsx**: Replaced inline tables/cards with DataTable (134→103 lines, -23%)
-    - Added Tenant TypeScript interface
-    - Replaced inline badges with Badge component
-    - Improved mobile UX with custom card renderer
-  - **audit/page.tsx**: Replaced filters and tables with design system components (182→186 lines)
-    - Replaced inline inputs/select with Input/Select components
-    - Replaced inline button with Button component
-    - Replaced getActionColor function with Badge variants (info/warning/error)
-    - Added AuditLog TypeScript interface
-    - Added DataTable with custom mobile cards
-  - **missing-weeks/page.tsx**: Fixed hardcoded gray colors and added mobile responsive design (195→197 lines)
-    - Replaced all hardcoded gray-* classes with design tokens (bg-background, text-foreground, etc.)
-    - Replaced 6 inline inputs/buttons with Input/Button components
-    - Added DataTable with custom mobile card renderer
-    - Added MissingWeeksItem TypeScript interface
-    - Now fully responsive (was desktop-only table)
-  - **dashboard/page.tsx**: Replaced inline cards with Card components (161→169 lines)
-    - Replaced 4 stats cards with Card/CardContent components
-    - Replaced 3 quick action cards with Card/CardHeader/CardTitle/CardDescription components
-    - Replaced Loader2 with LoadingSpinner component
-  - **dashboard/layout.tsx**: Added ErrorBoundary wrapper for graceful error handling
-  - **Total impact**: ~280 lines of inline HTML → 10 component imports across 5 pages
-  - **Results**: Improved consistency, mobile UX, maintainability, accessibility, and reduced code duplication
-- 2026-02-05: **DESIGN SYSTEM PHASE 2 COMPLETED** (Admin UI - Forms & Data)
-  - Created 4 form components: Input, Select, FormField, ErrorBoundary
-  - Created DataTable component (responsive, sortable, 500+ rows, mobile cards + desktop table)
-  - Updated ui/index.ts with Phase 2 exports
-  - Updated DESIGN_SYSTEM.md v1.1 with comprehensive examples
-  - Total components: 10 (Button, Card, Badge, LoadingSpinner, Skeleton, Input, Select, FormField, DataTable, ErrorBoundary)
-  - Files: `ui/Input.tsx`, `ui/Select.tsx`, `ui/FormField.tsx`, `ui/DataTable.tsx`, `ErrorBoundary.tsx`
-- 2026-02-05: **DESIGN SYSTEM PHASE 1 COMPLETED** (Admin UI)
-  - Fixed AdminSidebar dark mode (replaced 12+ hardcoded colors with design tokens)
-  - Created 5 reusable UI components: Button, Card, Badge, LoadingSpinner, Skeleton
-  - Added ui/index.ts for clean exports
-  - Created comprehensive DESIGN_SYSTEM.md documentation (70+ sections)
-  - Fixed logout button functionality (was missing onClick handler)
-  - Files changed: `AdminSidebar.tsx`, `ui/*.tsx`, `DESIGN_SYSTEM.md`
-  - Audit report: `services/admin-ui/DESIGN_SYSTEM_AUDIT.md`
-- 2026-02-04: TASK-INTEL-001 (SRRE Index) implemented in `services/tiler/tiler/expressions.py`.
-  - Test: `curl http://localhost:8080/indices` shows `srre`.
-  - Test: tile request returned `{"detail":"Not Found"}` for sample coords (needs valid mosaic/coords to fully verify).
-- 2026-02-04: TASK-INTEL-002 (Harvest Detection Job) added in `services/worker/worker/jobs/detect_harvest.py` and registered in `services/worker/worker/main.py`.
-  - Test: `docker compose logs --tail 50 worker` (no harvest-specific run executed; requires job payload + data to validate signal creation).
-- 2026-02-04: TASK-INTEL-004 (Nitrogen Detection API) added use case + router.
-  - Endpoint: `/v1/app/aois/{aoi_id}/nitrogen/status`.
-  - Test: Not run (requires API running + auth token + AOI data).
-- 2026-02-04: TASK-INTEL-003 (Correlation API) added use case + router.
-  - Endpoint: `/v1/app/aois/{aoi_id}/correlation/vigor-climate`.
-  - Test: Not run (requires API running + auth token + AOI data).
-- 2026-02-04: TASK-INTEL-007 (Radar Fallback Tooltip) updated `services/app-ui/src/components/Charts.tsx`.
-  - Test: Not run (requires frontend dev server + AOI history with NDVI null and RVI present).
-- 2026-02-04: TASK-INTEL-006 (Nitrogen Alert Component) added `services/app-ui/src/components/NitrogenAlert.tsx` and wired into `services/app-ui/src/components/AOIDetailsPanel.tsx`.
-  - Test: Not run (requires frontend dev server + AOI with nitrogen deficiency).
-- 2026-02-04: TASK-INTEL-005 (Analysis Tab Frontend) added `services/app-ui/src/components/AnalysisTab.tsx` and `services/app-ui/src/components/CorrelationChart.tsx`, wired into `services/app-ui/src/components/AOIDetailsPanel.tsx`.
-  - Test: Not run (requires frontend dev server + correlation API data).
-- 2026-02-04: TASK-0007-CDN (Cloudflare deploy) blocked — `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` not set in environment.
-- 2026-02-04: TASK-INTEL-010 (CI/CD Pipeline) added workflows: `deploy-staging.yml`, `deploy-production.yml`, `test.yml`.
-  - Test: Not run (CI workflows not executed locally).
-- 2026-02-04: TASK-INTEL-011 (Terraform Infrastructure) added scaffold under `terraform/` with ECS/RDS/S3/SQS modules and staging/production configs.
-  - Test: Not run (requires AWS credentials and Terraform init/apply).
-- 2026-02-04: TASK-INTEL-012 (CDN for Intelligence Tiles) added `infra/cloudflare/workers/intelligence-cache.js` and `infra/cloudflare/workers/wrangler.intelligence.toml`.
-  - Test: Not run (requires Cloudflare deploy and origin access).
-- 2026-02-04: Year-over-Year Comparison (P1 Feature) added correlation endpoint and UI chart.
-  - Endpoint: `/v1/app/aois/{aoi_id}/correlation/year-over-year`.
-  - Test: Not run (requires API + frontend running with AOI data).
-- 2026-02-04: Productivity Score (P1 Feature) added to Analysis tab from NDVI averages.
-  - Test: Not run (requires correlation API data in UI).
-- 2026-02-04: Radar Badge (P1 Feature) added to map when RVI overlay active.
-  - Test: Not run (requires frontend with RVI overlay active).
-- 2026-02-04: Removed `rio-tiler-stac` from `services/tiler/requirements.txt` to fix Docker build (package not on PyPI).
-  - Test: Not run (rerun `docker compose build tiler`).
-- 2026-02-04: Added `services/app-ui/src/components/ui/alert.tsx` to fix missing Alert import in NitrogenAlert.
-  - Test: Not run (rerun app-ui build/dev).
-- 2026-02-04: Built `tiler` successfully after removing `rio-tiler-stac` dependency.
-  - Test: `docker compose build tiler` succeeded.
-
-## Session Log
-- 2026-02-04: Session log created at `ai/sessions/2026-02-04-1537.md`.
-
-## Remaining Work
-
-### Design System (Admin UI)
-**Phase 1:** ✅ COMPLETED (2026-02-05) - Foundation components
-**Phase 2:** ✅ COMPLETED (2026-02-05) - Forms & data components
-**Phase 3:** ✅ COMPLETED (2026-02-05) - Typography & refinement
-**Phase 4:** ✅ COMPLETED (2026-02-05) - Page refactoring
-
-**Optional Enhancements:**
-- Create Storybook for component documentation
-- Write tests for UI components (Jest + React Testing Library)
-- Add visual regression tests (Percy/Chromatic)
-
-### Intelligence Features (Backend/Frontend)
-- Deploy Cloudflare workers (requires credentials)
-- Apply Terraform in staging/production (requires AWS creds + VPC details)
-- Run app-ui and API tests for nitrogen/correlation/YoY/productivity UI flows with real data
-  - Correlation API: local test + unit test done; still pending validation with real AOI data in running environment
-
-## Next Action
-**Priority 1:** Decidir se corrigimos testes de integracao/E2E agora ou deixamos para Fase 7.
-**Priority 2:** Iniciar Fase 6 (worker jobs -> use cases + DI).
-**Alternative:** Validate admin UI flows or proceed with infra deployment (Cloudflare/AWS credentials required).
-
-## Review Guide (Code Pointers)
-
-### Admin UI Design System (NEW - 2026-02-05)
-- **Audit report**: `services/admin-ui/DESIGN_SYSTEM_AUDIT.md` (comprehensive analysis, scores, recommendations)
-- **Documentation**: `services/admin-ui/DESIGN_SYSTEM.md` (usage guide, patterns, accessibility)
-- **Components**: `services/admin-ui/src/components/ui/` (10 components total)
-  - Phase 1: Button, Card, Badge, LoadingSpinner, Skeleton
-  - Phase 2: Input, Select, FormField, DataTable, ErrorBoundary
-- **Fixed sidebar**: `services/admin-ui/src/components/AdminSidebar.tsx` (dark mode working, logout functional)
-- **Design tokens**: `services/admin-ui/src/app/globals.css` (CSS variables for theming)
-- **Import usage**: `import { Button, DataTable, Input } from '@/components/ui'`
-
-### Backend
-- SRRE index: `services/tiler/tiler/expressions.py`
-- Harvest detection job: `services/worker/worker/jobs/detect_harvest.py`
-- Worker registration: `services/worker/worker/main.py` (handler map)
-- Nitrogen API:
-  - Use case: `services/api/app/application/nitrogen.py`
-  - Router: `services/api/app/presentation/nitrogen_router.py`
-  - Route registration: `services/api/app/main.py` (`/v1/app/aois/{aoi_id}/nitrogen/status`)
-- Correlation API:
-  - Service: `services/api/app/application/correlation.py`
-  - Router: `services/api/app/presentation/correlation_router.py`
-  - Route registration: `services/api/app/main.py`
-  - Endpoints: `/v1/app/aois/{aoi_id}/correlation/vigor-climate`, `/v1/app/aois/{aoi_id}/correlation/year-over-year`
-
-### Frontend (app-ui)
-- Radar fallback tooltip + dots: `services/app-ui/src/components/Charts.tsx`
-- Nitrogen alert: `services/app-ui/src/components/NitrogenAlert.tsx`
-- Alert component: `services/app-ui/src/components/ui/alert.tsx`
-- Analysis tab: `services/app-ui/src/components/AnalysisTab.tsx`
-- Correlation chart: `services/app-ui/src/components/CorrelationChart.tsx`
-- Year-over-year chart: `services/app-ui/src/components/YearOverYearChart.tsx`
-- AOI tab wiring: `services/app-ui/src/components/AOIDetailsPanel.tsx`
-- Radar badge: `services/app-ui/src/components/MapLeaflet.tsx` (overlay label)
-
-### Infra/DevOps
-- CI/CD workflows:
-  - ` .github/workflows/deploy-staging.yml`
-  - ` .github/workflows/deploy-production.yml`
-  - ` .github/workflows/test.yml`
-- Terraform scaffold:
-  - `terraform/staging/main.tf`, `terraform/production/main.tf`
-  - `terraform/modules/ecs`, `terraform/modules/rds`, `terraform/modules/s3`, `terraform/modules/sqs`
-- Cloudflare workers:
-  - Tiles: `infra/cloudflare/workers/tile-cache.js`
-  - Intelligence endpoints: `infra/cloudflare/workers/intelligence-cache.js`
-  - Wrangler configs: `infra/cloudflare/workers/wrangler.toml`, `infra/cloudflare/workers/wrangler.intelligence.toml`
-
-## Test Notes
-- `docker compose build tiler` succeeded after removing `rio-tiler-stac` from `services/tiler/requirements.txt`.
-- SRRE index appears in `/indices`. Tile request for sample coords returned 404 (needs valid mosaic/coords).
-- UI and API endpoints not fully validated due to missing runtime data/credentials.
-
-# PLANO DE IMPLEMENTAÇÃO — Intelligence Features
-
-**Autor**: Opus 4.5
-**Data**: 2026-02-04
-**Para**: Assistente implementador
-**Revisor**: Opus 4.5 (após implementação)
-
----
-
-## Ordem de Execução (Criticidade Decrescente)
-
-### P0 — Obrigatório (Core Intelligence)
-
-| # | Task ID | Descrição | Esforço | Dependências |
-|---|---------|-----------|---------|--------------|
-| 1 | TASK-INTEL-001 | SRRE Index (TiTiler) | 5 min | Nenhuma |
-| 2 | TASK-INTEL-002 | Harvest Detection Job | 3h | Nenhuma |
-| 3 | TASK-INTEL-004 | Nitrogen Detection API | 4h | TASK-INTEL-001 |
-| 4 | TASK-INTEL-003 | Correlation API | 6h | Nenhuma |
-| 5 | TASK-INTEL-007 | Radar Fallback Tooltip | 2h | Nenhuma |
-| 6 | TASK-INTEL-006 | Nitrogen Alert Component | 3h | TASK-INTEL-004 |
-| 7 | TASK-INTEL-005 | Analysis Tab Frontend | 6h | TASK-INTEL-003 |
-
-**Subtotal P0**: ~24h
-
-### P1 — Infraestrutura (CRÍTICO para Produção)
-
-| # | Task ID | Descrição | Esforço | Bloqueador |
-|---|---------|-----------|---------|------------|
-| 8 | TASK-0007-CDN | Deploy Cloudflare CDN | 2h | Conta Cloudflare |
-| 9 | TASK-INTEL-010 | CI/CD Pipeline (GitHub Actions) | 8h | Nenhum |
-| 10 | TASK-INTEL-011 | Terraform Infrastructure | 16h | Conta AWS |
-| 11 | TASK-INTEL-012 | CDN para Intelligence Tiles | 4h | TASK-0007-CDN |
-
-**Subtotal P1 Infra**: ~30h
-**Status TASK-0007-CDN**: Código pronto, pending deployment
-
-### P1 — Features Desejáveis (Se houver tempo)
-
-| # | Task | Descrição | Esforço | Dependências |
-|---|------|-----------|---------|--------------|
-| 12 | Year-over-Year | Comparação de safra (2 linhas) | 4h | TASK-INTEL-003 |
-| 13 | Productivity Score | Integral da curva NDVI | 3h | Nenhuma |
-| 14 | Radar Badge | Overlay "Modo Radar" no mapa | 1h | Nenhuma |
-
-**Subtotal P1 Features**: ~8h
-
-**Total geral**: ~62h (24h P0 + 30h Infra + 8h Features)
-
----
-
-## TASK 1: SRRE Index (TASK-INTEL-001)
-
-### Criticidade: MÁXIMA
-Pré-requisito para detecção de nitrogênio. Esforço mínimo, valor máximo.
-
-### Arquivo a modificar
-`services/tiler/tiler/expressions.py`
-
-### Implementação
-Adicionar entrada no dict `VEGETATION_INDICES` após `reci` (linha ~80):
-
-```python
-    "srre": {
-        "expression": "B08/B05",
-        "name": "Simple Ratio Red Edge",
-        "description": "Nitrogen absorption indicator (R² > 0.8 for corn/rice)",
-        "rescale": "0.5,8",
-        "colormap": "rdylgn",
-        "bands": ["B05", "B08"],
-    },
-```
-
-### Teste
-```bash
-# Reiniciar TiTiler
-docker compose restart tiler
-
-# Verificar índice disponível
-curl http://localhost:8080/indices | jq '.srre'
-
-# Testar tile (substituir coords válidas)
-curl "http://localhost:8080/stac-mosaic/tiles/14/5000/8000?expression=B08/B05&rescale=0.5,8&colormap=rdylgn" -o test_srre.png
-```
-
-### Acceptance Criteria
-- [ ] SRRE aparece em `/indices`
-- [ ] Tile renderiza corretamente com colormap rdylgn
-- [ ] Rescale 0.5,8 aplicado
-
----
-
-## TASK 2: Harvest Detection Job (TASK-INTEL-002)
-
-### Criticidade: ALTA
-Valor de negócio alto (bancos, tradings, cooperativas). Não tem dependências.
-
-### Nota Técnica
-O documento original (`intelligence_capabilities.md`) menciona VH backscatter drop > 3dB.
-Atualmente `derived_radar_assets` armazena `rvi_mean` mas não `vh_mean` diretamente.
-**Solução**: Usar RVI como proxy — uma queda RVI > 0.3 correlaciona com queda de VH (harvest).
-**Melhoria futura**: Adicionar `vh_mean` na tabela e usar threshold de 3dB diretamente.
-
-### Arquivo a criar
-`services/worker/worker/jobs/detect_harvest.py`
-
-### Estrutura (seguir padrão de `process_radar.py`)
-
-```python
-"""
-Harvest detection via VH backscatter drop.
-Scientific basis: VH drops > 3dB when crops are harvested.
-"""
-import structlog
-from sqlalchemy.orm import Session
-from sqlalchemy import text
-import json
-
-logger = structlog.get_logger()
-
-
-def get_rvi_mean(aoi_id: str, year: int, week: int, db: Session) -> float | None:
-    """Get RVI mean from derived_radar_assets for a specific week."""
-    sql = text("""
-        SELECT rvi_mean
-        FROM derived_radar_assets
-        WHERE aoi_id = :aoi_id AND year = :year AND week = :week
-        LIMIT 1
-    """)
-    result = db.execute(sql, {"aoi_id": aoi_id, "year": year, "week": week}).first()
-    return result.rvi_mean if result else None
-
-
-def create_harvest_signal(
-    tenant_id: str,
-    aoi_id: str,
-    year: int,
-    week: int,
-    rvi_current: float,
-    rvi_previous: float,
-    db: Session
-):
-    """Create HARVEST_DETECTED signal in opportunity_signals table."""
-    sql = text("""
-        INSERT INTO opportunity_signals
-        (id, tenant_id, aoi_id, year, week, signal_type, status, severity,
-         confidence, score, model_version, evidence_json, recommended_actions, created_at)
-        VALUES
-        (gen_random_uuid(), :tenant_id, :aoi_id, :year, :week, 'HARVEST_DETECTED',
-         'NEW', 'INFO', 0.85, :score, 'harvest_v1', :evidence, :actions, NOW())
-        ON CONFLICT DO NOTHING
-    """)
-
-    rvi_drop = rvi_previous - rvi_current
-    evidence = json.dumps({
-        "rvi_current": rvi_current,
-        "rvi_previous": rvi_previous,
-        "rvi_drop": rvi_drop,
-        "detection_method": "radar_rvi_drop"
-    })
-    actions = json.dumps([
-        "Verificar colheita em campo",
-        "Atualizar registro de produtividade",
-        "Notificar equipe de logística"
-    ])
-
-    db.execute(sql, {
-        "tenant_id": tenant_id,
-        "aoi_id": aoi_id,
-        "year": year,
-        "week": week,
-        "score": min(rvi_drop, 1.0),
-        "evidence": evidence,
-        "actions": actions
-    })
-    db.commit()
-    logger.info("harvest_signal_created", aoi_id=aoi_id, year=year, week=week, rvi_drop=rvi_drop)
-
-
-def update_job_status(job_id: str, status: str, db: Session, error: str = None):
-    """Update job status in jobs table."""
-    sql = text("UPDATE jobs SET status = :status, error_message = :error_message, updated_at = now() WHERE id = :job_id")
-    db.execute(sql, {"job_id": job_id, "status": status, "error_message": error})
-    db.commit()
-
-
-def detect_harvest_handler(job_id: str, payload: dict, db: Session):
-    """
-    DETECT_HARVEST job handler.
-    Compares RVI (current week vs previous week).
-    If drop > 0.3 (correlates with ~3dB VH drop), creates HARVEST_DETECTED signal.
-    """
-    logger.info("detect_harvest_start", job_id=job_id, payload=payload)
-    update_job_status(job_id, "RUNNING", db)
-
-    try:
-        tenant_id = payload["tenant_id"]
-        aoi_id = payload["aoi_id"]
-        year = payload["year"]
-        week = payload["week"]
-
-        current_rvi = get_rvi_mean(aoi_id, year, week, db)
-
-        # Calculate previous week
-        prev_week = week - 1
-        prev_year = year
-        if prev_week < 1:
-            prev_week = 52
-            prev_year = year - 1
-
-        previous_rvi = get_rvi_mean(aoi_id, prev_year, prev_week, db)
-
-        if current_rvi is None or previous_rvi is None:
-            logger.info("detect_harvest_skip_no_data", aoi_id=aoi_id)
-            update_job_status(job_id, "DONE", db)
-            return
-
-        rvi_drop = previous_rvi - current_rvi
-        HARVEST_THRESHOLD = 0.3
-
-        if rvi_drop > HARVEST_THRESHOLD:
-            logger.info("harvest_detected", aoi_id=aoi_id, rvi_drop=rvi_drop)
-            create_harvest_signal(tenant_id, aoi_id, year, week, current_rvi, previous_rvi, db)
-        else:
-            logger.info("no_harvest_detected", aoi_id=aoi_id, rvi_drop=rvi_drop)
-
-        update_job_status(job_id, "DONE", db)
-
-    except Exception as e:
-        logger.error("detect_harvest_failed", job_id=job_id, exc_info=e)
-        update_job_status(job_id, "FAILED", db, error=str(e))
-```
-
-### Registrar no dispatcher
-Editar `services/worker/worker/main.py`, adicionar import e handler:
-
-```python
-from worker.jobs.detect_harvest import detect_harvest_handler
-
-# No dict de handlers:
-"DETECT_HARVEST": detect_harvest_handler,
-```
-
-### Teste
-```bash
-# Verificar logs do worker
-docker compose logs -f worker
-
-# Verificar signal criado
-curl http://localhost:8000/v1/signals?signal_type=HARVEST_DETECTED -H "Authorization: Bearer $TOKEN"
-```
-
-### Acceptance Criteria
-- [ ] Job `detect_harvest.py` criado (~80 LOC)
-- [ ] Handler registrado no dispatcher
-- [ ] Detecta RVI drop > 0.3
-- [ ] Cria signal `HARVEST_DETECTED`
-- [ ] Metadata contém rvi_current e rvi_previous
-
----
-
-## TASK 3: Nitrogen Detection API (TASK-INTEL-004)
-
-### Criticidade: ALTA
-Depende de SRRE estar funcionando. Valor agronômico alto.
-
-### Arquivo a criar
-`services/api/app/presentation/nitrogen_router.py`
-
-### Implementação
-
-```python
-"""
-Nitrogen deficiency detection API.
-Algorithm: High NDVI (>0.7) + Low NDRE (<0.5) + Low RECI (<1.5) = DEFICIENT
-"""
-import logging
-from typing import Optional
-from uuid import UUID
-
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
-from sqlalchemy import text
-from sqlalchemy.orm import Session
-
-from app.database import get_db
-from app.auth.dependencies import get_current_membership, CurrentMembership
-from app.config import settings
-
-logger = logging.getLogger(__name__)
-
-router = APIRouter()
-
-
-class NitrogenStatus(BaseModel):
-    status: str  # DEFICIENT, ADEQUATE, UNKNOWN
-    confidence: float
-    ndvi_mean: Optional[float] = None
-    ndre_mean: Optional[float] = None
-    reci_mean: Optional[float] = None
-    recommendation: str
-    zone_map_url: Optional[str] = None
-
-
-def get_latest_indices(aoi_id: str, tenant_id: str, db: Session) -> dict:
-    """Get latest NDVI, NDRE, RECI means from derived_assets."""
-    sql = text("""
-        SELECT ndvi_mean, ndre_mean, reci_mean, year, week
-        FROM derived_assets
-        WHERE aoi_id = :aoi_id AND tenant_id = :tenant_id
-        ORDER BY year DESC, week DESC
-        LIMIT 1
-    """)
-    result = db.execute(sql, {"aoi_id": aoi_id, "tenant_id": tenant_id}).first()
-    if result:
-        return {
-            "ndvi_mean": result.ndvi_mean,
-            "ndre_mean": result.ndre_mean,
-            "reci_mean": result.reci_mean,
-        }
-    return {}
-
-
-def detect_nitrogen_status(ndvi: float, ndre: float, reci: float) -> tuple[str, float, str]:
-    """Detect nitrogen status based on index thresholds."""
-    if ndvi is None or ndre is None or reci is None:
-        return "UNKNOWN", 0.0, "Dados insuficientes para análise"
-
-    is_high_ndvi = ndvi > 0.7
-    is_low_ndre = ndre < 0.5
-    is_low_reci = reci < 1.5
-    conditions_met = sum([is_high_ndvi, is_low_ndre, is_low_reci])
-
-    if conditions_met >= 3:
-        return "DEFICIENT", 0.9, "Deficiência de nitrogênio detectada. Recomenda-se aplicação em taxa variável."
-    elif conditions_met >= 2:
-        return "DEFICIENT", 0.7, "Possível deficiência de nitrogênio. Monitorar nas próximas semanas."
-    elif ndvi > 0.6 and ndre > 0.4:
-        return "ADEQUATE", 0.85, "Níveis de nitrogênio adequados."
-    else:
-        return "UNKNOWN", 0.5, "Condições mistas. Recomenda-se análise de solo."
-
-
-@router.get("/aois/{aoi_id}/nitrogen/status", response_model=NitrogenStatus)
-def get_nitrogen_status(
-    aoi_id: UUID,
-    membership: CurrentMembership = Depends(get_current_membership),
-    db: Session = Depends(get_db)
-):
-    """Get nitrogen deficiency status for an AOI."""
-    indices = get_latest_indices(str(aoi_id), str(membership.tenant_id), db)
-
-    if not indices:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No vegetation data found")
-
-    ndvi = indices.get("ndvi_mean")
-    ndre = indices.get("ndre_mean")
-    reci = indices.get("reci_mean")
-
-    status_str, confidence, recommendation = detect_nitrogen_status(ndvi, ndre, reci)
-
-    zone_map_url = None
-    if status_str == "DEFICIENT":
-        base = settings.API_BASE_URL or "http://localhost:8000"
-        zone_map_url = f"{base}/v1/tiles/aois/{aoi_id}/{{z}}/{{x}}/{{y}}.png?index=srre"
-
-    return NitrogenStatus(
-        status=status_str,
-        confidence=confidence,
-        ndvi_mean=ndvi,
-        ndre_mean=ndre,
-        reci_mean=reci,
-        recommendation=recommendation,
-        zone_map_url=zone_map_url
-    )
-```
-
-### Registrar router em `services/api/app/main.py`:
-
-```python
-from app.presentation.nitrogen_router import router as nitrogen_router
-app.include_router(nitrogen_router, prefix="/v1", tags=["nitrogen"])
-```
-
-### Acceptance Criteria
-- [ ] Endpoint `/v1/aois/{aoi_id}/nitrogen/status` criado
-- [ ] Algoritmo: NDVI > 0.7 AND NDRE < 0.5 AND RECI < 1.5 → DEFICIENT
-- [ ] Retorna status, confidence, recommendation
-- [ ] zone_map_url aponta para TiTiler SRRE
-
----
-
-## TASK 4: Correlation API (TASK-INTEL-003)
-
-### Criticidade: ALTA
-Combina 3 fontes de dados. Base para Analysis Tab.
-
-### Arquivo a criar
-`services/api/app/presentation/correlation_router.py`
-
-### Implementação
-
-```python
-"""Correlation API - Combines vegetation, radar, and weather data."""
-import logging
-from typing import List, Optional
-from uuid import UUID
-from datetime import datetime, timedelta
-
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
-from sqlalchemy import text
-from sqlalchemy.orm import Session
-
-from app.database import get_db
-from app.auth.dependencies import get_current_membership, CurrentMembership
-
-logger = logging.getLogger(__name__)
-router = APIRouter()
-
-
-class CorrelationDataPoint(BaseModel):
-    date: str
-    ndvi: Optional[float] = None
-    rvi: Optional[float] = None
-    rain_mm: Optional[float] = None
-    temp_avg: Optional[float] = None
-
-
-class Insight(BaseModel):
-    type: str
-    message: str
-    severity: str
-
-
-class CorrelationResponse(BaseModel):
-    data: List[CorrelationDataPoint]
-    insights: List[Insight]
-
-
-def fetch_correlation_data(aoi_id: str, tenant_id: str, weeks: int, db: Session) -> List[dict]:
-    """Fetch and combine data from 3 sources."""
-    end_date = datetime.now()
-    start_date = end_date - timedelta(weeks=weeks)
-
-    sql = text("""
-        WITH weeks AS (
-            SELECT da.year, da.week, da.ndvi_mean as ndvi, da.created_at
-            FROM derived_assets da
-            WHERE da.aoi_id = :aoi_id AND da.tenant_id = :tenant_id AND da.created_at >= :start_date
-        ),
-        radar AS (
-            SELECT dr.year, dr.week, dr.rvi_mean as rvi
-            FROM derived_radar_assets dr
-            WHERE dr.aoi_id = :aoi_id AND dr.created_at >= :start_date
-        ),
-        weather AS (
-            SELECT EXTRACT(YEAR FROM dw.date)::int as year, EXTRACT(WEEK FROM dw.date)::int as week,
-                   SUM(dw.precipitation_mm) as rain_mm, AVG(dw.temperature_avg) as temp_avg
-            FROM derived_weather_daily dw
-            WHERE dw.aoi_id = :aoi_id AND dw.date >= :start_date
-            GROUP BY EXTRACT(YEAR FROM dw.date), EXTRACT(WEEK FROM dw.date)
-        )
-        SELECT w.year, w.week, w.ndvi, r.rvi, wt.rain_mm, wt.temp_avg
-        FROM weeks w
-        LEFT JOIN radar r ON w.year = r.year AND w.week = r.week
-        LEFT JOIN weather wt ON w.year = wt.year AND w.week = wt.week
+- 2026-02-08: **Landing v2 — Base scaffold**
+  - Criada rota paralela `/landing-v2` copiando `page.tsx` para preservar a home atual.
+  - Adicionado `Experience.tsx` (skeleton) com `useScroll`/`useFrame` e ranges de camera.
+  - Observacao: `ai/tasks.md` foi relido (arquivo gitignored) e contem backlog atualizado.
+  - Proxima acao: integrar `ScrollControls` no `Hero3DCanvas` e wire `Experience` na v2.
+  - Backlog atualizado: adicionadas tasks `TASK-LANDING-V2-0001` e `TASK-LANDING-V2-0002` em `ai/tasks.md`.
+  - Implementacao iniciada: criados `Hero3DCanvasV2.tsx` e `Hero3DV2.tsx` usando `ScrollControls` e `Experience`.
+  - `/landing-v2` agora usa `Hero3DV2` e nao importa `LandingDesktopEffects` para evitar GSAP no v2.
+  - Conteudo principal migrado para `<Scroll html>` via `LandingScrollContentV2`.
+  - Ajuste: `ScrollControls` agora com `pages=6`.
+  - Fallback: `Hero3DV2` renderiza conteudo diretamente quando `prefersReducedMotion`.
+  - Ajustes visuais no hero v2: overlay de contraste, vignette e alinhamento para esquerda no desktop.
+  - `ScrollControls` agora calcula `pages` dinamicamente usando `scrollHeight` com ajuste (`-0.95`) para remover espaco extra.
+  - `Experience` agora inclui planos 3D basicos (farm/micro) com fade por scroll para coreografia inicial.
+  - Parallax leve adicionado: planos duplos para farm/micro com offsets e fade independente.
+  - Wow pass 1: camera snap + focus lock por secoes e fog leve para profundidade.
+  - TASK-LANDING-V2-0002 concluida; logger de metricas removido.
+  - Landing v2 promovida para `/` (page.tsx). Componentes v2 mesclados em Hero3D/Hero3DCanvas e LandingScrollContent.
+  - Rota `/landing-v2` removida e arquivos v2 deletados para manter estrutura.
+  - CSP ajustado para permitir `worker-src 'self' blob:` (evita bloqueio de Web Worker no `useCompressedTexture`).
+  - Coreografia inicial de camera por secoes (hero -> transicao -> farm -> micro) em `Experience.tsx`.
+  - Proxima acao: validar ranges e ajustar posicoes de camera conforme feedback.
+
+- 2026-02-08: **ADMIN UI — Plano de implementação criado**
+  - Documento de plano baseado em `ai/ADMIN_UI_PROPOSAL.md`.
+  - Arquivo: `ai/ADMIN_UI_IMPLEMENTATION_PLAN.md`.
+  - Atualizado com stack, design system, metas, checklist e matriz de conciliacao para cobrir 100% da proposta.
+  - Adicionado bloco de endpoints sugeridos e contratos detalhados por fase.
+  - Contratos ajustados para refletir o backend atual e stack alinhada ao `services/admin-ui/package.json`.
+  - Stubs OpenAPI criados em `docs/openapi/admin-ui-stubs.yaml`.
+  - Stubs futuros separados em `docs/openapi/admin-ui-stubs-future.yaml`.
+  - Proxima acao: validar escopo MVP e confirmar endpoints backend.
+
+- 2026-02-08: **ADMIN UI — Seção de tasks atualizada**
+  - Seção "Admin UI — Execution Order" detalhada em `ai/tasks.md` e alinhada ao plano de implementação.
+  - Proxima acao: escolher o próximo task P0 para execução.
+
+- 2026-02-08: **ADMIN UI — Tasks de execução priorizadas**
+  - Repriorizadas e quebradas em subtasks as entregas do Admin UI.
+  - Seção "Admin UI — Execution Order (Suggested)" criada em `ai/tasks.md` com P0/P1/P2.
+  - Novas tasks: `TASK-ADMIN-0001` a `TASK-ADMIN-0012`.
+  - Proxima acao: aprovar prioridades sugeridas e escolher a primeira task P0 para implementação.
+
+- 2026-02-08: **ADMIN UI — TASK-ADMIN-0001 (Auth guard base + redirects)**
+  - Criado `AdminAuthGate` para centralizar verificação de token/role e redirects.
+  - Aplicado o guard nas páginas: dashboard, audit, jobs, tenants, missing-weeks.
+  - Páginas agora recebem token via gate para chamadas API.
+  - Arquivos: `services/admin-ui/src/components/AdminAuthGate.tsx`,
+    `services/admin-ui/src/app/dashboard/page.tsx`,
+    `services/admin-ui/src/app/audit/page.tsx`,
+    `services/admin-ui/src/app/jobs/page.tsx`,
+    `services/admin-ui/src/app/tenants/page.tsx`,
+    `services/admin-ui/src/app/missing-weeks/page.tsx`.
+  - Proxima acao: validar redirects no browser e seguir para `TASK-ADMIN-0002` (layout shell).
+
+- 2026-02-08: **ADMIN UI — Tailwind/PostCSS fix (login sem estilos)**
+  - Adicionado `postcss.config.js` em `services/admin-ui` para habilitar Tailwind.
+  - Proxima acao: reiniciar `npm run dev --prefix services/admin-ui` e recarregar `/admin/login`.
+
+- 2026-02-08: **ADMIN UI — TASK-ADMIN-0002 (Layout shell: header + sidebar)**
+  - Criado `AdminShell` com header fixo + sidebar existente.
+  - Agrupadas rotas admin em `src/app/(admin)` para aplicar layout a dashboard, audit, jobs, tenants, missing-weeks e `/admin`.
+  - Novo layout: `services/admin-ui/src/app/(admin)/layout.tsx`.
+  - Arquivos: `services/admin-ui/src/components/AdminShell.tsx`.
+  - Proxima acao: validar visual e spacing das páginas dentro do shell.
+
+- 2026-02-08: **ADMIN UI — TASK-ADMIN-0003 (Audit log page refinada)**
+  - Removido header duplicado e alinhado a pagina de auditoria ao `AdminShell`.
+  - Conteudo agora usa container `max-w-7xl` e cabecalho interno simples.
+  - Arquivo: `services/admin-ui/src/app/(admin)/audit/page.tsx`.
+  - Proxima acao: validar visual do Audit Log dentro do shell.
+
+- 2026-02-08: **ADMIN UI — TASK-ADMIN-0004 (Tenants list + status update)**
+  - Ajustado status para `ACTIVE|SUSPENDED` conforme backend.
+  - Adicionada edicao de status via PATCH `/v1/admin/tenants/{id}` com feedback de erro.
+  - Header duplicado removido; pagina alinhada ao `AdminShell`.
+  - Arquivo: `services/admin-ui/src/app/(admin)/tenants/page.tsx`.
+  - Proxima acao: validar UI/fluxo de update no browser.
+
+- 2026-02-08: **ADMIN UI — TASK-ADMIN-0005 (Jobs list + filters)**
+  - Adicionados filtros de `job_type` e `limit` na lista de jobs.
+  - Header duplicado removido; pagina alinhada ao `AdminShell`.
+  - Arquivo: `services/admin-ui/src/app/(admin)/jobs/page.tsx`.
+  - Proxima acao: validar filtros e limite com token.
+
+- 2026-02-08: **ADMIN UI — TASK-ADMIN-0006 (Missing weeks + reprocess)**
+  - Header duplicado removido; pagina alinhada ao `AdminShell`.
+  - Controles de busca e reprocessamento mantidos com layout unificado.
+  - Arquivo: `services/admin-ui/src/app/(admin)/missing-weeks/page.tsx`.
+  - Proxima acao: validar reprocessamento com token.
+
+- 2026-02-08: **ADMIN UI — TASK-ADMIN-0010 (Status HUD)**
+  - Dashboard agora faz polling a cada 5s para health + queues.
+  - Adicionado bloco de Status HUD por job_type/status.
+  - Header duplicado removido; pagina alinhada ao `AdminShell`.
+  - Arquivo: `services/admin-ui/src/app/(admin)/dashboard/page.tsx`.
+  - Proxima acao: validar HUD com token.
+
+- 2026-02-08: **ADMIN UI — TASK-ADMIN-0011 (Providers status widget)**
+  - Dashboard agora carrega `/v1/admin/providers/status` e renderiza cards por provider.
+  - Exibe cache info quando presente e tolera valores nulos.
+  - Arquivo: `services/admin-ui/src/app/(admin)/dashboard/page.tsx`.
+  - Proxima acao: validar providers widget com token.
+
+- 2026-02-08: **ADMIN UI — TASK-ADMIN-0012 (Tenant members admin)**
+  - Criada pagina `/admin/tenant/members` com lista, convite, update de role/status e settings.
+  - Endpoints: `/v1/app/admin/tenant/members`, `/invite`, `/role`, `/status`, `/settings`.
+  - Arquivo: `services/admin-ui/src/app/(admin)/tenant/members/page.tsx`.
+  - Proxima acao: validar fluxos com token.
+
+- 2026-02-08: **ADMIN UI — TASK-ADMIN-0020 (Command Palette)**
+  - Adicionado Command Palette com Ctrl/⌘+K e lista de atalhos.
+  - Trigger incluido no header do AdminShell.
+  - Arquivos: `services/admin-ui/src/components/CommandPalette.tsx`,
+    `services/admin-ui/src/components/AdminShell.tsx`.
+  - Proxima acao: validar navegação pelo palette.
+
+- 2026-02-08: **ADMIN UI — Design System Plan (tasks detalhadas)**
+  - Plano detalhado criado em `ai/ADMIN_DESIGN_SYSTEM_IMPLEMENTATION_PLAN.md`.
+  - Tasks de design system adicionadas ao `ai/tasks.md` (TASK-DS-0001..0203).
+  - Proxima acao: iniciar Fase 0 (mobile-first urgente).
+
+- 2026-02-07: **NAVBAR — Implementation plan drafted**
+  - Criado plano de implementação baseado no `ai/NAV_AUDIT_REPORT.md`.
+  - Arquivo: `ai/NAVBAR_IMPLEMENTATION_PLAN.md`.
+  - Proxima acao: usuario revisar o plano e aprovar execução.
+
+- 2026-02-07: **NAVBAR — Implementação aplicada**
+  - Ajustado contraste do header para `bg-black/80`.
+  - Links desktop receberam `min-h-[44px]`/`min-w-[44px]`, padding e `aria-label`.
+  - Link Login e CTA “Começar grátis” com min height explícito.
+  - Menu mobile recebeu `aria-labelledby` e título sr-only.
+  - Links do menu mobile com `min-h-[44px]` + `aria-label`.
+  - MobileNav: `gap-2`, `min-h-[44px]`, `aria-current`, `aria-label` e indicador visual de ativo.
+  - Arquivos: `services/app-ui/src/components/landing/LandingHeader.tsx`, `services/app-ui/src/components/MobileNav.tsx`.
+  - Proxima acao: validar visual e a11y em mobile/desktop (touch targets, contraste, screen reader).
+
+- 2026-02-07: **NAVBAR — A11y/foco refinados**
+  - Adicionadas utilidades `.min-h-touch` e `.min-w-touch` em `globals.css`.
+  - Links e CTAs do header receberam foco visível com ring (desktop e mobile menu).
+  - MobileNav recebeu foco visível com ring verde.
+  - Arquivos: `services/app-ui/src/app/globals.css`, `services/app-ui/src/components/landing/LandingHeader.tsx`, `services/app-ui/src/components/MobileNav.tsx`.
+  - Proxima acao: validação visual/a11y em device real ou DevTools (contraste + foco).
+
+- 2026-02-07: **NAVBAR — Validação A11y (Lighthouse)**
+  - Lighthouse A11y (mobile) em `http://localhost:3002`: score 1.00 (sem falhas).
+  - Relatório: `ai/lighthouse-a11y.json`.
+  - Lighthouse desktop não concluiu (timeout); precisa re-run se necessário.
+  - Proxima acao: validação visual manual (contraste/foco) e re-tentar Lighthouse desktop se desejado.
+
+- 2026-02-08: **NAVBAR — Contraste ajustado e Lighthouse desktop**
+  - Corrigido contraste em `services/app-ui/src/app/page.tsx` (`text-gray-500` -> `text-gray-400`).
+  - Lighthouse A11y (desktop) em `http://localhost:3002`: score 1.00 (sem falhas).
+  - Relatório: `ai/lighthouse-a11y-desktop.json`.
+  - Proxima acao: validação visual manual se necessário.
+
+- 2026-02-07: **TASK-MOBILE-001 — Browser validation attempt**
+  - Tried `npm run dev` for app-ui; server responded with Next.js error "Cannot find the middleware module".
+  - Could not fetch page HTML from localhost to confirm `<head>` meta.
+  - Proxima acao: investigar middleware setup for app-ui dev server and retry validation.
+
+- 2026-02-07: **TASK-MOBILE-001 — Browser validation (port 3002)**
+  - Dev server iniciado em `http://localhost:3002`.
+  - `<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">` presente.
+  - `<meta name="theme-color" content="#050505">` presente.
+  - Apple web app meta tags presentes (`apple-mobile-web-app-*`).
+  - Body com `overflow-x-hidden` confirmado.
+  - Proxima acao: seguir para `TASK-MOBILE-002`.
+
+- 2026-02-07: **TASK-MOBILE-002 — Touch targets baseline (in progress)**
+  - Applied `min-h-[44px]` to inputs/selects/textarea in `services/app-ui/src/app/globals.css`.
+  - Added `min-height/width: 44px` for `input[type='checkbox']` and `input[type='radio']`.
+  - Enforced 44px min touch size for all `button` and `a` elements in `services/app-ui/src/app/globals.css`.
+  - Updated action icon buttons in AOI list to real `<button>` elements with 44px min size.
+  - Ensured nav links and CTAs in `LandingHeader` and `ClientLayout` are 44px touch targets.
+  - Added 44px min height to toggle labels in `MapControlCluster`.
+  - Validated landing page output in dev server on port 3002.
+  - Updated landing footer links and analytics filters/refresh buttons to meet 44px touch size.
+  - Updated AI Assistant sidebar link/button touch targets.
+  - Updated auth pages (login/signup/forgot/reset) and legal/contact links to meet 44px touch size.
+  - Updated farms detail page buttons/links to ensure 44px touch targets in header, actions, and modals.
+  - Updated signals details page links and acknowledge button.
+  - Updated vision pages back links and offline CTA button.
+  - Updated settings preference switch to meet 44px touch target.
+  - Added 44px touch targets to AOI list header, filter chips, and “Limpar busca”.
+  - Ran final dev-server visual validation on port 3002 (landing page rendered as expected).
+  - Added `inputMode`/`autoComplete` to auth/contact/invite forms and search inputs.
+  - Added numeric input keyboard hints for split controls.
+  - Marked `TASK-MOBILE-003` as completed in `ai/tasks.md`.
+  - Added focus trap, ESC close, and backdrop click for landing mobile menu.
+  - Proxima acao: validar UX em device real e revisar event-specific interactions (map overlays).
+
+- 2026-02-07: **TASK-MOBILE-007 — Mobile menu validation (Playwright)**
+  - Dev server iniciado em `http://localhost:3002` (port 3002).
+  - Validado via Playwright (viewport 375x812): `aria-expanded` muda para `true` ao abrir.
+  - `aria-hidden` alterna `false` (aberto) e `true` (fechado).
+  - Focus trap confirmado (focus permanece dentro do menu após `Tab`).
+  - ESC fecha o menu.
+  - `TASK-MOBILE-007` marcado como concluida em `ai/tasks.md`.
+
+- 2026-02-07: **TASK-MOBILE-004 — Breakpoint testing suite (in progress)**
+  - Criado teste Playwright `tests/e2e/mobile-responsiveness.spec.ts`.
+  - Cobertura de breakpoints: 320, 375, 414, 768, 1024, 1440.
+  - Valida ausencia de scroll horizontal, tamanho base de fonte >= 16px, e touch targets >= 44x44.
+  - Executado `npx playwright test tests/e2e/mobile-responsiveness.spec.ts --project "Mobile Chrome" --project "Mobile Safari"` com app-ui em `http://localhost:3002`.
+  - Resultado: 2 testes passaram (Mobile Chrome + Mobile Safari).
+  - `TASK-MOBILE-004` marcado como concluida em `ai/tasks.md`.
+
+- 2026-02-07: **TASK-MOBILE-005 — Touch optimization (completed)**
+  - Adicionado `scroll-behavior: smooth` em `html` e `touch-action: manipulation` + `overscroll-behavior-y: contain` no `body` em `services/app-ui/src/app/globals.css`.
+  - Atualizado `tests/e2e/mobile-responsiveness.spec.ts` para validar scroll-behavior/touch-action e tolerar `overscroll-behavior-y` ausente em WebKit.
+  - Playwright executado (`Mobile Chrome`, `Mobile Safari`) com app-ui em `http://localhost:3002`: 2 testes passaram.
+  - `TASK-MOBILE-005` marcado como concluida em `ai/tasks.md`.
+
+- 2026-02-07: **TASK-MOBILE-006 — Responsive images (completed)**
+  - `Hero3D` fallback agora usa `next/image` com `fill`, `sizes` e `priority`.
+  - Imagens da landing (`farm-zoom`, `micro-analysis`, `devices-mockup`) agora definem `sizes` para servir variantes responsivas.
+  - `TASK-MOBILE-006` marcado como concluida em `ai/tasks.md`.
+
+- 2026-02-07: **TASK-MOBILE-008 — Lighthouse mobile audit (in progress)**
+  - Rodado Lighthouse mobile em dev server (`http://localhost:3002`): Performance 47, A11y 96, Best Practices 92, SEO 100.
+  - Métricas (dev): LCP 14.1s, CLS 0.106, TBT 1230ms.
+  - Otimizações aplicadas para reduzir JS em mobile: cenas 3D/efeitos agora lazy + desktop-only via dynamic imports (`Hero3DCanvas`, `LandingDesktopEffects`, `FarmSceneLazy`, `MicroSceneLazy`) e fallback hero estático com `next/image`.
+  - Ajustes de types para liberar build: `Charts.tsx` (dot), `VideoTracker.tsx` (querySelectorAll tipado), `MapLeaflet.tsx` (originalEvent), `VectorTileLayer.tsx` (rendererFactory).
+  - Build production liberado após excluir `src/stories` e `vitest.config.ts` no `services/app-ui/tsconfig.json` e corrigir `/map-embed` (client-only).
+  - Lighthouse mobile em build (next start, `http://localhost:3002`): Performance 91, LCP 2.8s, TBT 30ms.
+  - LCP element identificado via PerformanceObserver (Playwright): `section#hero > div.relative.z-20 > h1.text-balance.text-3xl` (heading principal).
+  - Otimizacoes que ajudaram: `content-visibility: auto` nas seções abaixo do hero.
+  - Tentativas sem ganho (revertidas): override de fonte do h1 no mobile.
+  - Decisão: LCP 2.8s aceito como baseline (sem reduzir o “wow”).
+  - `TASK-MOBILE-008` marcado como concluida em `ai/tasks.md`.
+
+- 2026-02-07: **TASK-MOBILE-010 — A11y + WCAG 2.1 AA (automated)**
+  - Corrigidos landmarks com `<main>` e contraste/links em: `login`, `signup`, `contact`, `terms`, `privacy`.
+  - Ajustes de contraste: textos cinza para `gray-700`, links com `underline` e botão contato `bg-green-700`.
+  - aXe (Playwright, viewport 375x812) em `/`, `/login`, `/signup`, `/contact`, `/terms`, `/privacy`: 0 violations.
+  - Pendências manuais: WAVE extension e teste com screen reader (VoiceOver/TalkBack).
+
+- 2026-02-07: **TASK-MOBILE-009 — Mobile-first docs (completed)**
+  - Criado `docs/MOBILE_FIRST_GUIDELINES.md` com checklist, anti-patterns, targets e guia de validação.
+  - README principal atualizado com link para o guia.
+  - `TASK-MOBILE-009` marcado como concluida em `ai/tasks.md`.
+
+- 2026-02-07: **TASK-MOBILE-001 — Mobile-first base setup (in progress)**
+  - Added mobile-first breakpoints and spacing helper `touch: 44px` in `services/app-ui/tailwind.config.js`.
+  - Added `overflow-x-hidden` on app body to prevent horizontal scroll.
+  - Viewport/themeColor/appleWebApp metadata already present in `services/app-ui/src/app/layout.tsx`.
+  - Proxima acao: validar visual no browser e confirmar meta viewport no `<head>`.
+
+- 2026-02-07: **Session closeout**
+  - Pytest (API) passou com `.env` local (`pytest -q`).
+  - Dashboard de analytics ajustado com ordenacao/filtro por fase; eventos/labels refinados.
+  - Task criada: `TASK-SPATIAL-0039` (filtros reais por data via API + UI).
+  - Proxima acao: implementar `TASK-SPATIAL-0039`.
+
+- 2026-02-07: **TASK-SPATIAL-0038 — Analytics dashboard (backend + eventos)**
+  - TrackGoal agora envia eventos para API (`/v1/app/analytics/events`) com fase (F1/F2/F3).
+  - Endpoint `/v1/app/analytics/adoption` agregado a partir do audit_log; dashboard agora consome backend.
+  - Novos eventos mapeados: `aoi_selected`, `aoi_created`, `aoi_batch_created` (alem de onboarding/zoom/bottom sheet).
+  - Teste unitario app-ui atualizado (rodado: `npm run test:unit --prefix services/app-ui`).
+  - Testes API adicionados; pytest falhou por falta de env vars (jwt/sqs/db/etc).
+  - Ajustado painel para exibir fase por evento (F1/F2/F3) e refinar labels/ordem.
+  - Adicionadas opcoes de ordenacao (volume/alfabetica) e filtro por fase.
+  - Proxima acao: validar eventos em ambiente real e garantir que o volume do audit_log esta aceitavel.
+
+- 2026-02-07: **TASK-SPATIAL-0039 — Filtros reais de analytics (criado)**
+  - Task criada para adicionar filtros reais por data no dashboard (API + UI).
+  - Proxima acao: implementar query params em `/v1/app/analytics/adoption` e conectar no frontend.
+
+- 2026-02-07: **TASK-SPATIAL-0038 — Analytics dashboard (concluida)**
+  - Criada pagina `/analytics` com painel de adocao (eventos chave + metricas por fase F1/F2/F3).
+  - `trackGoal` agora guarda snapshot local (localStorage) para contagens e ultimo evento.
+  - Adicionado item de navegacao Analytics para tenant/system admin.
+  - Proxima acao: validar eventos reais no fluxo (onboarding, bottom sheet, zoom) e ajustar mapeamento se necessario.
+
+- 2026-02-07: **TASK-SPATIAL-0037 — Perf + A11y hardening (concluida)**
+  - Lighthouse mobile em `/farms`: LCP 2.3s, Perf 0.75, A11y 0.93 (dev server local).
+  - Acceptance finalizada; status atualizado para concluida.
+  - Proxima acao: iniciar `TASK-SPATIAL-0038` (Analytics dashboard).
+
+- 2026-02-07: **TASK-SPATIAL-0037 — Perf + A11y hardening (parcial)**
+  - Adicionado foco visivel global e reducao de blur/animacoes para usuarios com preferencia de reduced motion/transparency.
+  - LCP target ainda nao validado.
+  - Proxima acao: rodar Lighthouse mobile e ajustar LCP (<2.5s) conforme necessario.
+
+- 2026-02-07: **TASK-SPATIAL-0036 — Full spatial cards**
+  - ClientLayout agora renderiza paginas de gestao como cards flutuantes sobre o mapa (MapLayout + MapComponent).
+  - Header/nav compactos migrados para overlays; mapa permanece visivel.
+  - Proxima acao: iniciar `TASK-SPATIAL-0037` (Perf + A11y hardening).
+
+- 2026-02-07: **Sprint 4 encerrado**
+  - Concluido Sprint 4 (Fase 2): `TASK-SPATIAL-0023`, `0030`, `0031`, `0032`.
+  - Proxima acao: iniciar Fase 3 com `TASK-SPATIAL-0035` (sidebar removal) e seguir para `0036`.
+
+- 2026-02-07: **TASK-SPATIAL-0035 — Sidebar removal**
+  - Sidebar persistente removida no mapa da fazenda; menu compacto agora abre painel overlay.
+  - Menu acessivel no topo com toggle e backdrop para fechar.
+  - Proxima acao: iniciar `TASK-SPATIAL-0036` (Full spatial cards).
+
+- 2026-02-07: **TASK-SPATIAL-0032 — Service Worker cache de geometrias**
+  - Configurado runtime caching no PWA: geometrias (AOIs) com cache-first (24h) e dados dinamicos com network-first.
+  - Cache invalidado por deploy via `cacheId` com build/commit.
+  - Proxima acao: revisar Sprint 4 concluido e decidir Fase 3 (Post-Map First).
+
+- 2026-02-07: **TASK-SPATIAL-0031 — Bottom Sheet GPU + containment**
+  - Aplicado `contain: layout` e `will-change` condicional durante drag no BottomSheet.
+  - Animacao continua via `transform` para reduzir reflow.
+  - Proxima acao: executar `TASK-SPATIAL-0032` (Service Worker cache).
+
+- 2026-02-07: **TASK-SPATIAL-0030 — Network-aware tile loading**
+  - Auto-selecao do mapa base por tipo de conexao (4G+ usa vector; 2G/3G cai para raster).
+  - Override manual preservado quando usuario escolhe outro base layer.
+  - Indicador de modo economico mantido quando vector nao esta permitido.
+  - Proxima acao: executar `TASK-SPATIAL-0031` (Bottom Sheet containment) ou `TASK-SPATIAL-0032` (Service Worker cache).
+
+- 2026-02-07: **TASK-SPATIAL-0023 — Leaflet Vector Tiles (POC)**
+  - Adicionado `leaflet.vectorgrid` e camada vetorial com tiles Protomaps no app-ui.
+  - Fallback automatico para raster em conexoes lentas (2G/3G) com aviso discreto.
+  - Plano atualizado com estrategia de vector tiles e fallback.
+  - Proxima acao: executar `TASK-SPATIAL-0030` (network-aware loading refinado) ou `TASK-SPATIAL-0031` (Bottom Sheet containment).
+
+- 2026-02-07: **Sprint 4 iniciado + Post-Map First alinhado**
+  - Sprint 4 (Fase 2) iniciado com foco em: `TASK-SPATIAL-0023`, `0030`, `0031`, `0032`.
+  - Post-Map First (Fase 3) alinhado como proxima etapa: `TASK-SPATIAL-0035`–`0038`.
+  - Proxima acao: escolher a primeira task de Sprint 4 para implementacao (recomendado: `TASK-SPATIAL-0023`).
+
+- 2026-02-07: **Encerramento — Sprint 1 e Sprint 3**  
+  - Sprint 1 concluido (0010, 0011, 0021, 0033, 0024).  
+  - Sprint 3 concluido (0012, 0022, 0034, 0013).  
+  - Testes: `npm run test:unit` (14 arquivos, 26 testes OK) e `npm run test:storybook` (9 arquivos, 3 testes OK).  
+  - Documentos atualizados: `ai/tasks.md` (status), `ai/sessions/2026-02-07-1737.md` (log).  
+  - Proxima acao: iniciar Sprint 2 (hardening a11y/perf) ou Sprint 4 (vector tiles, network-aware loading, SW cache).
+
+- 2026-02-07: **TASK-SPATIAL-0013 — Bottom Sheet (audit)**  
+  - Nao ha implementacao encontrada em `design-system/components/spatial/BottomSheet/` (pasta inexistente).  
+  - Apenas referencias de design/spec em `design-system/components/README.md` e `design-system/FIGMA_GUIDE.md`.  
+  - Proxima acao: implementar Bottom Sheet MVP conforme `ai/tasks.md` (gestos, focus trap, ESC, safe area) + stories/tests.
+
+- 2026-02-07: **TASK-SPATIAL-0013 — Bottom Sheet (implementado)**  
+  - Criado `design-system/components/spatial/BottomSheet` com gestos up/down, foco via Radix Dialog, ESC para fechar e safe area iOS.  
+  - Adicionadas stories (Peek/Half/Full/Gestures) e testes unitarios basicos.  
+  - Export atualizado em `design-system/components/index.ts`.  
+  - Removido Radix Dialog por implementacao local (portal + focus trap) para evitar dependencia ausente em testes.  
+  - Testes executados: `npm run test:unit` (14 arquivos, 26 testes OK) e `npm run test:storybook` (9 arquivos, 3 testes OK).  
+  - Nota: Vitest/Storybook avisou sobre `optimizeDeps` (reload do Vite ao otimizar `react-dom`).  
+  - Proxima acao: opcional — adicionar `react-dom` em `optimizeDeps.include` se quiser eliminar o warning.
+
+- 2026-02-07: **TASK-SPATIAL-0010 — Command Center (audit + fixes)**  
+  - Ajustado `CommandCenter` com `aria-activedescendant` e ids por opção para listbox acessível.  
+  - Botão de abertura agora tem `aria-label` + `aria-controls`.  
+  - Corrigido edge case de lista vazia nas setas (evita `activeIndex = -1`).  
+  - Testes executados: `npm run test:unit` (10 arquivos, 17 testes OK) e `npm run test:storybook` (8 arquivos, 3 testes OK).  
+  - Proxima acao: nenhuma.
+
+- 2026-02-07: **TASK-SPATIAL-0011 — Field Dock (audit + fixes)**  
+  - Adicionado Tooltip real (Radix) para acoes do FieldDock, substituindo `title`.  
+  - Acoes agora incluem `aria-label` e `aria-disabled` para melhor a11y.  
+  - Adicionado `cursor-pointer` nos botoes habilitados.  
+  - Testes executados: `npm run test:unit` (10 arquivos, 17 testes OK) e `npm run test:storybook` (8 arquivos, 3 testes OK).  
+  - Proxima acao: nenhuma.
+
+- 2026-02-07: **Testes app-ui (rerun)**  
+  - `npm run test:unit` inicialmente falhou com timeout/EPIPE; re-run com timeout maior passou (10 arquivos, 17 testes OK).  
+  - `npm run test:storybook` passou (8 arquivos, 3 testes OK).  
+  - Proxima acao: nenhuma.
+
+- 2026-02-07: **TASK-SPATIAL-0021 — Landing no mapa (implementado)**  
+  - Preferencia por usuario via localStorage (`landing-preference:{userId}`) com default dashboard.  
+  - Toggle em Settings para escolher dashboard vs mapa.  
+  - Login/Signup agora redirecionam para rota conforme preferencia.  
+  - Testes: `npm run test:unit` (11 arquivos, 19 testes OK).  
+  - Testes: `npm run test:storybook` (8 arquivos, 3 testes OK).  
+  - Proxima acao: nenhuma.
+
+- 2026-02-07: **TASK-SPATIAL-0033 — Onboarding tour MVP (implementado)**  
+  - Criado `OnboardingTour` com 2 passos (Command Center + Field Dock), opcao de pular e persistencia `tour-completed:{userId}`.  
+  - Onboarding renderizado no mapa (`/farms/[id]`) para primeira visita.  
+  - Testes: `npm run test:unit` (12 arquivos, 20 testes OK).  
+  - Testes: `npm run test:storybook` (8 arquivos, 3 testes OK).  
+  - Proxima acao: nenhuma.
+
+- 2026-02-07: **TASK-SPATIAL-0024 — Analytics eventos (implementado)**  
+  - `command_center_used` emitido no Command Center com query/result_count/time_to_result/metodo.  
+  - `zoom_semantic_transition` emitido no mapa com thresholds macro/meso/micro.  
+  - `bottom_sheet_interaction` emitido em sheets `side="bottom"` (open/close).  
+  - Onboarding agora emite `onboarding_step` (started/completed/skipped).  
+  - Testes: `npm run test:unit` (12 arquivos, 20 testes OK).  
+  - Testes: `npm run test:storybook` (8 arquivos, 3 testes OK).  
+  - Proxima acao: nenhuma.
+
+- 2026-02-07: **TASK-SPATIAL-0012 — Dynamic Island (a11y hardening)**  
+  - Adicionado `aria-atomic="true"` e prop `ariaLive` para ajustar `aria-live` quando necessario.  
+  - Story `Action` ajustada para `ariaLive="assertive"`.  
+  - Testes: `npm run test:unit` (12 arquivos, 20 testes OK).  
+  - Testes: `npm run test:storybook` (8 arquivos, 3 testes OK).  
+  - Proxima acao: nenhuma.
+
+- 2026-02-07: **TASK-SPATIAL-0022 — Zoom Semantico MVP (implementado)**  
+  - Nivel semantico macro/meso/micro com thresholds + badge no mapa.  
+  - Atalhos 1/2/3 ajustam o zoom para macro/meso/micro.  
+  - Helper `zoomSemantic` extraido com testes.  
+  - Testes: `npm run test:unit` (13 arquivos, 23 testes OK).  
+  - Testes: `npm run test:storybook` (8 arquivos, 3 testes OK).  
+  - Proxima acao: nenhuma.
+
+- 2026-02-07: **TASK-SPATIAL-0034 — Overlay details (implementado)**  
+  - Detalhes do talhao agora abrem como overlay flutuante sobre o mapa.  
+  - Botao "Ver detalhes" alterna visibilidade; fechar retorna ao mapa.  
+  - Overlay aparece automaticamente quando painel esta colapsado ou foco no mapa.  
+  - Testes: `npm run test:unit` (13 arquivos, 23 testes OK).  
+  - Proxima acao: nenhuma.
+
+- 2026-02-07: **Landing Page — "The Portal" implementation**
+  - Rebuilt app-ui landing page with cinematic "Portal" layout, narrative sections, and dark immersive styling.
+  - Added Hero3D (R3F) with fallback, GSAP scroll animation, mobile overlay menu, JSON-LD + Plausible script.
+  - Added farm/micro 3D scenes with scroll-jacking animations, SVG line draw, particles + shader scan.
+  - Added robots/sitemap routes, CSP header, reduced-motion guardrails, real Earth textures, atmosphere lighting.
+  - Added CTA + scroll analytics, A/B CTA via Edge Config, Signup Completed tracking, Video play tracker, Sentry + Vercel Analytics.
+  - Added Lighthouse CI workflow + budget.json and OG/Twitter assets.
+  - Wired KTX2 globe textures from public/textures/compressed with JPG/PNG fallback, including mobile LOD.
+  - Proxima acao: validar visual em `/` e confirmar carregamento KTX2 no DevTools.
+
+- 2026-02-07: **Spatial AI OS — Implementation Plan (draft)**
+  - Novo plano criado em `ai/IMPLEMENTATION_PLAN_SPATIAL_AI_OS.md` consolidando `ai/RADICAL_PROPOSAL.md` + docs de `design-system/`.
+  - Atualizado com decisoes aprovadas: Design System Spatial Glass, Leaflet nas Fases 0-2, e cronograma 2/4/4 semanas.
+  - Proxima acao: usuario revisar a versao atualizada do plano.
+
+- 2026-02-07: **Spatial AI OS — Tasks detalhadas**
+  - Detalhadas tasks em `ai/tasks.md` (Fases 0-2) para tokens, Storybook, componentes Spatial, layout e Leaflet vector tiles.
+  - Adicionadas tasks faltantes (a11y baseline, Lighthouse CI, utilities/tokens docs, Badge/Tooltip, Storybook a11y gate, performance mobile, SW cache, onboarding, overlays, Phase 3 e analytics dashboard).
+  - Adicionado Sprint Plan proposto (Sprint 0–4 + Fase 3) em `ai/tasks.md`.
+  - Marcadas as tasks com `Sprint` (0–4/Fase 3) em `ai/tasks.md`.
+  - Proxima acao: priorizar quais tasks iniciar primeiro.
+
+- 2026-02-07: **TASK-SPATIAL-0001 — Tokens no app-ui (em progresso)**
+  - Importado `design-system/tokens.css` em `services/app-ui/src/app/globals.css`.
+  - Atualizado `--primary-foreground` para usar `--text-on-primary` dos tokens.
+  - Ajustado Tailwind `primary` para usar `var(--primary)` e `var(--primary-foreground)` sem `hsl()`.
+  - Proxima acao: validar visual no app-ui e ajustar tokens/vars se necessario.
+
+- 2026-02-07: **TASK-SPATIAL-0001 — Tokens no app-ui (concluido)**
+  - `globals.css` agora usa tokens (`--gray-*`, `--text-*`, `--primary`, `--critical`) para light/dark.
+  - Tailwind config ajustado para usar vars diretas (sem `hsl()`) em background/foreground/secondary/etc.
+  - Proxima acao: validar visual no app-ui (mapa e cards) e ajustar contraste se necessario.
+
+- 2026-02-07: **TASK-SPATIAL-0002 — Storybook (concluido)**
+  - Storybook roda com framework `@storybook/react-webpack5` (para estabilidade no Windows).
+  - `.storybook` aponta apenas para stories do `design-system/components`.
+  - Preview carrega `design-system/tokens.css` e backgrounds base (sem `import type`).
+  - Addons habilitados: essentials, interactions, a11y, links (v8.6.15).
+  - Proxima acao: adicionar as primeiras stories no design-system para remover o warning de “No story files found”.
+
+- 2026-02-07: **TASK-SPATIAL-0003 — Base components (em progresso)**
+  - Criados componentes base: Button, Input, Card em `design-system/components/base`.
+  - Criadas stories para Button/Input/Card e exports em `design-system/components/index.ts`.
+  - Proxima acao: configurar test runner para componentes e adicionar testes basicos.
+
+- 2026-02-07: **TASK-SPATIAL-0003 — Testes base components (concluido)**
+  - Configurados scripts `test:unit` e setup do Vitest para ler `design-system/components`.
+  - Instalados Testing Library + jsdom e ajustado `vitest.setup.ts` para jest-dom/vitest.
+  - Ajustado Vitest para resolver deps do app-ui e permitir fs fora do root.
+  - Testes rodando: `npm run test:unit` -> 3 arquivos, 6 testes OK.
+  - Proxima acao: opcional — avaliar habilitar suite `test:storybook` quando addon-vitest estiver definido.
+
+- 2026-02-07: **Storybook test runner (bloqueado por versão)**
+  - Tentativa de habilitar `test:storybook` via `@storybook/addon-vitest` falhou.
+  - Motivo: addon-vitest atual exige Storybook `^10.2.7` e nossa stack está em `8.6.15`.
+  - Proxima acao: decidir se fazemos upgrade major para Storybook 10 (destravar `test:storybook`) ou mantemos apenas `test:unit`.
+
+- 2026-02-07: **test:storybook habilitado sem upgrade**
+  - Ajustado `vitest.config.ts` para executar stories no browser sem addon-vitest.
+  - Corrigido `.storybook/vitest.setup.ts` para `@storybook/nextjs`.
+  - Ajustado `design-system/tokens.css` para mover `@import` ao topo (PostCSS).
+  - `npm run test:storybook` passa (stories carregam; 0 testes, passWithNoTests).
+
+- 2026-02-07: **Storybook interaction tests adicionados**
+  - Adicionados `play` e testes diretos nos stories de Button/Input/Card.
+  - Instalado `@storybook/test` e resolvido alias para carregar no Vitest.
+  - `npm run test:storybook` passa com 3 testes (1 por story).
+
+- 2026-02-07: **A11y checks nos stories**
+  - Adicionados checks com `axe-core` em Button/Input/Card.
+  - `npm run test:storybook` passa com interacoes + a11y.
+
+- 2026-02-07: **TASK-SPATIAL-0010 — Command Center (concluido)**
+  - Componente `CommandCenter` criado com role `search`, listbox acessivel e atalhos ⌘K/Ctrl+K.
+  - Navegacao por setas + Enter implementada; stories e testes adicionados.
+  - Testes: `npm run test:unit` e `npm run test:storybook` OK.
+
+- 2026-02-07: **TASK-SPATIAL-0011 — Field Dock (concluido)**
+  - Componente `FieldDock` criado com variantes macro/meso/micro e touch targets >= 44px.
+  - Acoes suportam estado ativo/disabled e tooltip via atributo `title`.
+  - Stories e testes adicionados; `npm run test:unit` e `npm run test:storybook` OK.
+
+- 2026-02-07: **TASK-SPATIAL-0027 — Glassmorphism utilities (concluido)**
+  - Adicionadas classes utilitarias (`glass-panel`, `glass-panel-subtle`, `glass-border`) em `design-system/tokens.css`.
+  - Naming conventions documentadas em `design-system/MASTER.md` e `design-system/components/README.md`.
+
+- 2026-02-07: **TASK-SPATIAL-0025 — A11y baseline + contratos de teclado (concluido)**
+  - Criado `design-system/components/utils/a11y.ts` com helpers e lista de atalhos globais.
+  - Atalhos documentados em `design-system/MASTER.md` e `design-system/components/README.md`.
+  - Command Center passou a usar helpers de teclado.
+  - Testes: `npm run test:unit` OK.
+
+- 2026-02-07: **TASK-SPATIAL-0026 — Lighthouse CI + thresholds (concluido)**
+  - Adicionado `services/app-ui/lighthouserc.json` com thresholds (Perf >= 0.85, A11y >= 0.90).
+  - Workflow `lighthouse.yml` atualizado para usar `configPath`.
+  - Script `lighthouse:ci` e dependency `@lhci/cli` adicionados.
+  - Nota: LHCI não foi executado localmente (depende de URL preview).
+
+- 2026-02-07: **TASK-SPATIAL-0029 — Storybook a11y gate (concluido)**
+  - `test:a11y` adicionado como alias para `test:storybook`.
+  - Documentado gate de a11y em `design-system/components/README.md`.
+
+- 2026-02-07: **TASK-SPATIAL-0028 — Badge + Tooltip (concluido)**
+  - Badge e Tooltip criados com tokens e glassmorphism (Radix Tooltip).
+  - Stories e testes adicionados; `npm run test:unit` e `npm run test:storybook` OK.
+  - Nota: warnings de atributos `jsx/global` no teste `landing-page` persistem (preexistente).
+
+- 2026-02-07: **TASK-SPATIAL-0020 — Map layout (concluido)**
+  - Criado `MapLayout` com slots de overlay (top/bottom/center) e container map full-size.
+  - `farms/[id]` agora usa MapLayout para overlay + mapa 100% tela.
+  - Testes: `npm run test:unit` OK.
+
+- 2026-02-07: **Sprint 0 — Encerramento**
+  - Sprint 0 finalizado (tokens, Storybook/tests, base components, Command Center, Field Dock, MapLayout, LHCI).
+  - Session log: `ai/sessions/2026-02-07-1609.md`.
+
+- 2026-02-07: **npm EPERM + ENOTCACHED — Resolvido**
+  - Erro `spawn EPERM` em `npm rebuild esbuild` resolvido com limpeza de cache e reinstalacao seletiva.
+  - Erro `EPERM` ao remover `package.jso…22986 tokens truncated… wt ON w.year = wt.year AND w.week = wt.week
         ORDER BY w.year, w.week
     """)
     result = db.execute(sql, {"aoi_id": aoi_id, "tenant_id": tenant_id, "start_date": start_date})
@@ -1892,7 +839,7 @@ export function AnalysisTab({ aoiId }: { aoiId: string }) {
                 <p className="flex-1 text-sm">{i.message}</p>
                 <Badge variant={i.severity === "warning" ? "default" : "secondary"}>{i.severity}</Badge>
               </div>
-            ))}
+            ))
           </CardContent>
         </Card>
       )}

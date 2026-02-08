@@ -1,0 +1,225 @@
+# Admin UI OpenAPI Stubs (Future Endpoints)
+# These endpoints are NOT implemented yet. Marked with x-future: true.
+openapi: 3.0.3
+info:
+  title: VivaCampo Admin UI API (Future)
+  version: 0.1.0
+servers:
+  - url: /v1
+paths:
+  /admin/metrics/summary:
+    get:
+      summary: Admin metrics summary
+      x-future: true
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMetricsSummary'
+  /admin/metrics/timeseries:
+    get:
+      summary: Admin metrics time series
+      x-future: true
+      parameters:
+        - in: query
+          name: range
+          schema:
+            type: string
+            example: 24h
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminMetricsTimeseries'
+  /admin/users/{id}:
+    get:
+      summary: User 360 details
+      x-future: true
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+  /admin/actions/{action}:
+    post:
+      summary: Admin quick action
+      x-future: true
+      parameters:
+        - in: path
+          name: action
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: OK
+  /admin/map/points:
+    get:
+      summary: Map points
+      x-future: true
+      parameters:
+        - in: query
+          name: layer
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /admin/map/heatmap:
+    get:
+      summary: Heatmap points
+      x-future: true
+      parameters:
+        - in: query
+          name: metric
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /admin/map/filters:
+    get:
+      summary: Map filters
+      x-future: true
+      responses:
+        '200':
+          description: OK
+  /admin/impersonate:
+    post:
+      summary: Start ghost session
+      x-future: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GhostSessionRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GhostSession'
+  /admin/impersonate/end:
+    post:
+      summary: End ghost session
+      x-future: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: OK
+  /admin/impersonate/{session_id}:
+    get:
+      summary: Get ghost session
+      x-future: true
+      parameters:
+        - in: path
+          name: session_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+  /admin/ghost/actions:
+    post:
+      summary: Ghost action
+      x-future: true
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+                action:
+                  type: string
+                payload:
+                  type: object
+      responses:
+        '200':
+          description: OK
+
+components:
+  schemas:
+    AdminMetricsSummary:
+      type: object
+      properties:
+        overall_health:
+          type: string
+        queue:
+          type: object
+        db:
+          type: object
+        errors:
+          type: object
+        active_users:
+          type: integer
+    AdminMetricsTimeseries:
+      type: object
+      properties:
+        requests:
+          type: array
+          items:
+            type: object
+        errors:
+          type: array
+          items:
+            type: object
+        users:
+          type: array
+          items:
+            type: object
+    GhostSessionRequest:
+      type: object
+      required: [target_user_id, reason]
+      properties:
+        target_user_id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+    GhostSession:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        target_user_id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        started_at:
+          type: string
+        expires_at:
+          type: string

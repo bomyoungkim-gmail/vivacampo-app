@@ -1,0 +1,683 @@
+openapi: 3.0.3
+info:
+  title: VivaCampo Admin UI API (Stubs)
+  version: 0.1.0
+  description: |
+    Stubs alinhados ao backend atual (FastAPI). Nao substitui o OpenAPI gerado em /openapi.json.
+servers:
+  - url: /v1
+paths:
+  /admin/tenants:
+    get:
+      summary: List tenants
+      parameters:
+        - in: query
+          name: tenant_type
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TenantView'
+    post:
+      summary: Create tenant
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantCreate'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantView'
+  /admin/tenants/{tenant_id}:
+    patch:
+      summary: Update tenant
+      parameters:
+        - in: path
+          name: tenant_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantPatch'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  new_status:
+                    type: string
+  /admin/jobs:
+    get:
+      summary: List system jobs
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+        - in: query
+          name: job_type
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SystemJobView'
+  /admin/jobs/{job_id}/retry:
+    post:
+      summary: Retry a job
+      parameters:
+        - in: path
+          name: job_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+  /admin/jobs/reprocess:
+    post:
+      summary: Reprocess jobs by week
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReprocessJobsRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    type: integer
+                  jobs:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        job_type:
+                          type: string
+                        job_id:
+                          type: string
+                          format: uuid
+  /admin/ops/reprocess-missing-aois:
+    post:
+      summary: Enqueue backfill for missing AOIs
+      parameters:
+        - in: query
+          name: days
+          schema:
+            type: integer
+            default: 56
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 200
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    type: integer
+                  from_date:
+                    type: string
+                  to_date:
+                    type: string
+                  message:
+                    type: string
+  /admin/ops/missing-weeks:
+    get:
+      summary: List missing weeks
+      parameters:
+        - in: query
+          name: weeks
+          schema:
+            type: integer
+            default: 12
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  weeks:
+                    type: integer
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        tenant_id:
+                          type: string
+                        aoi_id:
+                          type: string
+                        farm_name:
+                          type: string
+                          nullable: true
+                        aoi_name:
+                          type: string
+                          nullable: true
+                        missing_weeks:
+                          type: array
+                          items:
+                            type: array
+                            items:
+                              type: integer
+                        missing_count:
+                          type: integer
+  /admin/ops/reprocess-missing-weeks:
+    post:
+      summary: Enqueue backfill for missing weeks
+      parameters:
+        - in: query
+          name: weeks
+          schema:
+            type: integer
+            default: 12
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+        - in: query
+          name: max_runs_per_aoi
+          schema:
+            type: integer
+            default: 3
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    type: integer
+                  weeks:
+                    type: integer
+                  limit:
+                    type: integer
+  /admin/ops/health:
+    get:
+      summary: System health
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  database:
+                    type: string
+                  jobs_24h:
+                    type: object
+                    properties:
+                      pending:
+                        type: integer
+                      running:
+                        type: integer
+                      failed:
+                        type: integer
+  /admin/ops/queues:
+    get:
+      summary: Queue stats
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  additionalProperties:
+                    type: integer
+  /admin/audit:
+    get:
+      summary: Global audit log
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 100
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    tenant_id:
+                      type: string
+                    action:
+                      type: string
+                    resource_type:
+                      type: string
+                    resource_id:
+                      type: string
+                      nullable: true
+                    changes:
+                      type: object
+                      nullable: true
+                    metadata:
+                      type: object
+                      nullable: true
+                    created_at:
+                      type: string
+  /admin/providers/status:
+    get:
+      summary: Providers status
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        status:
+                          type: string
+                        circuit_state:
+                          type: string
+                        calls_24h:
+                          type: integer
+                          nullable: true
+                        errors_24h:
+                          type: integer
+                          nullable: true
+                        avg_latency_ms:
+                          type: integer
+                          nullable: true
+                  cache:
+                    type: object
+                    properties:
+                      scenes_cached:
+                        type: integer
+                        nullable: true
+                      oldest_scene:
+                        type: string
+                        nullable: true
+                      newest_scene:
+                        type: string
+                        nullable: true
+  /app/admin/tenant/members:
+    get:
+      summary: List tenant members
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MembershipView'
+  /app/admin/tenant/members/invite:
+    post:
+      summary: Invite tenant member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteMemberRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  membership_id:
+                    type: string
+                    format: uuid
+                  email:
+                    type: string
+                  role:
+                    type: string
+                  status:
+                    type: string
+                  message:
+                    type: string
+  /app/admin/tenant/members/{membership_id}/role:
+    patch:
+      summary: Update member role
+      parameters:
+        - in: path
+          name: membership_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MembershipRolePatch'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  new_role:
+                    type: string
+  /app/admin/tenant/members/{membership_id}/status:
+    patch:
+      summary: Update member status
+      parameters:
+        - in: path
+          name: membership_id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MembershipStatusPatch'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  new_status:
+                    type: string
+  /app/admin/tenant/settings:
+    get:
+      summary: Get tenant settings
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TenantSettingsView'
+    patch:
+      summary: Update tenant settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantSettingsPatch'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+  /app/admin/tenant/audit:
+    get:
+      summary: Get tenant audit log
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLogView'
+
+components:
+  schemas:
+    TenantView:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    TenantCreate:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+    TenantPatch:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+    SystemJobView:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenant_id:
+          type: string
+          format: uuid
+        aoi_id:
+          type: string
+          format: uuid
+          nullable: true
+        aoi_name:
+          type: string
+          nullable: true
+        farm_name:
+          type: string
+          nullable: true
+        job_type:
+          type: string
+        job_key:
+          type: string
+        status:
+          type: string
+        error_message:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    ReprocessJobsRequest:
+      type: object
+      required: [tenant_id, year, week, job_types]
+      properties:
+        tenant_id:
+          type: string
+          format: uuid
+        aoi_id:
+          type: string
+          format: uuid
+          nullable: true
+        year:
+          type: integer
+        week:
+          type: integer
+        job_types:
+          type: array
+          items:
+            type: string
+    InviteMemberRequest:
+      type: object
+      required: [email, name, role]
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+    MembershipView:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        identity_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    MembershipRolePatch:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+    MembershipStatusPatch:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+    TenantSettingsView:
+      type: object
+      properties:
+        tier:
+          type: string
+        min_valid_pixel_ratio:
+          type: number
+        alert_thresholds:
+          type: object
+    TenantSettingsPatch:
+      type: object
+      properties:
+        min_valid_pixel_ratio:
+          type: number
+        alert_thresholds:
+          type: object
+    AuditLogView:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        action:
+          type: string
+        resource_type:
+          type: string
+        resource_id:
+          type: string
+          nullable: true
+        changes:
+          type: object
+          nullable: true
+        metadata:
+          type: object
+          nullable: true
+        created_at:
+          type: string
+          format: date-time

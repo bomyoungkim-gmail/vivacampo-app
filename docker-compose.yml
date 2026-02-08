@@ -38,7 +38,13 @@ services:
       - localstackdata:/var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
     healthcheck:
-      test: ["CMD", "bash", "-c", "awslocal sqs get-queue-url --queue-name vivacampo-jobs"]
+      test:
+        [
+          "CMD",
+          "bash",
+          "-c",
+          "awslocal sqs get-queue-url --queue-name vivacampo-jobs",
+        ]
       interval: 5s
       timeout: 10s
       retries: 20
@@ -129,7 +135,7 @@ services:
       - NEXT_PUBLIC_API_BASE=/app/api
       - NEXT_PUBLIC_BASE_PATH=/app
       - NEXT_PUBLIC_ENABLE_MOCK_AUTH=true
-    ports: ["3002:3000"]
+    ports: ["3000:3000"]
     volumes:
       - ./services/app-ui:/app
       - /app/node_modules
@@ -183,15 +189,7 @@ services:
       - ./services/vision-service:/app
       - vision_models:/app/models/cache
       - vision_tflite:/app/models/tflite
-    command:
-      [
-        "uvicorn",
-        "app.main:app",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "8090",
-      ]
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8090"]
     profiles: ["gpu"]
     deploy:
       resources:

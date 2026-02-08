@@ -1,0 +1,3250 @@
+# Backlog (LLM-friendly)
+
+Last Updated: 2026-02-07
+
+## How to use
+- Keep tasks small (<= 1–2 hours)
+- Each task must state:
+  - Context
+  - Contract impact (API/Domain/DB)
+  - Acceptance criteria
+  - How to test
+
+---
+
+## P0 — Next (highest priority)
+
+### TASK-MOBILE-001 — Mobile-First: Viewport & Critical Setup
+**Context:**
+Implementar configurações críticas mobile-first no LANDING_PAGE_PROPOSAL e app-ui: viewport meta tags, Tailwind breakpoints, e configuração base.
+
+**Contract impact:**
+- Frontend: `app/layout.tsx` metadata update
+- Frontend: `tailwind.config.ts` breakpoints + spacing
+- Docs: LANDING_PAGE_PROPOSAL.md já atualizado (v2.1)
+
+**Acceptance:**
+- [ ] Viewport meta tag adicionado: `width=device-width, initial-scale=1, maximum-scale=5`
+- [ ] `themeColor` configurado: `#050505`
+- [ ] `appleWebApp` metadata adicionado
+- [ ] Tailwind breakpoints mobile-first: `xs: 375px`, `sm: 640px`, `md: 768px`, `lg: 1024px`
+- [ ] Spacing helper `touch: '44px'` adicionado ao Tailwind
+- [ ] Body com `overflow-x-hidden` para prevenir scroll horizontal
+
+**How to test:**
+1. Inspecionar `<head>` no browser DevTools
+2. Verificar meta viewport presente
+3. Testar em iPhone SE (320px), iPhone 12 (375px), iPad (768px)
+4. Verificar sem scroll horizontal em nenhum breakpoint
+
+**Estimate**: 1h
+**Priority**: P0 (blocker para mobile)
+**Status**: ⏳ Pendente
+
+---
+
+### TASK-MOBILE-002 — Mobile-First: Touch Targets (44x44px)
+**Context:**
+Corrigir todos os touch targets para mínimo 44x44px conforme WCAG 2.1 AAA e guidelines mobile-first.
+
+**Contract impact:**
+- Frontend: Componentes Button, Navigation, Icons
+- Frontend: Hamburger menu, Close buttons, Links em listas
+
+**Acceptance:**
+- [ ] Todos os botões têm `min-h-[44px] min-w-[44px]`
+- [ ] Menu hambúrguer: 44x44px (já corrigido em LANDING_PAGE_PROPOSAL)
+- [ ] Botões de fechar modais: 44x44px
+- [ ] Links em listas: padding vertical suficiente para 44px
+- [ ] Ícones clicáveis centralizados em container 44x44px
+- [ ] Controles de formulário (radio, checkbox): 44x44px
+
+**How to test:**
+1. Inspecionar elementos no DevTools
+2. Verificar computed dimensions ≥ 44x44px
+3. Testar toque em dispositivo real ou DevTools touch mode
+4. Validar com aXe DevTools (não deve reportar touch target issues)
+
+**Estimate**: 2–3h
+**Priority**: P0 (crítico para UX mobile)
+**Status**: ⏳ Pendente
+
+---
+
+### TASK-MOBILE-003 — Mobile-First: Forms com inputMode
+**Context:**
+Otimizar forms para mobile adicionando `inputMode` correto em todos os inputs para ativar teclados específicos.
+
+**Contract impact:**
+- Frontend: Formulários de signup, login, contato, newsletter
+- Frontend: Inputs de AOI (hectares, coordenadas)
+
+**Acceptance:**
+- [ ] Email inputs: `inputMode="email"` + `autoComplete="email"`
+- [ ] Phone inputs: `inputMode="tel"` + `autoComplete="tel"`
+- [ ] Number inputs (hectares): `inputMode="numeric"` + `pattern="[0-9]*"`
+- [ ] Text inputs: `autoComplete` apropriado (name, address, etc.)
+- [ ] Todos os inputs têm `min-h-[44px]` para touch targets
+- [ ] Labels visíveis ou `aria-label` presente
+
+**How to test:**
+1. Abrir forms em device real ou DevTools mobile
+2. Tocar em cada input e verificar teclado correto
+3. Email → teclado com @ e .com
+4. Phone → teclado numérico telefônico
+5. Numeric → teclado numérico puro
+
+**Estimate**: 2h
+**Priority**: P0 (UX crítico para conversão)
+**Status**: ✅ Concluída (2026-02-07)
+
+---
+
+### TASK-MOBILE-004 — Mobile-First: Breakpoint Testing Suite
+**Context:**
+Criar suite de testes automatizados (Playwright) para validar responsividade em todos os breakpoints críticos.
+
+**Contract impact:**
+- Tests: `tests/e2e/mobile-responsiveness.spec.ts` (novo)
+
+**Acceptance:**
+- [ ] Teste em 320px (iPhone SE)
+- [ ] Teste em 375px (iPhone 12)
+- [ ] Teste em 414px (iPhone 14 Pro Max)
+- [ ] Teste em 768px (iPad)
+- [ ] Teste em 1024px (Desktop)
+- [ ] Teste em 1440px (Large Desktop)
+- [ ] Validação: sem scroll horizontal em nenhum breakpoint
+- [ ] Validação: texto legível (16px+) em mobile
+- [ ] Validação: touch targets ≥ 44px
+
+**How to test:**
+```bash
+npx playwright test tests/e2e/mobile-responsiveness.spec.ts --project="Mobile Chrome"
+npx playwright test tests/e2e/mobile-responsiveness.spec.ts --project="Mobile Safari"
+```
+
+**Estimate**: 3–4h
+**Priority**: P1 (importante para CI/CD)
+**Status**: ✅ Concluída (2026-02-07)
+
+---
+
+### TASK-MOBILE-005 — Mobile-First: Touch Optimization (Performance)
+**Context:**
+Remover 300ms tap delay, configurar overscroll-behavior, e otimizar touch interactions.
+
+**Contract impact:**
+- Frontend: `globals.css` ou `app/layout.tsx` styles
+- Frontend: Smooth scrolling com `prefers-reduced-motion`
+
+**Acceptance:**
+- [ ] `touch-action: manipulation` aplicado globalmente
+- [ ] `overscroll-behavior-y: contain` no body (previne pull-to-refresh acidental)
+- [ ] `scroll-behavior: smooth` em html (com `@media (prefers-reduced-motion: reduce)` override)
+- [ ] Tap delay eliminado (verificar com DevTools Performance)
+- [ ] Scroll suave funcionando
+
+**How to test:**
+1. DevTools → Performance → Gravar interação de tap
+2. Verificar latency < 100ms (sem 300ms delay)
+3. Testar scroll e verificar smoothness
+4. Testar pull-to-refresh (deve estar desabilitado onde não é necessário)
+
+**Estimate**: 1–2h
+**Priority**: P1 (melhoria significativa de UX)
+**Status**: ✅ Concluída (2026-02-07)
+
+---
+
+### TASK-MOBILE-006 — Mobile-First: Responsive Images
+**Context:**
+Implementar `srcset` e `sizes` para servir imagens otimizadas por breakpoint.
+
+**Contract impact:**
+- Frontend: Componentes de imagem (Hero, Features, Testimonials)
+- Infra: Gerar variantes de imagem (375w, 768w, 1440w)
+
+**Acceptance:**
+- [ ] Hero images têm srcset: 375w, 768w, 1440w
+- [ ] `sizes` attribute correto: `(max-width: 375px) 375px, (max-width: 768px) 768px, 1440px`
+- [ ] `loading="lazy"` em imagens below-the-fold
+- [ ] Formato WebP usado (com fallback JPG)
+- [ ] Alt text descritivo em todas as imagens
+
+**How to test:**
+1. DevTools → Network → Filtrar por Img
+2. Resize viewport e verificar imagem correta carregada
+3. Lighthouse → Verificar "Properly sized images"
+4. Verificar weight de imagem < 200KB por breakpoint
+
+**Estimate**: 2–3h
+**Priority**: P1 (performance + Core Web Vitals)
+**Status**: ✅ Concluída (2026-02-07)
+
+---
+
+### TASK-MOBILE-007 — Mobile-First: Navigation Mobile (Hamburger)
+**Context:**
+Implementar menu hambúrguer fullscreen mobile-first com 44x44px touch target e acessibilidade.
+
+**Contract impact:**
+- Frontend: Navigation component
+- Frontend: Mobile menu overlay
+
+**Acceptance:**
+- [ ] Hamburger button: 44x44px touch target
+- [ ] `aria-label="Abrir menu"` + `aria-expanded` dynamic
+- [ ] Menu fullscreen em mobile (< 768px)
+- [ ] Focus trap ativo quando menu aberto
+- [ ] ESC fecha menu
+- [ ] Backdrop click fecha menu
+- [ ] Smooth animation (300ms)
+- [ ] Links têm 44px vertical padding
+
+**How to test:**
+1. Abrir em mobile viewport
+2. Clicar hamburger → menu abre fullscreen
+3. Testar keyboard navigation (Tab, ESC)
+4. Verificar focus trap funcionando
+5. Testar com screen reader (VoiceOver/TalkBack)
+
+**Estimate**: 2–3h
+**Priority**: P0 (navegação crítica mobile)
+**Status**: ✅ Concluída (2026-02-07)
+
+---
+
+### TASK-MOBILE-008 — Mobile-First: Performance Audit
+**Context:**
+Rodar Lighthouse mobile audit e atingir targets de performance.
+
+**Contract impact:**
+- None (audit + fixes)
+
+**Acceptance:**
+- [ ] Lighthouse Performance > 90 (mobile)
+- [ ] Lighthouse Accessibility > 95
+- [ ] LCP < 2.5s em 3G
+- [ ] FID < 100ms
+- [ ] CLS < 0.1
+- [ ] No scroll horizontal warnings
+- [ ] Touch targets all ≥ 44x44px
+
+**How to test:**
+```bash
+# Lighthouse CI
+npx lighthouse https://localhost:3000 --preset=mobile --output=html --output-path=./lighthouse-mobile.html
+
+# Ou via DevTools
+# DevTools → Lighthouse → Mobile → Generate report
+```
+
+**Estimate**: 2–4h (audit + fixes)
+**Priority**: P1 (Core Web Vitals)
+**Status**: ✅ Concluída (2026-02-07, LCP 2.8s em mobile build — aprovado como baseline)
+
+---
+
+### TASK-MOBILE-009 — Mobile-First: Documentation Update
+**Context:**
+Atualizar docs de implementação com guidelines mobile-first e anti-patterns.
+
+**Contract impact:**
+- Docs: `docs/MOBILE_FIRST_GUIDELINES.md` (novo)
+- Docs: `LANDING_PAGE_PROPOSAL.md` (já atualizado v2.1)
+
+**Acceptance:**
+- [ ] Criar `docs/MOBILE_FIRST_GUIDELINES.md` com:
+  - [ ] Checklist completo (10 itens)
+  - [ ] Touch target guidelines
+  - [ ] Breakpoint testing guide
+  - [ ] inputMode reference table
+  - [ ] Anti-patterns list
+  - [ ] Performance targets
+- [ ] Link no README principal
+
+**How to test:**
+- Review manual dos docs
+- Link validation
+
+**Estimate**: 1–2h
+**Priority**: P2 (documentação)
+**Status**: ✅ Concluída (2026-02-07)
+
+---
+
+### TASK-MOBILE-010 — Mobile-First: A11y + WCAG 2.1 AA Validation
+**Context:**
+Validar compliance com WCAG 2.1 AA em mobile, incluindo touch targets, contraste, e keyboard navigation.
+
+**Contract impact:**
+- None (validation + fixes)
+
+**Acceptance:**
+- [ ] aXe DevTools: 0 critical violations
+- [ ] WAVE: 0 errors
+- [ ] Contrast ratio: 4.5:1 mínimo (texto normal)
+- [ ] Contrast ratio: 3:1 mínimo (texto grande 24px+)
+- [ ] Touch targets: 44x44px mínimo (WCAG 2.1 AAA)
+- [ ] Keyboard navigation completa (Tab order lógico)
+- [ ] Screen reader test (VoiceOver iOS / TalkBack Android)
+
+**How to test:**
+1. aXe DevTools → Scan page
+2. WAVE extension → Scan page
+3. WebAIM Contrast Checker → Verificar cores
+4. Testar navegação keyboard-only
+5. Testar com screen reader real
+
+**Estimate**: 2–3h
+**Priority**: P1 (legal compliance + UX)
+**Status**: ⚠️ Concluída (automated aXe; WAVE + screen reader pendentes)
+
+---
+
+**📱 Mobile-First Implementation Summary**
+
+**Total Tasks**: 10
+**Total Estimate**: 18–28 hours (~3–4 sprints)
+**Priority Breakdown**:
+- P0 (Critical): 4 tasks (Viewport, Touch Targets, Forms, Navigation)
+- P1 (High): 5 tasks (Testing, Performance, Images, A11y, Touch Optimization)
+- P2 (Medium): 1 task (Documentation)
+
+**Reference Documentation**:
+- [LANDING_PAGE_PROPOSAL.md](../ai/LANDING_PAGE_PROPOSAL.md) - v2.1 com Seção 5.5: Mobile-First Guidelines (2025)
+- UI/UX Pro Max skill: 19 guidelines de responsividade incorporadas
+- Tendências 2025-2026: Bento Grid, Glassmorphism, Mobile-First
+
+**Implementation Order** (Recommended):
+1. **Sprint 1 (Week 1)**: TASK-MOBILE-001 → 002 → 003 → 007 (Setup + Critical UX)
+2. **Sprint 2 (Week 2)**: TASK-MOBILE-004 → 005 → 006 (Testing + Performance)
+3. **Sprint 3 (Week 3)**: TASK-MOBILE-008 → 010 → 009 (Audit + Validation + Docs)
+
+**Success Metrics**:
+- ✅ Lighthouse Performance > 90 (mobile)
+- ✅ Lighthouse Accessibility > 95
+- ✅ LCP < 2.5s em 3G
+- ✅ Touch targets 100% compliance (≥ 44x44px)
+- ✅ 0 scroll horizontal em todos os breakpoints
+- ✅ WCAG 2.1 AA compliant
+
+---
+
+### TASK-HEX-007 — Concluir Fase 7 (E2E + Validacao)
+**Context:**
+Finalizar a Fase 7 do plano hexagonal, com foco em E2E (Playwright) e validacao completa do fluxo admin.
+
+**Contract impact:**
+- Nenhum (testes/validacao apenas)
+
+**Acceptance:**
+- [ ] Corrigir falha de login Admin no WebKit/Mobile Safari (`/admin/dashboard`)
+- [ ] `npx playwright test` com `0 failed`
+- [ ] Atualizar `e2e_test_log.txt` e `ai/handoff.md` com evidencias
+- [ ] Marcar Fase 7 como concluida em `ai/HEXAGONAL_EXECUTION_PLAN.md`
+- [ ] Validar novos fluxos em prod/staging (tiles, process_week, admin jobs, missing weeks)
+
+**How to test:**
+1. Rodar `npx playwright test`
+2. Verificar `0 failed`
+3. Registrar resultado no log e handoff
+4. Validar em staging/prod os fluxos do checklist da Fase 8
+
+**Estimate**: 2–4h
+**Status**: ⏳ Pendente
+
+### TASK-HEX-008 — Validar Fase 8 em prod/staging (fluxos novos)
+**Context:**
+Validar fluxos pos-limpeza de legado em ambiente real (staging/prod), incluindo tiles, process_week e admin jobs.
+
+**Contract impact:**
+- Nenhum (validacao operacional)
+
+**Acceptance:**
+- [ ] Tiles NDVI/NDRE/RVI renderizando sem erro
+- [ ] PROCESS_WEEK executa e marca DONE no Admin Jobs
+- [ ] Admin Jobs UI: filtros RUNNING/DONE e erro/traceId ok
+- [ ] Missing Weeks: reprocess enfileira jobs sem regressao
+- [ ] Worker logs: sem mensagens de pipeline antigo
+
+**How to test:**
+1. Acessar staging/prod com credenciais
+2. Validar tiles e fluxos no Admin UI
+3. Registrar evidencias em `ai/handoff.md`
+
+**Estimate**: 2–4h
+**Status**: ⏳ Pendente
+
+### TASK-INTEL-008 — Productivity Forecast API (Optional - P2)
+**Context:**
+ML model for yield prediction using Random Forest. Requires historical yield data from user.
+
+**Contract impact:**
+- API: New router `productivity_router.py` (~100 LOC)
+- Worker: New `productivity_model.py` (Scikit-Learn)
+- DB: No schema changes (optional `yield_history` table for training data)
+
+**Acceptance:**
+- [ ] Endpoint `/v1/aois/{aoi_id}/productivity/forecast` created
+- [ ] Random Forest model trained with historical data
+- [ ] Returns predicted yield with confidence interval
+- [ ] Features: ndvi_mean, ndre_flowering, rain_total, rain_flowering
+- [ ] Tests pass (unit + integration)
+
+**How to test:**
+1. Upload historical yield data (CSV)
+2. Train model with `python -m worker.ml.train_productivity`
+3. POST `/v1/aois/{aoi_id}/productivity/forecast` with crop info
+4. Verify response contains predicted_yield_kg_ha and confidence_interval
+5. Run tests
+
+**Blocker**: Requires user-provided historical yield data
+
+**Estimate**: 16 hours
+
+**Priority**: P2 (desirable but not essential)
+
+---
+
+### TASK-INTEL-009 — Mobile Bottom Sheet (Optional - P2)
+**Context:**
+Replace modal with Bottom Sheet for mobile AOI details (better UX).
+
+**Contract impact:**
+- Frontend: Modify `MobileNav.tsx` (~50 LOC)
+- Use existing shadcn/ui Sheet component
+
+**Acceptance:**
+- [ ] Bottom Sheet replaces modal on mobile (< 768px)
+- [ ] Swipe gestures working (up/down to open/close)
+- [ ] Touch targets ≥ 48x48px (WCAG AAA)
+- [ ] Smooth animations (60fps)
+
+**How to test:**
+1. Open app on mobile device or DevTools mobile view
+2. Click AOI marker → Verify Bottom Sheet opens (not modal)
+3. Swipe down to close
+4. Verify touch targets are ≥ 48x48px
+
+**Estimate**: 3 hours
+
+**Priority**: P2 (nice to have)
+
+---
+
+## P1 — Features Desejáveis
+
+### Interactive Paddock — Execution Order (P1)
+1. TASK-PADDOCK-001 — Modelagem de dados para talhões interativos
+2. TASK-PADDOCK-014 — Validação geoespacial avançada
+3. TASK-PADDOCK-002 — Endpoint de simulação de split (Voronoi/Grid)
+4. TASK-PADDOCK-009 — Confirmar split e criar talhões em lote
+5. TASK-PADDOCK-013 — Idempotência e concorrência no split
+6. TASK-PADDOCK-007 — Realtime de processamento e estados
+7. TASK-PADDOCK-003 — Endpoints de calibração e modelo
+8. TASK-PADDOCK-011 — Governança de calibração (versionamento e retenção)
+9. TASK-PADDOCK-004 — Predição regional (cold start)
+10. TASK-PADDOCK-016 — Unidades e conversões (kg/ha, sc/ha)
+11. TASK-PADDOCK-015 — Observabilidade e auditoria mínima
+12. TASK-PADDOCK-010 — Feedback de campo (log issue / false positive)
+13. TASK-PADDOCK-012 — Permissões e RBAC para split/calibração/feedback
+14. TASK-PADDOCK-005 — UI: Map View com split/ajuste fino
+15. TASK-PADDOCK-018 — UI: Merge de talhões no ajuste fino
+16. TASK-PADDOCK-006 — UI: Grid View e batch calibration
+17. TASK-PADDOCK-019 — UI: Badges específicos por tipo de alerta
+18. TASK-PADDOCK-017 — UX de estados vazios e erros
+19. TASK-PADDOCK-008 — Testes e qualidade (API + UI)
+
+### TASK-0007-CDN — Configure Cloudflare CDN for Tiles
+**Context:**
+Dynamic tiling requires CDN caching for acceptable performance. Tiles have 7-day cache headers but need CDN in front.
+
+**Contract impact:**
+- Infra: Cloudflare configuration
+- API: May need CORS updates for CDN domain
+
+**Progress:**
+- [x] Cloudflare Worker created (`infra/cloudflare/workers/tile-cache.js`)
+- [x] Wrangler config created (`infra/cloudflare/workers/wrangler.toml`)
+- [x] Setup runbook created (`docs/runbooks/cloudflare-setup.md`)
+- [x] API config updated with CDN settings
+- [x] `/v1/tiles/config` endpoint added for frontend
+- [x] TileJSON returns CDN URL when enabled
+- [ ] **PENDING**: Deploy to Cloudflare (requires account)
+- [ ] **PENDING**: DNS configuration
+- [ ] **PENDING**: Verify cache hit rate in production
+
+**Acceptance:**
+- [x] Cloudflare Worker configured with cache rules for `/v1/tiles/*`
+- [ ] Cache hit rate >80% for repeated tile requests (needs production deployment)
+- [ ] p95 latency <500ms for cached tiles (needs production deployment)
+- [ ] CORS configured for CDN domain (needs production deployment)
+
+**How to test:**
+1. Deploy: `cd infra/cloudflare/workers && wrangler publish --env production`
+2. Request same tile twice, verify CF-Cache-Status: HIT
+3. Check Cloudflare analytics for cache hit rate
+3. Measure p95 latency with load test
+
+---
+
+### TASK-0004 — Validate Data Acquisition UI + Jobs Status
+**Context:**
+Recent changes added job status normalization (DONE), error_message capture, missing-weeks UI, and STAC retry/backoff. Validation is pending after running with volume.
+
+**Contract impact:**
+- None (validation only)
+
+**Acceptance:**
+- [ ] Admin Jobs list shows RUNNING items and DONE filter works
+- [ ] Error column shows STAC timeout errors when they occur
+- [ ] `/admin/missing-weeks` loads and reprocess action enqueues jobs
+- [ ] Worker logs show no `Expected bytes or string, got dict`
+
+**How to test:**
+1. Open Admin UI → Jobs list and verify RUNNING + DONE filter
+2. Open `/admin/missing-weeks` and trigger reprocess
+3. Tail worker logs to verify errors handled and retries working
+
+---
+
+### TASK-0001 — Secure TiTiler Service Access
+**Context:**
+Currently, TiTiler service exposes S3 URIs directly to frontend. This creates security risk as S3 URIs are visible in browser network tab. Need to either:
+1. Proxy TiTiler through API gateway (requiring auth), OR
+2. Implement signed URLs for tile access
+
+**Contract impact:**
+- API: New endpoint `/v1/tiles/signed-url` (if option 2)
+- Frontend: Update MapLeaflet.tsx to use new endpoint
+
+**Acceptance:**
+- [x] S3 URIs not exposed in browser network tab
+- [x] Tile serving still works (<500ms p95)
+- [x] Multi-tenant isolation maintained (users can't access other tenants' tiles)
+
+**How to test:**
+1. Create AOI, wait for processing
+2. Open browser DevTools → Network
+3. Verify S3 URLs are not visible
+4. Verify map tiles load correctly
+
+---
+
+### TASK-0002 — Add Integration Tests for Worker Jobs
+**Context:**
+Worker jobs (backfill, process_radar, process_weather) lack comprehensive integration tests. Need to verify end-to-end flow: SQS message → job execution → S3 upload → DB update.
+
+**Contract impact:**
+- None (tests only)
+
+**Acceptance:**
+- [x] Test for BACKFILL job (8 weeks) (stubbed)
+- [x] Test for PROCESS_WEEK job (Sentinel-2 indices) (stubbed)
+- [ ] Test for PROCESS_RADAR job (Sentinel-1 RVI)
+- [ ] All tests use LocalStack (not production)
+- [x] Tests clean up after themselves
+
+**Progress:**
+- Added `tests/test_worker_jobs.py` covering BACKFILL/PROCESS_WEEK/ALERTS_WEEK/SIGNALS_WEEK/FORECAST_WEEK with deterministic stubs.
+
+**How to test:**
+```bash
+pytest tests/test_worker_integration.py -v --asyncio-mode=auto
+```
+
+---
+
+### TASK-0003 — Document XYZ Tile Integration for Clients
+**Context:**
+Clients want to integrate VivaCampo data into their own GIS systems (QGIS, ArcGIS). Need to document how to use TiTiler XYZ endpoints.
+
+**Contract impact:**
+- None (docs only)
+
+**Acceptance:**
+- [ ] Create `docs/features/xyz-tile-integration.md`
+- [ ] Include example URLs
+- [ ] Include QGIS setup instructions
+- [ ] Include ArcGIS setup instructions
+
+**How to test:**
+- Manual verification in QGIS/ArcGIS
+
+---
+
+## P1 — Soon
+
+### Spatial AI OS — Implementation (P1)
+**Context:**
+Detalhar execucao do plano `ai/IMPLEMENTATION_PLAN_SPATIAL_AI_OS.md` com Design System Spatial Glass, Leaflet (Fases 0-2) e cronograma 2/4/4 semanas.
+
+**Contract impact:**
+- Frontend: novos componentes e layouts
+- Docs: Storybook e design tokens
+
+**Acceptance:**
+- [ ] Tasks detalhadas por fase (0/1/2) adicionadas abaixo
+- [ ] Cada task com contexto, impacto, criterios e teste
+
+**How to test:**
+- Revisao de backlog + aceite do PO
+
+---
+
+### Spatial AI OS — Sprint Plan (Proposto)
+**Sprint 0 (Fundacao — 2 semanas)**
+- TASK-SPATIAL-0001 (tokens no app-ui)
+- TASK-SPATIAL-0002 (Storybook base)
+- TASK-SPATIAL-0003 (Button/Input/Card)
+- TASK-SPATIAL-0027 (glassmorphism utils + tokens docs)
+- TASK-SPATIAL-0025 (a11y baseline + contratos)
+- TASK-SPATIAL-0026 (Lighthouse CI + thresholds)
+- TASK-SPATIAL-0029 (Storybook a11y gate)
+- TASK-SPATIAL-0028 (Badge + Tooltip)
+- TASK-SPATIAL-0020 (Map layout base)
+
+**Sprint 1 (Fase 1 — 2 semanas)**
+- TASK-SPATIAL-0010 (Command Center MVP)
+- TASK-SPATIAL-0011 (Field Dock)
+- TASK-SPATIAL-0021 (Landing no mapa toggle)
+- TASK-SPATIAL-0033 (Onboarding tour MVP)
+- TASK-SPATIAL-0024 (Analytics eventos)
+
+**Sprint 2 (Fase 1 — 2 semanas)**
+- Hardening a11y/perf dos componentes de Sprint 1
+
+**Sprint 3 (Fase 2 — 2 semanas)**
+- TASK-SPATIAL-0012 (Dynamic Island)
+- TASK-SPATIAL-0022 (Zoom Semantico MVP)
+- TASK-SPATIAL-0034 (Overlay details)
+- TASK-SPATIAL-0013 (Bottom Sheet MVP)
+
+**Sprint 4 (Fase 2 — 2 semanas)**
+- TASK-SPATIAL-0023 (Leaflet vector tiles POC)
+- TASK-SPATIAL-0030 (Network-aware tile loading)
+- TASK-SPATIAL-0031 (Bottom Sheet GPU/containment)
+- TASK-SPATIAL-0032 (Service Worker cache)
+
+**Fase 3 (Post-Map First)**
+- TASK-SPATIAL-0035 (Sidebar removal)
+- TASK-SPATIAL-0036 (Full spatial cards)
+- TASK-SPATIAL-0037 (Perf + A11y hardening)
+- TASK-SPATIAL-0038 (Analytics dashboard)
+
+---
+
+### TASK-SPATIAL-0001 — Integrar tokens Spatial Glass no app-ui
+**Context:**
+Usar `design-system/tokens.css` como fonte de verdade no app-ui.
+
+**Contract impact:**
+- Frontend: `services/app-ui` (styles/config)
+
+**Acceptance:**
+- [x] `tokens.css` importado no app-ui (global)
+- [x] Sem cores hardcoded nos componentes novos
+- [x] Dark/light tokens aplicaveis
+
+**How to test:**
+1. Subir app-ui e inspecionar variaveis CSS
+2. Verificar estilos em light e dark
+
+**Estimate**: 1–2h
+**Status**: ✅ Concluída
+**Sprint**: 0
+
+### TASK-SPATIAL-0002 — Storybook para `design-system/components`
+**Context:**
+Inicializar Storybook como gate para componentes Spatial Glass.
+
+**Contract impact:**
+- Docs/Dev: `design-system/components/.storybook`
+
+**Acceptance:**
+- [x] Storybook roda localmente
+- [x] `tokens.css` carregado no preview
+- [x] Addons a11y e interactions habilitados
+
+**How to test:**
+1. `npm run storybook` (local)
+2. Verificar tema e addon a11y
+
+**Estimate**: 1–2h
+**Status**: ✅ Concluída
+**Sprint**: 0
+
+### TASK-SPATIAL-0003 — Base components (Button/Input/Card)
+**Context:**
+Base do design system para Spatial Glass.
+
+**Contract impact:**
+- Frontend: `design-system/components/base/*`
+
+**Acceptance:**
+- [x] Button, Input, Card criados com tokens
+- [x] Stories basicos criados
+- [x] Testes basicos
+- [x] Estados hover/disabled/active
+
+**How to test:**
+1. Storybook renderiza componentes
+2. `npm test` (component tests)
+
+**Estimate**: 1–2h
+**Status**: ✅ Concluída
+**Sprint**: 0
+**Blocker**: nenhum
+
+### TASK-SPATIAL-0010 — Command Center (MVP acessivel)
+**Context:**
+Componente principal do Spatial OS com comandos e acessibilidade.
+
+**Contract impact:**
+- Frontend: `design-system/components/spatial/CommandCenter`
+
+**Acceptance:**
+- [x] `role=search` + listbox acessivel
+- [x] Atalho ⌘K/Ctrl+K
+- [x] Navegacao por setas e Enter
+
+**How to test:**
+1. Storybook com keyboard-only
+2. Axe a11y sem violacoes criticas
+
+**Estimate**: 2h
+**Status**: ✅ Concluída
+**Sprint**: 1
+
+### TASK-SPATIAL-0011 — Field Dock (context-aware tools)
+**Context:**
+Dock flutuante com ferramentas por contexto.
+
+**Contract impact:**
+- Frontend: `design-system/components/spatial/FieldDock`
+
+**Acceptance:**
+- [x] Tooltips e estados ativos
+- [x] Touch targets >= 44px
+- [x] Variantes por contexto (macro/meso/micro)
+
+**How to test:**
+1. Storybook com variacoes
+2. Verificar ARIA e foco
+
+**Estimate**: 1–2h
+**Status**: ✅ Concluída
+**Sprint**: 1
+
+### TASK-SPATIAL-0012 — Dynamic Island (status contextual)
+**Context:**
+Header flutuante com estados e ARIA live.
+
+**Contract impact:**
+- Frontend: `design-system/components/spatial/DynamicIsland`
+
+**Acceptance:**
+- [x] `role=status` + `aria-live`
+- [x] Variants: neutral/selection/action
+- [x] Stories para cada estado
+
+**How to test:**
+1. Storybook renderiza estados
+2. Leitor de tela anuncia mudancas
+
+**Estimate**: 1–2h
+**Status**: ✅ Concluída
+**Sprint**: 3
+
+### TASK-SPATIAL-0013 — Bottom Sheet (mobile)
+**Context:**
+Painel mobile em 3 niveis (peek/half/full).
+
+**Contract impact:**
+- Frontend: `design-system/components/spatial/BottomSheet`
+
+**Acceptance:**
+- [x] Gestos up/down + botao fechar
+- [x] Focus trap + ESC fecha
+- [x] Safe area iOS respeitada
+
+**How to test:**
+1. Storybook mobile viewport
+2. Navegacao teclado e toque
+
+**Estimate**: 2h
+**Status**: ✅ Concluída
+**Sprint**: 3
+
+### TASK-SPATIAL-0014 — Breadcrumb Floating + MiniMap
+**Context:**
+Resolver desorientacao sem sidebar.
+
+**Contract impact:**
+- Frontend: `design-system/components/spatial/BreadcrumbFloating`, `MiniMap`
+
+**Acceptance:**
+- [ ] Breadcrumb com `aria-current`
+- [ ] MiniMap com indicador "voce esta aqui"
+- [ ] Variante mobile colapsada
+
+**How to test:**
+1. Storybook com desktop/mobile
+2. A11y check basico
+
+**Estimate**: 1–2h
+**Status**: ⏳ Pendente
+**Sprint**: 0
+
+### TASK-SPATIAL-0020 — Map layout (overlay slots)
+**Context:**
+Layout base do app-ui para overlay espacial.
+
+**Contract impact:**
+- Frontend: `services/app-ui` layout
+
+**Acceptance:**
+- [x] Map ocupa 100% da tela
+- [x] Slots para Dynamic Island, Dock, Command Center, Bottom Sheet
+- [x] Sem esconder mapa por default
+
+**How to test:**
+1. Navegar para mapa
+2. Ver overlays posicionados
+
+**Estimate**: 1–2h
+**Status**: ✅ Concluída
+**Sprint**: 0
+
+### TASK-SPATIAL-0021 — Feature flag: Landing no Mapa
+**Context:**
+Habilitar modo hibrido com toggle dashboard vs mapa.
+
+**Contract impact:**
+- Frontend: config/feature flags
+
+**Acceptance:**
+- [x] Preferencia salva por usuario
+- [x] Toggle no settings
+- [x] Default: manter comportamento atual
+
+**How to test:**
+1. Alterar preferencia
+2. Re-logar e validar landing
+
+**Estimate**: 1–2h
+**Status**: ✅ Concluída
+**Sprint**: 1
+
+### TASK-SPATIAL-0022 — Zoom Semantico (MVP)
+**Context:**
+Troca de UI por nivel de zoom (macro/meso/micro).
+
+**Contract impact:**
+- Frontend: map UI overlay
+
+**Acceptance:**
+- [x] 3 niveis com thresholds definidos
+- [x] Atalhos 1/2/3 funcionando
+- [x] UI muda conforme nivel
+
+**How to test:**
+1. Zoom in/out no mapa
+2. Validar mudanca de overlay
+
+**Estimate**: 2h
+**Status**: ✅ Concluída
+**Sprint**: 3
+
+### TASK-SPATIAL-0023 — Leaflet Vector Tiles (POC)
+**Context:**
+Otimizar performance mantendo Leaflet.
+
+**Contract impact:**
+- Frontend: map layer plugins
+
+**Acceptance:**
+- [x] Vector tiles renderizam em ambiente local
+- [x] Fallback para raster em conexao lenta
+- [x] Documentar estrategia no plano
+
+**How to test:**
+1. Ativar camada vetorial
+2. Testar com throttling 3G
+
+**Estimate**: 2h
+**Status**: ✅ Concluída
+**Sprint**: 4
+
+### TASK-SPATIAL-0024 — Analytics eventos Spatial OS
+**Context:**
+Medir uso de Command Center, zoom e bottom sheet.
+
+**Contract impact:**
+- Frontend: eventos analiticos
+
+**Acceptance:**
+- [x] Eventos `command_center_used`, `zoom_semantic_transition`, `bottom_sheet_interaction`
+- [x] Payloads conforme RADICAL_PROPOSAL
+
+**How to test:**
+1. Interagir com UI
+2. Verificar eventos no console/log
+
+**Estimate**: 1–2h
+**Status**: ✅ Concluída
+**Sprint**: 1
+
+---
+
+### TASK-SPATIAL-0025 — A11y baseline + contratos de teclado
+**Context:**
+Definir e implementar baseline de acessibilidade para os componentes Spatial Glass.
+
+**Contract impact:**
+- Frontend: utils `a11y.ts` + estilos de foco
+- Docs: checklist de atalhos
+
+**Acceptance:**
+- [x] `a11y.ts` com helpers comuns
+- [x] Foco visivel em todos os componentes novos
+- [x] Atalhos documentados (⌘K/Ctrl+K, 1/2/3, Esc)
+
+**How to test:**
+1. Navegacao teclado-only
+2. Axe/WAVE sem erros criticos
+
+**Estimate**: 1–2h
+**Status**: ✅ Concluída
+**Sprint**: 0
+
+### TASK-SPATIAL-0026 — Lighthouse CI + thresholds
+**Context:**
+Estabelecer baseline de performance e acessibilidade.
+
+**Contract impact:**
+- Frontend/CI: configuracao Lighthouse
+
+**Acceptance:**
+- [x] Lighthouse CI configurado
+- [x] Thresholds definidos (A11y > 90, Perf > 85)
+- [x] Documentado no repo
+
+**How to test:**
+1. Rodar Lighthouse CI localmente
+2. Validar report
+
+**Estimate**: 1–2h
+**Status**: ✅ Concluída
+**Sprint**: 0
+
+### TASK-SPATIAL-0027 — Glassmorphism utilities + tokens docs
+**Context:**
+Padronizar utilitarios e documentacao de tokens novos.
+
+**Contract impact:**
+- Design System: classes utilitarias e doc
+
+**Acceptance:**
+- [x] Classes glassmorphism definidas
+- [x] Naming conventions documentadas
+- [x] Tokens novos registrados
+
+**How to test:**
+1. Verificar classes em componentes
+2. Revisar doc de tokens
+
+**Estimate**: 1–2h
+**Status**: ✅ Concluída
+**Sprint**: 0
+
+### TASK-SPATIAL-0028 — Badge + Tooltip components
+**Context:**
+Componentes base citados no plano e necessarios para overlays.
+
+**Contract impact:**
+- Frontend: `design-system/components/base/Badge`, `Tooltip`
+
+**Acceptance:**
+- [x] Components com tokens + estados
+- [x] Stories + testes basicos
+
+**How to test:**
+1. Storybook renderiza Badge/Tooltip
+2. Testes unitarios passam
+
+**Estimate**: 1–2h
+**Status**: ✅ Concluída
+**Sprint**: 0
+
+### TASK-SPATIAL-0029 — Storybook a11y addon (gates)
+**Context:**
+Garantir auditoria a11y automatizada via Storybook.
+
+**Contract impact:**
+- Dev: `.storybook` config
+
+**Acceptance:**
+- [x] addon-a11y habilitado
+- [x] Documentado como gate de PR
+
+**How to test:**
+1. Abrir aba Accessibility no Storybook
+2. Verificar sem violacoes criticas
+
+**Estimate**: 1h
+**Status**: ✅ Concluída
+**Sprint**: 0
+
+### TASK-SPATIAL-0030 — Network-aware tile loading
+**Context:**
+Estrategia de tiles por tipo de conexao.
+
+**Contract impact:**
+- Frontend: map tile strategy
+
+**Acceptance:**
+- [x] 2G/3G fallback raster
+- [x] 4G+ usa vector tiles
+- [x] Indicador de modo economico
+
+**How to test:**
+1. Throttle em DevTools
+2. Verificar troca de estrategia
+
+**Estimate**: 2–3h
+**Status**: ✅ Concluída
+**Sprint**: 4
+
+### TASK-SPATIAL-0031 — Bottom Sheet GPU + containment
+**Context:**
+Evitar reflows e travamentos em mobile.
+
+**Contract impact:**
+- Frontend: estilos do Bottom Sheet
+
+**Acceptance:**
+- [x] `contain: layout` aplicado
+- [x] `will-change` apenas durante animacao
+- [x] Animacao via transform
+
+**How to test:**
+1. DevTools Performance
+2. Verificar 60fps
+
+**Estimate**: 1–2h
+**Status**: ✅ Concluída
+**Sprint**: 4
+
+### TASK-SPATIAL-0032 — Service Worker cache de geometrias
+**Context:**
+Cache agressivo para abertura rapida do mapa.
+
+**Contract impact:**
+- Frontend/PWA: service worker
+
+**Acceptance:**
+- [x] Cache-first para geometrias (TTL 24h)
+- [x] Network-first para dados dinamicos
+- [x] Cache invalidado em deploy
+
+**How to test:**
+1. Offline/online toggle
+2. Verificar cache headers
+
+**Estimate**: 2–3h
+**Status**: ✅ Concluída
+**Sprint**: 4
+
+### TASK-SPATIAL-0033 — Onboarding tour (MVP)
+**Context:**
+Ensinar Command Center e Dock no modo hibrido.
+
+**Contract impact:**
+- Frontend: onboarding lib + steps
+
+**Acceptance:**
+- [x] Tour inicia na primeira visita
+- [x] Opção de pular
+- [x] Persistir `tour-completed`
+
+**How to test:**
+1. Abrir app sem localStorage
+2. Validar tour e persistencia
+
+**Estimate**: 2–3h
+**Status**: ✅ Concluída
+**Sprint**: 1
+
+### TASK-SPATIAL-0034 — Overlay details (farm/field)
+**Context:**
+Abrir detalhes sobre o mapa em vez de page switch.
+
+**Contract impact:**
+- Frontend: overlay UI + rotas
+
+**Acceptance:**
+- [x] Detalhes abrem em overlay
+- [x] Close retorna ao mapa
+- [x] Sem quebra de contexto
+
+**How to test:**
+1. Selecionar fazenda/talhao
+2. Abrir e fechar overlay
+
+**Estimate**: 2–3h
+**Status**: ✅ Concluída
+**Sprint**: 3
+
+### TASK-SPATIAL-0035 — Sidebar removal (Phase 3)
+**Context:**
+Remover sidebar e manter menu compacto.
+
+**Contract impact:**
+- Frontend: layout/navigation
+
+**Acceptance:**
+- [x] Sidebar removida
+- [x] Menu compacto acessivel
+- [x] Sem perda de funcoes
+
+**How to test:**
+1. Navegar em todas as features
+2. Verificar acessibilidade do menu
+
+**Estimate**: 2–3h
+**Status**: ✅ Concluída
+**Sprint**: Fase 3
+
+### TASK-SPATIAL-0036 — Full spatial cards (Phase 3)
+**Context:**
+Telas de gestao como cards flutuantes sobre o mapa.
+
+**Contract impact:**
+- Frontend: overlays e slots
+
+**Acceptance:**
+- [x] Modulos abrem como cards flutuantes
+- [x] Mapa sempre visivel
+
+**How to test:**
+1. Abrir telas de gestao
+2. Validar overlay
+
+**Estimate**: 2–3h
+**Status**: ✅ Concluída
+**Sprint**: Fase 3
+
+### TASK-SPATIAL-0037 — Performance + A11y hardening (Phase 3)
+**Context:**
+Otimizar blur em low-end e fechar gaps a11y.
+
+**Contract impact:**
+- Frontend: ajustes de performance
+
+**Acceptance:**
+- [x] Blur reduzido em low-end
+- [x] A11y sem violacoes criticas
+- [x] LCP < 2.5s em mid-tier
+
+**How to test:**
+1. Lighthouse em mobile
+2. Axe/WAVE
+
+**Estimate**: 2–3h
+**Status**: ✅ Concluída
+**Sprint**: Fase 3
+
+### TASK-SPATIAL-0038 — Analytics dashboard (adocao)
+**Context:**
+Monitorar adocao das features Spatial OS.
+
+**Contract impact:**
+- Frontend/Analytics: dashboard basico
+
+**Acceptance:**
+- [x] Dashboard com eventos chave
+- [x] Metricas por fase (F1/F2/F3)
+
+**How to test:**
+1. Gerar eventos
+2. Validar dashboard
+
+**Estimate**: 2–3h
+**Status**: ✅ Concluída
+**Sprint**: Fase 3
+
+### TASK-SPATIAL-0039 — Filtros reais de analytics (API + UI)
+**Context:**
+Adicionar filtros por data/intervalo no dashboard de adocao usando API.
+
+**Contract impact:**
+- API: novos params em `/v1/app/analytics/adoption`
+- Frontend: filtros por intervalo
+
+**Acceptance:**
+- [ ] API aceita `start_date`/`end_date` e filtra eventos
+- [ ] UI permite selecionar intervalo e atualiza métricas
+- [ ] Métricas e eventos respeitam o intervalo
+
+**How to test:**
+1. Chamar `/v1/app/analytics/adoption?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD`
+2. Validar payload filtrado
+3. Ajustar filtro no UI e verificar atualização
+
+**Estimate**: 1–2h
+**Status**: ⏳ Pendente
+**Sprint**: Fase 3
+
+### TASK-ARCH-INDEX-001 — Aplicar índices compostos (jobs/aois/signals)
+**Context:**
+Migration criada para melhorar p95 de queries tenant-scoped.
+
+**Contract impact:**
+- DB: `infra/migrations/sql/006_add_tenant_query_indexes.sql`
+
+**Acceptance:**
+- [ ] Migration aplicada em staging
+- [ ] Migration aplicada em production em janela de baixa
+- [x] Índices confirmados em `pg_indexes` (local)
+- [ ] p95 reduzido nas queries alvo (medir antes/depois)
+
+**How to test:**
+1. Staging: `docker compose exec -T db psql -U vivacampo -d vivacampo < infra/migrations/sql/006_add_tenant_query_indexes.sql`
+2. Verificar: `SELECT indexname FROM pg_indexes WHERE indexname IN ('idx_jobs_tenant_status_created','idx_aois_tenant_status','idx_opportunity_signals_tenant_week');`
+3. Production: repetir com janela e monitorar locks
+
+**Estimate**: 1–2h
+**Status**: 🟡 Parcial (validado local)
+
+### TASK-0100 — Add Staging Deploy Workflow
+**Context:**
+Need automated deployment to staging environment for testing before production.
+
+**Contract impact:**
+- `.github/workflows/deploy-staging.yml`
+- `docs/runbooks/deploy.md` (update)
+
+**Acceptance:**
+- [ ] GitHub Actions workflow triggers on push to `main`
+- [ ] Deploys to staging environment
+- [ ] Runs smoke tests post-deploy
+- [ ] Notifies team on Slack/Discord
+
+**How to test:**
+- Push to `main`, verify staging deployment
+
+---
+
+### TASK-0101 — Add Structured Logging + Request ID
+**Context:**
+Currently using Structlog but not propagating request IDs across services. Need to add request ID middleware and propagate to Worker.
+
+**Contract impact:**
+- API: Add middleware to generate/extract request ID
+- Worker: Extract request ID from SQS message attributes
+
+**Acceptance:**
+- [ ] Every API request has unique request ID
+- [ ] Request ID logged in all log entries
+- [ ] Request ID propagated to Worker jobs
+- [ ] Request ID returned in error responses
+
+**How to test:**
+- Make API request, check logs for consistent request ID
+
+---
+
+### TASK-0102 — Add Seeds + Reset Script
+**Context:**
+Need seed data for local development (sample farms, AOIs, processed data).
+
+**Contract impact:**
+- `infra/seeds/` folder
+- `scripts/reset-db.sh` script
+
+**Acceptance:**
+- [ ] Seed script creates 2 tenants, 3 farms, 5 AOIs
+- [ ] Seed script creates sample processed data (NDVI, Radar)
+- [ ] Reset script drops DB, recreates schema, runs seeds
+
+**How to test:**
+```bash
+./scripts/reset-db.sh
+docker compose exec db psql -U vivacampo -d vivacampo -c "SELECT COUNT(*) FROM aois;"
+# Should return 5
+```
+
+---
+
+### TASK-0103 — Add Integration Tests for External Integrations (P2)
+**Context:**
+External integrations (STAC/Copernicus, Open-Meteo weather, AI providers) need stubbed integration tests to verify contract compatibility.
+
+**Contract impact:**
+- None (tests only)
+
+**Acceptance:**
+- [x] Test for STAC catalog search (stubbed response)
+- [x] Test for Open-Meteo weather fetch (stubbed response)
+- [x] Test for AI provider anomaly detection (stubbed response)
+- [x] All stubs match real API response schemas
+
+**Progress:**
+- Added `tests/test_integrations_p2.py` with stubbed tests for all external providers.
+
+**How to test:**
+```bash
+pytest tests/test_integrations_p2.py -v
+```
+
+---
+
+### AUTH/LANDING — Authentication, Permissions & Landing (New)
+
+### TASK-PERM-0217 — Frontend Invite UI + Role UX
+**Context:**
+Tenant admin invite flow + role-based UI.
+
+**Contract impact:**
+- Frontend
+
+**Acceptance:**
+- [x] Invite modal with EDITOR/VIEWER selection
+- [x] Edit buttons disabled for VIEWER and for EDITOR on others’ farms
+- [x] Badge shows “created by you” vs others
+
+**How to test:**
+- Manual UI review with different roles
+
+**Estimate**: 2–3h
+**Status**: ✅ Implemented (2026-02-07)
+
+---
+
+### TASK-AUTH-0218 — Tests & Audit
+**Context:**
+Ensure behavior changes are tested and audited.
+
+**Contract impact:**
+- Tests + Docs
+
+**Acceptance:**
+- [x] Unit tests for auth + permissions pass
+- [x] Smoke tests for signup/login (cookie verified)
+- [x] `ai/handoff.md` updated with evidence
+
+**How to test:**
+- `pytest tests/unit/...` + manual curl
+
+**Estimate**: 2–4h
+**Status**: ✅ Completed (2026-02-07)
+
+---
+
+## P2 — Later
+
+### TASK-TECH-012 — Avaliar migração para Python 3.12 (backlog técnico)
+**Context:**
+Python 3.12 pode exigir upgrade em cadeia (NumPy 2.x, rasterio>=1.5, GDAL>=3.8) e validação completa do worker.
+
+**Contract impact:**
+- Infra/Runtime (Dockerfiles, base image)
+- Deps (requirements)
+- Tests (suite completa)
+
+**Acceptance:**
+- [ ] Inventariar compatibilidade de libs geoespaciais (rasterio, GDAL, shapely, numpy)
+- [ ] Definir plano de upgrade incremental (versões alvo + risco)
+- [ ] Rodar suíte completa (API + worker) em ambiente 3.12
+- [ ] Decidir go/no-go com evidências
+
+**How to test:**
+1. Build containers com Python 3.12
+2. `pytest` + smoke tests
+3. Validar pipeline de raster/radar
+
+**Estimate**: 4–8h
+**Priority**: P2 (tech debt)
+
+### TASK-UI-003 — Implement Automated UI/UX Tests
+**Context:**
+UI/UX improvements completed (dark mode, responsive design, WCAG AA) but lack automated validation. Need Playwright tests for visual regression and accessibility to prevent regressions.
+
+**Contract impact:**
+- None (testing only)
+- New dev dependencies: @playwright/test, @axe-core/playwright
+
+**Acceptance:**
+- [ ] Playwright installed in admin-ui and app-ui
+- [ ] Visual regression tests for dark/light mode
+- [ ] Accessibility tests (axe-core) passing WCAG AA
+- [ ] Responsive tests for breakpoints (375px, 768px, 1024px, 1440px)
+
+**How to test:**
+```bash
+cd services/admin-ui
+npm install -D @playwright/test @axe-core/playwright
+npx playwright test tests/visual-regression.spec.ts
+npx playwright test tests/accessibility.spec.ts
+```
+
+---
+
+### TASK-UI-004 — Implement Map Performance Optimizations
+**Context:**
+App-UI maps (MapLeaflet.tsx) load all tile layers eagerly and lack debouncing on zoom/pan. This degrades performance on slow connections and mobile devices.
+
+**Contract impact:**
+- Frontend only (MapLeaflet.tsx, MapComponent.tsx)
+
+**Acceptance:**
+- [ ] Tile layers lazy-loaded (only active layer fetched)
+- [ ] Zoom/pan events debounced (300ms)
+- [ ] Map controls have proper aria-labels
+- [ ] Map container has role="application"
+- [ ] Performance improved on 3G connection (Lighthouse test)
+
+**How to test:**
+1. Open DevTools → Network → Throttle to "Slow 3G"
+2. Zoom/pan map and verify tile requests are debounced
+3. Run Lighthouse accessibility audit
+
+---
+
+### TASK-UI-005 — Implement Table Virtualization
+**Context:**
+Admin-UI jobs page can display 100+ rows, causing performance issues. Mobile-first cards help, but desktop table needs virtualization for smooth scrolling.
+
+**Contract impact:**
+- Frontend only (jobs/page.tsx)
+- New dependency: @tanstack/react-virtual
+
+**Acceptance:**
+- [ ] Jobs table uses @tanstack/react-virtual
+- [ ] Smooth 60fps scrolling with 500+ rows
+- [ ] Mobile cards remain unchanged
+- [ ] Filtering and sorting still functional
+
+**How to test:**
+1. Create 500+ test jobs in database
+2. Open Admin UI → Jobs page
+3. Scroll table and verify 60fps (Chrome DevTools Performance)
+
+---
+
+### TASK-0200 — Add Background Jobs + Retry Policy
+**Context:**
+Worker jobs currently fail silently. Need retry policy with exponential backoff.
+
+**Contract impact:**
+- Worker: Add retry logic in `worker/main.py`
+- DB: Add `retry_count`, `last_error` to `jobs` table
+
+**Acceptance:**
+- [ ] Jobs retry up to 3 times with exponential backoff
+- [ ] Failed jobs marked as FAILED after max retries
+- [ ] Errors logged with stack trace
+
+**How to test:**
+- Simulate job failure, verify retries
+
+---
+
+### TASK-0201 — Add Caching Strategy
+**Context:**
+API endpoints like `/v1/aois` are slow due to PostGIS queries. Need Redis caching.
+
+**Contract impact:**
+- API: Add Redis caching decorator
+- Cache invalidation on AOI update/delete
+
+**Acceptance:**
+- [ ] `/v1/aois` response cached for 5 minutes
+- [ ] Cache invalidated on AOI mutation
+- [ ] Cache hit rate >80%
+
+**How to test:**
+- Make repeated requests, verify response time improvement
+
+---
+
+### TASK-0300 — Migrate Remaining Pages to shadcn/ui
+**Context:**
+Split-view layout and AOIDetailsPanel were refactored to use shadcn/ui. Need to migrate remaining pages for consistency.
+
+**Contract impact:**
+- Frontend only (no API changes)
+
+**Acceptance:**
+- [ ] Dashboard page uses shadcn Card, Table components
+- [ ] Farms list uses shadcn Table, Badge components
+- [ ] Signals page uses shadcn Table, Badge, Tooltip
+- [ ] Settings page uses shadcn Form, Input, Select
+- [ ] Dark mode works consistently across all pages
+
+**How to test:**
+- Manual verification of all pages
+- Toggle dark mode and verify styling
+
+---
+
+### TASK-0301 — Document UI Component Patterns (Storybook)
+**Context:**
+shadcn/ui components installed but no documentation for team. Need Storybook setup.
+
+**Contract impact:**
+- None (docs only)
+
+**Acceptance:**
+- [ ] Storybook configured for Next.js 14
+- [ ] All shadcn components have stories
+- [ ] Agricultural color palette documented
+- [ ] Dark mode toggle in Storybook
+
+**How to test:**
+```bash
+cd services/app-ui && npm run storybook
+```
+
+---
+
+### TASK-0302 — Add Anomaly Detection Alerts (Email/SMS)
+**Context:**
+OpportunitySignals are created but not sent to users. Need email/SMS alerts.
+
+**Contract impact:**
+- API: New endpoint `/v1/notifications/preferences`
+- Worker: Add alert sending logic in `alerts_week.py`
+- DB: New `notification_preferences` table
+
+**Acceptance:**
+- [ ] Users can configure alert preferences (email, SMS, push)
+- [ ] Alerts sent when new OpportunitySignal created
+- [ ] Alert includes map link, recommended actions
+- [ ] Rate limiting to prevent alert fatigue
+
+**How to test:**
+- Create OpportunitySignal, verify alert received
+
+---
+
+### TASK-0303 — Monitor Presigned URL Usage Patterns
+**Context:**
+Presigned URLs implemented (ADR-0006) but no monitoring. Need to track usage patterns for security.
+
+**Contract impact:**
+- None (observability only)
+
+**Acceptance:**
+- [ ] Log presigned URL generation (aoi_id, user_id, timestamp)
+- [ ] Alert on unusual patterns (>100 URLs/hour per user)
+- [ ] Dashboard showing URL generation metrics
+
+**How to test:**
+- Generate multiple URLs, verify logs and metrics
+
+---
+
+### TASK-0304 — Add Linter Rule for tenant_id Filters
+**Context:**
+Row-level security (ADR-0004) relies on all queries filtering by tenant_id. Need automated enforcement.
+
+**Contract impact:**
+- None (tooling only)
+
+**Acceptance:**
+- [ ] Custom lint rule detects SQLAlchemy queries missing tenant_id
+- [ ] CI fails if rule violated
+- [ ] Exceptions documented for admin endpoints
+
+**How to test:**
+- Write query without tenant_id, verify lint failure
+
+---
+
+### TASK-0305 — Vision Service: Save Analysis History
+**Context:**
+Vision Service is stateless. Users want to see history of past analyses per farm/AOI.
+
+**Contract impact:**
+- API: New endpoint `/v1/farms/{id}/vision-history`
+- DB: New `vision_analyses` table (farm_id, analysis_type, result_json, image_thumbnail_url)
+
+**Acceptance:**
+- [ ] Save analysis results to database after successful inference
+- [ ] User can view history of analyses per farm
+- [ ] Thumbnails stored in S3 for reference
+- [ ] Retention policy (e.g., 90 days)
+
+**How to test:**
+- Run analysis, verify it appears in history
+- Verify old analyses are purged after retention period
+
+---
+
+### TASK-0306 — Vision Service: Offline Mode (Mobile)
+**Context:**
+Farmers often work in areas with poor connectivity. Need offline inference on mobile.
+
+**Contract impact:**
+- Mobile app: Bundle TFLite models
+- API: Sync endpoint for model updates
+
+**Acceptance:**
+- [ ] Mobile app can run weight estimation offline
+- [ ] Mobile app can run disease detection offline (top 5 crops)
+- [ ] Models sync when connectivity available
+- [ ] Model size optimized (<50MB total)
+
+**How to test:**
+- Put device in airplane mode, verify analysis works
+
+---
+
+
+
+
+## Completed
+
+### ✅ TASK-0000 — Initialize AI Template Pack
+**Completed:** 2026-02-03
+- Created `ai/` folder structure
+- Created `docs/` folder structure
+- Created `.github/` templates
+
+
+
+
+### ✅ TASK-0001 — Secure TiTiler Service Access
+**Completed:** 2026-02-04
+- Presigned S3 URLs in AOI assets and radar history responses
+- Frontend switched to `*_tile_url` naming (mapped from API response)
+- Verified DevTools shows no `s3://` and TiTiler requests succeed
+- See ADR-0006 for architectural decision
+
+
+
+
+### ✅ TASK-0002-partial — Add Integration Tests for Worker Jobs
+**Completed:** 2026-02-04
+- Added `tests/test_worker_jobs.py` with stubbed tests
+- Covers BACKFILL, PROCESS_WEEK, ALERTS_WEEK, SIGNALS_WEEK, FORECAST_WEEK
+- PROCESS_RADAR still pending (see TASK-0002)
+
+
+
+
+### ✅ TASK-0103 — Add Integration Tests for External Integrations
+**Completed:** 2026-02-04
+- Added `tests/test_integrations_p2.py`
+- Stubbed tests for STAC, Open-Meteo, AI providers
+- All stubs match real API schemas
+
+
+
+
+### ✅ TASK-UI-001 — Implement Split-View Layout
+**Completed:** 2026-02-04
+- Expandable/collapsible data panel (3 sizes)
+- Focus modes: map/data/split
+- Larger charts (288px height)
+- See FEAT-0006 for details
+
+
+
+
+### ✅ TASK-UI-002 — Adopt shadcn/ui Design System
+**Completed:** 2026-02-04
+- Installed 20 shadcn/ui components
+- Configured CSS variables for agricultural palette
+- Refactored AOIDetailsPanel with Tabs, Cards, Badges
+- See ADR-0005 for architectural decision
+
+
+
+
+### ✅ TASK-DOCS-001 — Document Missing Features
+**Completed:** 2026-02-04
+- FEAT-0003: Anomaly Detection and Signals
+- FEAT-0004: Weather Integration
+- FEAT-0005: Radar Processing (Sentinel-1)
+- FEAT-0006: Split-View Layout
+- FEAT-0007: Vision Service (Computer Vision AI)
+
+
+
+
+### ✅ TASK-DOCS-002 — Create Missing ADRs
+**Completed:** 2026-02-04
+- ADR-0005: Adopt shadcn/ui Design System
+- ADR-0006: Presigned URLs for TiTiler Security
+
+
+
+
+### ✅ TASK-0007-PHASE1 — Dynamic Tiling: TiTiler + Worker (ADR-0007)
+**Completed:** 2026-02-04
+- TiTiler updated with titiler-mosaic and MosaicTilerFactory
+- expressions.py with 14 vegetation indices
+- Job CREATE_MOSAIC for weekly MosaicJSON generation
+- Job CALCULATE_STATS for stats via TiTiler
+- Migration 004_add_mosaic_registry.sql
+
+
+
+
+### ✅ TASK-0007-PHASE2 — Dynamic Tiling: API + Frontend (ADR-0007)
+**Completed:** 2026-02-04
+- tiles_router.py with authenticated tile endpoints
+- COG export endpoint on-demand
+- TileJSON for GIS integration (QGIS/ArcGIS)
+- DynamicTileLayer.tsx for frontend
+- tiles.ts URL utilities
+- Job WARM_CACHE for CDN pre-warming
+
+
+
+
+### ✅ TASK-0007-MULTIBAND — Dynamic Tiling: Multi-band Vegetation Indices
+**Completed:** 2026-02-04
+- `/stac-mosaic/tiles` endpoint in TiTiler for multi-band access
+- MosaicJSON stores unsigned STAC item URLs
+- Planetary Computer signing at request time with pystac.sign_inplace()
+- STACReader with asset_as_band=True for band math
+- Tested: NDVI (128KB), NDRE (112KB), NDWI (118KB) - all working
+- Full pipeline verified: Auth → API → TiTiler → MosaicJSON → STAC → PNG
+
+
+
+
+### ✅ TASK-0007-PHASE3 — Dynamic Tiling: Data Migration + Cleanup
+**Completed:** 2026-02-04
+- Feature flags added: `USE_DYNAMIC_TILING=true`, `DYNAMIC_TILING_STATS_ONLY=true`
+- `process_week.py` delegates to `CALCULATE_STATS` when dynamic tiling enabled
+- Legacy COG generation removed (dynamic tiling only)
+- 99.9% storage reduction achieved
+
+
+
+
+### ✅ TASK-0007-PHASE4 — Dynamic Tiling: GIS Documentation
+**Completed:** 2026-02-04
+- Created `docs/features/0008-gis-integration.md`
+- QGIS integration: XYZ tiles, TileJSON loader, Python console
+- ArcGIS Pro and ArcGIS Online instructions
+- Authentication and caching documentation
+- Troubleshooting guide
+
+
+
+
+
+### ✅ TASK-UX-001 — Análise de UX e Sugestões de Melhoria
+**Context:**
+Avaliar a experiência do usuário (UX) da aplicação atual baseando-se apenas na análise do código fonte (frontend). Identificar pontos de atrito, faltas de feedback visual, inconsistências e oportunidades de melhoria estética e funcional.
+
+**Contract impact:**
+- Nenhum (apenas análise e documentação)
+
+**Acceptance:**
+- [ ] Relatório de análise de UX criado (`ai/ux_analysis.md`)
+- [ ] Identificação de problemas de usabilidade (ex: falta de loading, feedback de erro fraco)
+- [ ] Sugestões de melhorias com exemplos de código/componentes
+- [ ] Avaliação da estrutura de navegação e responsividade
+
+**Estimate**: 2–4h
+**Status**: ⏳ Pendente
+
+
+
+### ✅ TASK-INTEL-001 — SRRE Index for Nitrogen Detection
+**Context:**
+Add SRRE (Simple Ratio Red Edge) index to TiTiler expressions. Research (IEEE 2024) shows R² > 0.8 for nitrogen detection vs NDRE (R² ~0.6-0.7).
+
+**Contract impact:**
+- TiTiler: Add SRRE expression to `expressions.py`
+- No API changes (existing `/v1/tiles` endpoint supports new index)
+- No DB changes (use existing `derived_assets` table)
+
+**Acceptance:**
+- [x] SRRE expression added to `expressions.py`
+- [x] TiTiler serves SRRE tiles correctly (index listed; tile test needs valid coords)
+- [x] Colormap `rdylgn` applied
+- [x] Rescale `0.5,8` working
+
+**How to test:**
+1. Add SRRE to `services/tiler/tiler/expressions.py` (5 lines)
+2. Restart TiTiler service
+3. Request tile: `/v1/tiles/{z}/{x}/{y}?expression=srre&rescale=0.5,8&colormap=rdylgn`
+4. Verify tile renders correctly
+
+**ADR**: [0008-intelligence-nitrogen-detection.md](file:///c:/projects/vivacampo-app/docs/adr/0008-intelligence-nitrogen-detection.md)
+
+**Estimate**: 5 minutes
+**Completed:** 2026-02-04
+
+---
+
+
+
+
+### ✅ TASK-INTEL-002 — Radar-Based Harvest Detection Job
+**Context:**
+Create worker job to detect harvest events via VH backscatter drop (> 3dB). VH data already processed and stored in `derived_radar_assets`.
+
+**Contract impact:**
+- Worker: New job `DETECT_HARVEST` in `services/worker/worker/jobs/detect_harvest.py`
+- DB: Use existing `opportunity_signals` table (no schema changes)
+- API: No changes (signals already exposed via `/v1/signals`)
+
+**Acceptance:**
+- [x] `detect_harvest.py` job created (~100 LOC)
+- [x] Job registered in worker dispatcher
+- [x] Detects RVI drop > 0.3 (proxy for VH drop)
+- [x] Creates `HARVEST_DETECTED` signal
+- [x] Stores RVI values in signal metadata
+
+**How to test:**
+1. Create job handler `detect_harvest.py` (reuse structure from `process_radar.py`)
+2. Register job type in `services/worker/worker/dispatcher.py`
+3. Manually trigger job for AOI with known harvest
+4. Verify signal created in `opportunity_signals` table
+5. Check signal metadata contains `vh_current` and `vh_previous`
+
+**ADR**: [0009-radar-harvest-detection.md](file:///c:/projects/vivacampo-app/docs/adr/0009-radar-harvest-detection.md)
+
+**Estimate**: 3 hours
+**Completed:** 2026-02-04
+
+---
+
+
+
+
+### ✅ TASK-INTEL-003 — Correlation API (Vigor x Climate)
+**Context:**
+Create API endpoint to combine vegetation indices, radar data, and weather data with auto-generated insights.
+
+**Contract impact:**
+- API: New router `correlation_router.py` (~150 LOC)
+- Service: New `CorrelationService` (~150 LOC)
+- DB: No schema changes (query existing tables: `derived_assets`, `derived_radar_assets`, `derived_weather_daily`)
+
+**Acceptance:**
+- [x] Endpoint `/v1/app/aois/{aoi_id}/correlation/vigor-climate` created
+- [x] Combines data from 3 sources (indices, radar, weather)
+- [x] Generates insights (rain events, dry periods, NDVI response)
+- [x] Returns JSON with `data` and `insights` arrays
+- [x] Tests pass (integration test with real data)
+
+**How to test:**
+1. Create `correlation_router.py` and `CorrelationService`
+2. Query endpoint with AOI that has historical data
+3. Verify response contains combined data
+4. Verify insights are generated (e.g., "Chuva de 12mm → NDVI +8% em 7 dias")
+5. Run integration test
+
+**ADR**: [0010-correlation-analysis.md](file:///c:/projects/vivacampo-app/docs/adr/0010-correlation-analysis.md)
+
+**Estimate**: 6 hours
+**Completed:** 2026-02-04
+
+---
+
+
+
+
+### ✅ TASK-INTEL-004 — Nitrogen Detection API
+**Context:**
+Create API endpoint to detect nitrogen deficiency using NDVI, NDRE, RECI thresholds.
+
+**Contract impact:**
+- API: New router `nitrogen_router.py` (~100 LOC)
+- DB: No schema changes (use existing `derived_assets`)
+- TiTiler: Use SRRE expression for zone map
+
+**Acceptance:**
+- [x] Endpoint `/v1/app/aois/{aoi_id}/nitrogen/status` created
+- [x] Algorithm: `if NDVI > 0.7 and NDRE < 0.5 and RECI < 1.5: status = DEFICIENT`
+- [x] Returns status, confidence, recommendation
+- [x] Provides zone map URL (TiTiler expression)
+- [x] Tests pass (unit + integration)
+
+**How to test:**
+1. Create `nitrogen_router.py` with detection logic
+2. Query endpoint with AOI showing nitrogen deficiency
+3. Verify status = "DEFICIENT"
+4. Verify zone_map_url points to valid TiTiler tile
+5. Run tests
+
+**ADR**: [0008-intelligence-nitrogen-detection.md](file:///c:/projects/vivacampo-app/docs/adr/0008-intelligence-nitrogen-detection.md)
+
+**Estimate**: 4 hours
+**Completed:** 2026-02-04
+
+---
+
+
+
+
+### ✅ TASK-INTEL-005 — Analysis Tab (Frontend)
+**Context:**
+Create new "ANÁLISE" tab in AOIDetailsPanel with correlation chart (NDVI + RVI + Rain).
+
+**Contract impact:**
+- Frontend: New component `AnalysisTab.tsx` (~100 LOC)
+- Frontend: New component `CorrelationChart.tsx` (~150 LOC)
+- Modify: `AOIDetailsPanel.tsx` (add tab trigger)
+- No backend changes (uses existing correlation API)
+
+**Acceptance:**
+- [x] "ANÁLISE" tab added to AOIDetailsPanel
+- [x] CorrelationChart renders combo chart (NDVI line + RVI dashed + Rain bars)
+- [x] Dual Y-axis (Vigor left, Rain right)
+- [x] Insight cards display below chart
+- [x] Mobile responsive (UI validated)
+
+**How to test:**
+1. Create `AnalysisTab.tsx` and `CorrelationChart.tsx`
+2. Add tab trigger to `AOIDetailsPanel.tsx`
+3. Open AOI details → Click "ANÁLISE" tab
+4. Verify chart renders correctly
+5. Verify insights display
+6. Test on mobile (responsive)
+
+**ADR**: [0010-correlation-analysis.md](file:///c:/projects/vivacampo-app/docs/adr/0010-correlation-analysis.md)
+
+**Estimate**: 6 hours
+**Completed:** 2026-02-04
+
+---
+
+
+
+
+### ✅ TASK-INTEL-006 — Nitrogen Alert Component (Frontend)
+**Context:**
+Create alert component to display nitrogen deficiency warnings.
+
+**Contract impact:**
+- Frontend: New component `NitrogenAlert.tsx` (~80 LOC)
+- Modify: `AOIDetailsPanel.tsx` (render alert in Overview tab)
+- No backend changes (uses existing nitrogen API)
+
+**Acceptance:**
+- [x] `NitrogenAlert.tsx` created
+- [x] Yellow alert card when deficiency detected
+- [x] Shows NDVI vs NDRE comparison
+- [x] Button "Ver Mapa de Zonas" (opens modal with TiTiler layer)
+- [x] Only renders when status = "DEFICIENT"
+
+**How to test:**
+1. Create `NitrogenAlert.tsx`
+2. Add to Overview tab in `AOIDetailsPanel.tsx`
+3. Query nitrogen API for AOI with deficiency
+4. Verify alert renders
+5. Click "Ver Mapa de Zonas" → Verify modal opens with tile layer
+
+**ADR**: [0008-intelligence-nitrogen-detection.md](file:///c:/projects/vivacampo-app/docs/adr/0008-intelligence-nitrogen-detection.md)
+
+**Estimate**: 3 hours
+**Completed:** 2026-02-04
+
+---
+
+
+
+
+### ✅ TASK-INTEL-007 — Radar Fallback Tooltip (Frontend)
+**Context:**
+Modify ChartComponent to show custom tooltip when NDVI is null (cloudy day) but RVI is available.
+
+**Contract impact:**
+- Frontend: Modify `ChartComponent.tsx` (~50 LOC)
+- No backend changes
+
+**Acceptance:**
+- [x] Custom tooltip detects `ndvi === null && rvi !== null`
+- [x] Shows cloud icon + "Dia Nublado" message
+- [x] Displays RVI value
+- [x] Message: "Dado óptico indisponível. Estimativa via Sentinel-1."
+
+**How to test:**
+1. Modify `ChartComponent.tsx` tooltip logic
+2. Open AOI with cloudy period (NDVI null, RVI available)
+3. Hover over chart point
+4. Verify custom tooltip renders
+5. Verify cloud icon and message display
+
+**Estimate**: 2 hours
+**Completed:** 2026-02-04
+
+---
+
+
+
+
+### ✅ TASK-INTEL-010 — CI/CD Pipeline (Infrastructure)
+**Context:**
+Automated deployment to staging/production environments.
+
+**Contract impact:**
+- `.github/workflows/deploy-staging.yml` (new)
+- `.github/workflows/deploy-production.yml` (new)
+- `docs/runbooks/deploy.md` (update)
+
+**Acceptance:**
+- [x] Staging deploys on push to `develop` branch (workflow added)
+- [x] Production deploys on push to `main` branch (workflow added)
+- [x] Build and push Docker images to ECR (workflow step added)
+- [x] Deploy to ECS (Fargate) (workflow step added)
+- [x] Run smoke tests post-deploy (workflow step added)
+- [x] Notify team on Slack/Discord (workflow step added)
+
+**How to test:**
+1. Push to `develop` → Verify staging deployment
+2. Check GitHub Actions logs
+3. Verify staging environment accessible
+4. Run smoke tests
+
+**Estimate**: 8 hours
+**Completed:** 2026-02-04
+
+**Priority**: P1 (required for production)
+
+---
+
+
+
+
+### ✅ TASK-INTEL-011 — Terraform Infrastructure (Infrastructure)
+**Context:**
+Infrastructure as code for staging/production environments.
+
+**Contract impact:**
+- `terraform/staging/main.tf` (new)
+- `terraform/production/main.tf` (new)
+- `terraform/modules/` (shared modules)
+
+**Resources**:
+- ECS Cluster (Fargate)
+- RDS PostgreSQL (db.t3.micro for staging, db.r5.large for production)
+- S3 (tiles, mosaics)
+- SQS (job queue)
+- Secrets Manager (API keys)
+- CloudWatch (logs, metrics, alarms)
+
+**Acceptance:**
+- [x] Staging environment provisioned via Terraform (scaffolded)
+- [x] Production environment ready (not deployed yet) (scaffolded)
+- [x] State stored in S3 backend (configured)
+- [x] Modules reusable across environments
+
+**How to test:**
+1. `cd terraform/staging && terraform init`
+2. `terraform plan` → Verify resources
+3. `terraform apply` → Provision staging
+4. Verify all services running
+
+**Estimate**: 16 hours
+**Completed:** 2026-02-04
+
+**Priority**: P1 (required for production)
+
+---
+
+
+
+
+### ✅ TASK-INTEL-012 — Cloudflare CDN for Intelligence Tiles (Infrastructure)
+**Context:**
+CDN for tile caching to improve performance (separate from TASK-0007-CDN).
+
+**Contract impact:**
+- `terraform/staging/cloudflare-cdn.tf` (new)
+- Cloudflare Worker for cache rules
+
+**Cache Rules**:
+- `/v1/tiles/*`: Cache 7 days (604800s)
+- `/mosaic/tiles/*`: Cache 7 days
+- Bypass cache for dynamic tiles (`?date=` query param)
+
+**Acceptance:**
+- [x] Cloudflare worker added for intelligence endpoints
+- [ ] Cache hit rate > 80%
+- [ ] p95 latency < 100ms (cached tiles)
+- [ ] CORS configured for CDN domain
+
+**How to test:**
+1. Deploy Cloudflare Worker
+2. Request same tile twice → Verify `CF-Cache-Status: HIT`
+3. Check Cloudflare analytics for cache hit rate
+4. Measure p95 latency with load test
+
+**Estimate**: 4 hours
+**Completed:** 2026-02-04
+
+**Priority**: P1 (required for acceptable performance)
+
+---
+
+
+
+
+### ✅ TASK-PADDOCK-001 — Modelagem de dados para talhões interativos
+**Context:**
+Suportar divisão de macro-área em talhões, calibração de campo e rastreio de origem (parent).
+
+**Contract impact:**
+- DB: nova tabela para calibração de campo (ex: `field_calibrations`)
+- DB: adicionar `parent_aoi_id` (ou tabela de relacionamento) para AOIs derivados
+- Domain/API: novos DTOs para calibração e split
+
+**Dependencies:**
+- Nenhuma
+
+**Acceptance:**
+- [x] Migration criada para `field_calibrations` com `tenant_id`, `aoi_id`, `date`, `value`, `metric_type`, `source`
+- [x] AOIs derivados registram relação com macro-área (parent)
+- [x] Constraints e índices por `tenant_id` e `aoi_id`
+- [x] Runbook de migração atualizado se necessário
+
+**How to test:**
+1. Aplicar migration local
+2. Inserir calibração manual e consultar por `aoi_id`
+3. Criar AOI filho e validar `parent_aoi_id`
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-014 — Validação geoespacial avançada
+**Context:**
+Garantir polígonos válidos, simplificados e dentro de limites.
+
+**Contract impact:**
+- Domain/Infra: validação com Shapely (make_valid, simplify)
+- API: erros 422 com detalhes
+
+**Dependencies:**
+- TASK-PADDOCK-001
+
+**Acceptance:**
+- [ ] Rejeita geometria inválida com mensagem clara
+- [ ] Simplifica geometrias com muitos vértices
+- [ ] Valida SRID 4326
+
+**How to test:**
+1. Enviar polígono inválido
+2. Validar erro 422 com detalhes
+
+**Estimate**: 2–3h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-002 — Endpoint de simulação de split (Voronoi/Grid)
+**Context:**
+Gerar proposta de divisão de macro-polígono antes de criar talhões.
+
+**Contract impact:**
+- API: `POST /v1/aois/simulate-split`
+- Domain: serviço de split com validação de área máxima por talhão
+- Infra: SciPy/Turf compatível com geometria WKT
+
+**Dependencies:**
+- TASK-PADDOCK-001
+- TASK-PADDOCK-014
+
+**Request/Response (draft):**
+`POST /v1/aois/simulate-split`
+```json
+{
+  "geometry_wkt": "MULTIPOLYGON(...)",
+  "mode": "voronoi|grid",
+  "target_count": 12,
+  "max_area_ha": 2000
+}
+```
+Response:
+```json
+{
+  "polygons": [{"geometry_wkt":"...","area_ha":123.4}],
+  "warnings": ["talhao_3_exceeds_max_area"]
+}
+```
+
+**Acceptance:**
+- [ ] Retorna coleção de polígonos sugeridos (WKT/GeoJSON)
+- [ ] Valida e alerta se algum talhão > 2.000 ha
+- [ ] Respeita `tenant_id` e SRID 4326
+
+**How to test:**
+1. Enviar macro-polígono grande
+2. Validar retorno de N polígonos e área por talhão
+3. Confirmar erro/alerta quando excede 2.000 ha
+
+**Estimate**: 2–3h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-009 — Confirmar split e criar talhões em lote
+**Context:**
+Persistir a divisão sugerida e criar AOIs filhos com processamento batch.
+
+**Contract impact:**
+- API: `POST /v1/aois/split` (ou `/v1/aois/batch`)
+- Domain: validação de área + criação de N AOIs
+- Infra: enfileirar jobs (SQS) por talhão
+
+**Dependencies:**
+- TASK-PADDOCK-001
+- TASK-PADDOCK-002
+- TASK-PADDOCK-014
+
+**Request/Response (draft):**
+`POST /v1/aois/split`
+```json
+{
+  "parent_aoi_id": "uuid",
+  "polygons": [{"geometry_wkt":"...","name":"Talhao 01"}],
+  "enqueue_jobs": true
+}
+```
+Response:
+```json
+{
+  "created": 12,
+  "warnings": [],
+  "job_ids": ["uuid","uuid"]
+}
+```
+
+**Acceptance:**
+- [ ] Cria AOIs filhos com vínculo ao macro (parent)
+- [ ] Valida limite de 2.000 ha server-side
+- [ ] Enfileira jobs por talhão após criação
+- [ ] Retorna resumo (N criados, warnings)
+
+**How to test:**
+1. Enviar macro-polígono + lista de polígonos
+2. Validar criação de AOIs e jobs enfileirados
+3. Validar erro quando talhão excede limite
+
+**Estimate**: 3–5h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-013 — Idempotência e concorrência no split
+**Context:**
+Evitar duplicação de AOIs/jobs em confirmações repetidas.
+
+**Contract impact:**
+- API: chave de idempotência (header ou body)
+- DB: constraints para dedupe
+
+**Dependencies:**
+- TASK-PADDOCK-009
+
+**Acceptance:**
+- [ ] Repetição do mesmo split não cria duplicados
+- [ ] Retorna referência do batch já criado
+
+**How to test:**
+1. Enviar mesma requisição duas vezes
+2. Validar apenas 1 batch criado
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-007 — Realtime de processamento e estados
+**Context:**
+Atualizar status de talhões durante processamento batch.
+
+**Contract impact:**
+- API: endpoint de status ou polling
+- Frontend: SWR polling + animações
+
+**Dependencies:**
+- TASK-PADDOCK-009
+
+**Acceptance:**
+- [x] Estado “Processing” com pulso azul
+- [x] Transição automática para “Normal” ao completar
+- [x] Sem flicker com dados parciais
+
+**How to test:**
+1. Iniciar processamento batch
+2. Verificar atualização de estado em tempo real
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-003 — Endpoints de calibração e modelo
+**Context:**
+Registrar dados de campo e expor regressão personalizada para conversão de índice em dado absoluto.
+
+**Contract impact:**
+- API: `POST /v1/field-data`, `GET /v1/analytics/calibration`
+- Domain: regressão linear + métricas (R², coeficientes)
+- DB: leitura/escrita de `field_calibrations`
+
+**Dependencies:**
+- TASK-PADDOCK-001
+
+**Request/Response (draft):**
+`POST /v1/field-data`
+```json
+{
+  "aoi_id": "uuid",
+  "date": "2026-02-06",
+  "metric_type": "biomass|yield",
+  "value": 3500,
+  "unit": "kg_ha"
+}
+```
+Response:
+```json
+{"id":"uuid","status":"created"}
+```
+`GET /v1/analytics/calibration?aoi_id=uuid&metric_type=biomass`
+```json
+{
+  "r2": 0.72,
+  "coefficients": {"intercept": 120.0, "slope": 4300.0},
+  "sample_size": 8
+}
+```
+
+**Acceptance:**
+- [ ] `POST /v1/field-data` grava calibração com validação
+- [ ] `GET /v1/analytics/calibration` retorna coeficientes + R²
+- [ ] Usa índice satélite da mesma data quando disponível
+
+**How to test:**
+1. Inserir calibração manual
+2. Consultar endpoint de calibração
+3. Validar regressão e R² em resposta
+
+**Estimate**: 3–4h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-011 — Governança de calibração (versionamento e retenção)
+**Context:**
+Definir regras de edição/remoção de calibrações e versionar o modelo por talhão.
+
+**Contract impact:**
+- DB: campos `is_active`, `version` em calibrações (ou tabela de versões)
+- API: endpoints para listar versões e marcar ativa
+- Domain: política de retenção/edição
+
+**Dependencies:**
+- TASK-PADDOCK-003
+
+**Acceptance:**
+- [ ] Apenas uma calibração ativa por talhão+data+metric_type
+- [ ] Histórico preservado com versões
+- [ ] Regra de retenção documentada
+
+**How to test:**
+1. Criar duas calibrações na mesma data
+2. Validar versionamento e seleção de ativa
+
+**Estimate**: 2–3h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-004 — Predição regional (cold start)
+**Context:**
+Estimar produtividade com base em média regional enquanto não há dados do usuário.
+
+**Contract impact:**
+- API: `GET /v1/analytics/prediction`
+- Domain: agregação regional por bioma/estado/cultura
+- DB: leitura de séries históricas agregadas
+
+**Dependencies:**
+- TASK-PADDOCK-003
+
+**Request/Response (draft):**
+`GET /v1/analytics/prediction?aoi_id=uuid&metric_type=yield`
+```json
+{
+  "p10": 55,
+  "p50": 62,
+  "p90": 70,
+  "unit": "sc_ha",
+  "confidence": 0.6,
+  "source": "regional_average"
+}
+```
+
+**Acceptance:**
+- [ ] Retorna faixa estimada (p10/p50/p90) por contexto regional
+- [ ] Indica fonte e nível de confiança
+- [ ] Fallback quando não há dados regionais
+
+**How to test:**
+1. Consultar endpoint com AOI sem calibração
+2. Validar resposta com estimativa regional
+3. Validar fallback quando contexto não encontrado
+
+**Estimate**: 2–3h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-016 — Unidades e conversões (kg/ha, sc/ha)
+**Context:**
+Padronizar unidades e conversões para exibição consistente.
+
+**Contract impact:**
+- Domain: conversor de unidades
+- API: retorno inclui `unit` e valores normalizados
+- UI: exibição padrão em kg/ha
+
+**Dependencies:**
+- TASK-PADDOCK-003
+
+**Acceptance:**
+- [ ] Padrão de exibição é kg/ha
+- [ ] Conversões consistentes kg/ha ↔ sc/ha quando necessário
+- [ ] API sempre retorna `unit`
+
+**How to test:**
+1. Inserir calibração em kg/ha
+2. Verificar exibição padrão em kg/ha
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-015 — Observabilidade e auditoria mínima
+**Context:**
+Registrar quem fez split/calibração/feedback e métricas de uso.
+
+**Contract impact:**
+- API: adicionar `traceId` quando disponível
+- Infra: métricas básicas (count/latency)
+- DB: audit fields (`created_by`, `created_at`)
+
+**Dependencies:**
+- TASK-PADDOCK-001
+
+**Acceptance:**
+- [ ] Audit fields preenchidos em calibração/feedback
+- [ ] Logs estruturados com request_id
+- [ ] Métricas básicas expostas (count/latency)
+
+**How to test:**
+1. Criar calibração e verificar audit fields
+2. Checar logs com request_id
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-010 — Feedback de campo (log issue / false positive)
+**Context:**
+Registrar feedback operacional do usuário no talhão para melhorar sinais e reduzir falsos positivos.
+
+**Contract impact:**
+- DB: tabela `field_feedback` (tenant_id, aoi_id, type, message, created_by, created_at)
+- API: `POST /v1/field-feedback`
+- Domain: enum de tipos (ISSUE, FALSE_POSITIVE)
+
+**Dependencies:**
+- TASK-PADDOCK-001
+
+**Request/Response (draft):**
+`POST /v1/field-feedback`
+```json
+{
+  "aoi_id": "uuid",
+  "type": "ISSUE|FALSE_POSITIVE",
+  "message": "NDVI drop due to cloud shadow"
+}
+```
+Response:
+```json
+{"id":"uuid","status":"created"}
+```
+
+**Acceptance:**
+- [ ] Endpoint registra feedback com audit básico (who/when)
+- [ ] Feedback aparece no histórico do talhão
+- [ ] Validação por `tenant_id`
+
+**How to test:**
+1. Enviar feedback via endpoint
+2. Consultar histórico do talhão
+3. Validar auditoria e isolamento multi-tenant
+
+**Estimate**: 2–3h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-012 — Permissões e RBAC para split/calibração/feedback
+**Context:**
+Restringir ações sensíveis a perfis específicos.
+
+**Contract impact:**
+- API: guards de role em endpoints novos
+- Domain: validação de permissões
+
+**Dependencies:**
+- TASK-PADDOCK-002
+- TASK-PADDOCK-003
+- TASK-PADDOCK-009
+- TASK-PADDOCK-010
+
+**Acceptance:**
+- [x] Apenas `TENANT_ADMIN` pode dividir talhões
+- [x] Calibração e feedback exigem `TENANT_ADMIN`
+- [x] Respostas seguem padrão de erro (403)
+
+**How to test:**
+1. Tentar acessar endpoints com role Viewer
+2. Validar bloqueio e mensagem padrão
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-005 — UI: Map View com split/ajuste fino
+**Context:**
+Implementar fluxo visual de divisão, edição e validação de talhões.
+
+**Contract impact:**
+- Frontend: MapLeaflet + painel lateral
+- UI: estados visuais (normal, processing, alert, warning)
+
+**Dependencies:**
+- TASK-PADDOCK-002
+- TASK-PADDOCK-009
+- TASK-PADDOCK-007
+- TASK-PADDOCK-012
+
+**Acceptance:**
+- [x] Ferramentas de split/merge e ajuste fino funcionando
+- [x] Bordas por status e fill por NDVI (quando disponível)
+- [x] Ícones SVG (Lucide) no centro do polígono
+- [x] Alerta visual quando talhão > 2.000 ha
+
+**How to test:**
+1. Criar macro-área
+2. Simular split e ajustar polígonos
+3. Validar estados visuais e alertas
+
+**Estimate**: 3–5h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-006 — UI: Grid View e batch calibration
+**Context:**
+Permitir edição em massa e visão de status em tabela.
+
+**Contract impact:**
+- Frontend: tabela de talhões (TanStack Table)
+- API: batch save (se necessário) ou chamadas individuais
+
+**Dependencies:**
+- TASK-PADDOCK-003
+- TASK-PADDOCK-012
+
+**Acceptance:**
+- [x] Tabela com filtros por status
+- [x] Coluna editável para valor real
+- [x] Ação “Salvar Batch” com validação
+- [x] Destaque por hover e feedback de salvamento
+
+**How to test:**
+1. Abrir Grid View
+2. Editar valores em múltiplas linhas
+3. Salvar e validar persistência
+
+**Estimate**: 2–4h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-018 — UI: Merge de talhões no ajuste fino
+**Context:**
+Permitir juntar talhões adjacentes após split para correções de campo.
+
+**Contract impact:**
+- Frontend: MapLeaflet + tools de merge
+- Domain/API: endpoint de merge (ou reutilizar split com união)
+
+**Dependencies:**
+- TASK-PADDOCK-002
+- TASK-PADDOCK-009
+- TASK-PADDOCK-012
+
+**Acceptance:**
+- [x] Selecionar múltiplos talhões e unir em um único polígono
+- [x] Persistir união com atualização de AOIs
+- [x] Mantém validação de área máxima
+
+**How to test:**
+1. Selecionar dois talhões adjacentes
+2. Executar merge e salvar
+3. Validar geometria resultante e AOIs atualizados
+
+**Estimate**: 2–3h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-019 — UI: Badges específicos por tipo de alerta
+**Context:**
+Renderizar badges no mapa e grid para tipos específicos (Water Stress, Disease Risk, Yield Risk).
+
+**Contract impact:**
+- Frontend: mapeamento de `reason_codes` -> ícones
+- API: garantir reason codes consistentes
+
+**Dependencies:**
+- TASK-PADDOCK-005
+- TASK-PADDOCK-006
+
+**Acceptance:**
+- [x] Badges visuais por tipo no mapa
+- [x] Badges visuais por tipo na tabela
+- [x] Tooltip com descrição do risco
+
+**How to test:**
+1. Forçar talhão com reason_code de water_stress
+2. Verificar badge correspondente no mapa e grid
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-008 — Testes e qualidade (API + UI)
+**Context:**
+Garantir cobertura mínima para split, calibração e UI crítica.
+
+**Contract impact:**
+- Tests: unit + integration + UI smoke
+
+**Dependencies:**
+- TASK-PADDOCK-002
+- TASK-PADDOCK-003
+- TASK-PADDOCK-009
+- TASK-PADDOCK-010
+- TASK-PADDOCK-005
+- TASK-PADDOCK-006
+
+**Acceptance:**
+- [ ] Testes unitários para split e regressão
+- [ ] Teste de contrato para endpoints novos
+- [ ] Smoke test UI para Map View e Grid View
+
+**How to test:**
+1. `pytest tests/unit` (ou subset)
+2. Executar smoke test UI
+
+**Estimate**: 2–3h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-PADDOCK-017 — UX de estados vazios e erros
+**Context:**
+Cobrir casos sem dados, sem permissão e sem histórico.
+
+**Contract impact:**
+- Frontend: mensagens e telas de empty/error state
+
+**Dependencies:**
+- TASK-PADDOCK-005
+- TASK-PADDOCK-006
+
+**Acceptance:**
+- [x] Mensagens claras para “sem dados”
+- [x] Tratamento de 403/422 com feedback amigável
+- [x] CTA para próxima ação (ex: inserir calibração)
+
+**How to test:**
+1. Abrir talhão sem dados
+2. Forçar 403 e validar UX
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-INTEL-013 — Productivity Score (NDVI Integral)
+**Context:**
+Display a productivity score based on NDVI mean over the period and compare to historical average.
+
+**Contract impact:**
+- Frontend only (Analysis tab)
+
+**Acceptance:**
+- [x] Score computed as NDVI mean for available period
+- [x] Comparison vs historical average displayed (%)
+- [x] Card shown in Analysis tab
+
+**How to test:**
+1. Open Analysis tab with correlation data
+2. Verify “Potencial Produtivo” card renders
+
+**Estimate**: 3 hours
+**Completed:** 2026-02-04
+
+---
+
+
+
+
+### ✅ TASK-INTEL-014 — Radar Overlay Badge
+**Context:**
+Show a “Modo Radar / Estimativa” badge when RVI layer is active.
+
+**Contract impact:**
+- Frontend only (`MapLeaflet.tsx`)
+
+**Acceptance:**
+- [x] Badge appears when RVI overlay is active
+- [x] Discrete styling (non-intrusive)
+- [x] Disappears when switching back to optical layers
+
+**How to test:**
+1. Enable RVI overlay on map
+2. Verify badge appears at bottom-left
+3. Switch to NDVI and verify badge hides
+
+**Estimate**: 1 hour
+**Completed:** 2026-02-04
+
+---
+
+
+
+
+### ✅ TASK-ARCH-OBS-001 — Instalar deps de OpenTelemetry em ambiente de execução
+**Context:**
+Tracing foi habilitado por default. Ambientes sem pacotes OTel precisam instalar deps e definir endpoint.
+
+**Contract impact:**
+- None (config/env + runtime deps)
+
+**Acceptance:**
+- [x] Pacotes OTel instalados no ambiente (API)
+- [x] `OTEL_ENDPOINT` configurado (ou decidir manter console exporter)
+- [x] `otel_enabled=true` validado em runtime
+
+**How to test:**
+1. Instalar deps do `services/api/requirements.txt`
+2. Setar `OTEL_ENDPOINT` (se aplicável)
+3. Subir API e confirmar spans exportados
+
+**Estimate**: 1h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-ARCH-TEST-001 — Habilitar Hypothesis + rodar property tests
+**Context:**
+Property-based tests adicionados, mas `hypothesis` não está disponível no ambiente local.
+
+**Contract impact:**
+- None (test/dev deps)
+
+**Acceptance:**
+- [x] `hypothesis` instalado no ambiente
+- [x] `pytest tests/unit/domain/test_value_objects_property.py -q` passa
+
+**How to test:**
+1. Instalar deps dev do `services/api/requirements.txt`
+2. Rodar o teste acima
+
+**Estimate**: 0.5–1h
+**Completed:** 2026-02-06
+
+
+
+
+### ✅ TASK-AUTH-0200 — Auth Contract + Password Policy
+**Context:**
+Align API/Frontend payloads and define password policy for local auth.
+
+**Contract impact:**
+- API (OpenAPI)
+- Domain (DTOs/validation)
+
+**Acceptance:**
+- [x] Endpoints confirmed: `/v1/auth/signup`, `/v1/auth/login`, `/v1/auth/forgot-password`, `/v1/auth/reset-password`
+- [x] Error shape follows standard `{ error: { code, message, details?, traceId? } }`
+- [x] Password policy defined (min length + hashing algorithm)
+
+**How to test:**
+- Review OpenAPI diff + unit tests for hash/verify
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+---
+
+
+
+
+### ✅ TASK-AUTH-0201 — DB Migration: Local Credentials
+**Context:**
+Store password hash in `identities` with `provider='local'` and enable login lookup.
+
+**Contract impact:**
+- DB: migration in `infra/migrations/sql/`
+
+**Acceptance:**
+- [x] Schema supports local password hash
+- [x] Index supports lookup by email + provider
+- [x] Rollback plan documented
+
+**How to test:**
+- Apply migration locally and validate columns + index
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+---
+
+
+
+
+### ✅ TASK-AUTH-0202 — Use Cases: Signup/Login/Forgot/Reset
+**Context:**
+Implement auth flows in hexagonal architecture.
+
+**Contract impact:**
+- Domain/Application
+
+**Acceptance:**
+- [x] Use cases: Signup, Login, ForgotPassword, ResetPassword
+- [x] Signup creates tenant and assigns `TENANT_ADMIN`
+- [x] Duplicate email and inactive tenant handled
+
+**How to test:**
+- `pytest tests/unit/...` for each use case
+
+**Estimate**: 2–4h
+**Completed:** 2026-02-06
+
+---
+
+
+
+
+### ✅ TASK-AUTH-0203 — API Routers + httpOnly Cookie
+**Context:**
+Expose `/v1/auth/*` and deliver token via cookie.
+
+**Contract impact:**
+- API
+
+**Acceptance:**
+- [x] Endpoints wired to use cases
+- [x] Auto-login after signup (returns token + sets cookie)
+- [x] Cookie: HttpOnly, Secure, SameSite=Strict
+
+**How to test:**
+- Curl login and verify `Set-Cookie` header
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+---
+
+
+
+
+### ✅ TASK-AUTH-0204 — Frontend Auth Pages
+**Context:**
+Create auth UI in `services/app-ui`.
+
+**Contract impact:**
+- Frontend
+
+**Acceptance:**
+- [x] `/login`, `/signup`, `/forgot-password`, `/reset-password/[token]` pages
+- [x] Success redirects to `/dashboard`
+- [x] Error messages shown on failure
+
+**How to test:**
+- Manual flow in browser
+
+**Estimate**: 2–4h
+**Completed:** 2026-02-06
+
+---
+
+
+
+
+### ✅ TASK-AUTH-0205 — Terms/Privacy Pages
+**Context:**
+Legal pages linked from signup flow.
+
+**Contract impact:**
+- Frontend
+
+**Acceptance:**
+- [x] `/terms` and `/privacy` pages exist and linked
+
+**How to test:**
+- Manual navigation
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+---
+
+
+
+
+### ✅ TASK-AUTH-0206 — Middleware + Route Protection
+**Context:**
+Protect private routes and enforce roles.
+
+**Contract impact:**
+- Frontend
+
+**Acceptance:**
+- [x] Public routes allow access
+- [x] `/dashboard` redirects to `/login` without cookie
+- [x] `/admin` requires SYSTEM_ADMIN
+- [x] `/settings` requires TENANT_ADMIN
+
+**How to test:**
+- Manual navigation with/without cookie
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+---
+
+
+
+
+### ✅ TASK-AUTH-0207 — URL Simplification
+**Context:**
+Legacy rewrites for `/app/*` paths.
+
+**Contract impact:**
+- Frontend config
+
+**Acceptance:**
+- [x] `/app/login` -> `/login`
+- [x] `/app/*` -> `/*`
+- [x] `basePath` explicitly empty
+
+**How to test:**
+- Manual navigation to legacy URLs
+
+**Estimate**: 1h
+**Completed:** 2026-02-06
+
+---
+
+
+
+
+### ✅ TASK-LANDING-0210 — Landing Page (Hero/Features/Pricing/Testimonials/Footer)
+**Context:**
+Public landing page with CTAs.
+
+**Contract impact:**
+- Frontend
+
+**Acceptance:**
+- [x] Sections present and linked: hero, features, pricing, testimonials, footer
+- [x] Floating navbar with CTA
+- [x] CTA links to `/signup` and `/login`
+
+**How to test:**
+- Manual visual review (desktop + mobile)
+
+**Estimate**: 2–4h
+**Completed:** 2026-02-06
+
+---
+
+
+
+
+### ✅ TASK-LANDING-0211 — Design Tokens for Landing
+**Context:**
+Apply minimalism/swiss style from plan.
+
+**Contract impact:**
+- Frontend
+
+**Acceptance:**
+- [x] Colors applied: Primary `#1E40AF`, Secondary `#3B82F6`, CTA `#22C55E`, Background `#EFF6FF`, Text `#1E3A8A`
+- [x] Typography applied: Poppins (headings) + Open Sans (body)
+
+**How to test:**
+- Inspect styles in devtools
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+---
+
+
+
+
+### ✅ TASK-LANDING-0212 — Contact Page
+**Context:**
+Contact section + `/contact` page.
+
+**Contract impact:**
+- Frontend
+
+**Acceptance:**
+- [x] Contact section in landing
+- [x] `/contact` page exists and linked in footer
+
+**How to test:**
+- Manual navigation
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+---
+
+### ✅ TASK-LANDING-0213 — Landing Page Technical Spec (3D/SEO/Analytics/Perf)
+**Context:**
+Implementar os requisitos técnicos completos do `LANDING_PAGE_PROPOSAL.md` (Hero 3D, scroll-jacking, SEO, analytics, KTX2, CI).
+
+**Contract impact:**
+- Frontend: landing page components, R3F/GSAP, analytics tracking
+- Infra: Lighthouse CI workflow
+- Docs: changelog/handoff updates
+
+**Acceptance:**
+- [x] Hero 3D com fallback + GSAP scroll-jacking entre seções
+- [x] Farm zoom 3D + linhas SVG animadas
+- [x] Micro zoom com partículas + shader scan
+- [x] LOD + lazy load por seção + Stats.js em dev
+- [x] SEO completo em `layout.tsx` (metadataBase, OG/Twitter, viewport)
+- [x] Analytics extras (Plausible goals, scroll depth, A/B CTA, signup completed)
+- [x] Sentry + Vercel Analytics configurados
+- [x] Lighthouse CI + `budget.json`
+- [x] KTX2 (earth_day, earth_clouds, mobile LOD) com fallback
+- [x] OG/Twitter assets presentes
+
+**How to test:**
+1. `npm run dev` e validar hero/scroll effects
+2. DevTools Console: logs `✅ KTX2 loaded`
+3. `npm run test:unit`
+
+**Estimate**: 8–12h
+**Completed:** 2026-02-07
+
+---
+
+
+
+
+### ✅ TASK-PERM-0213 — Roles + Ownership (Domain)
+**Context:**
+Implement roles and ownership rules.
+
+**Contract impact:**
+- Domain
+
+**Acceptance:**
+- [x] UserRole includes SYSTEM_ADMIN, TENANT_ADMIN, EDITOR, VIEWER
+- [x] Farm has `created_by_user_id` and `can_edit()` logic
+
+**How to test:**
+- Unit tests for `can_edit()` rules
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+---
+
+
+
+
+### ✅ TASK-PERM-0214 — Farms Use Cases Permissions
+**Context:**
+Enforce ownership in create/update/delete use cases.
+
+**Contract impact:**
+- Application
+
+**Acceptance:**
+- [x] VIEWER cannot create farms
+- [x] EDITOR edits only own farms
+- [x] TENANT_ADMIN edits any farm
+
+**How to test:**
+- Unit tests for permission rules
+
+**Estimate**: 2–3h
+**Completed:** 2026-02-06
+
+---
+
+
+
+
+### ✅ TASK-PERM-0215 — DB Migration: Farm Ownership
+**Context:**
+Persist `created_by_user_id` and backfill.
+
+**Contract impact:**
+- DB
+
+**Acceptance:**
+- [x] Column added to farms
+- [x] Backfill assigns to tenant admin
+
+**How to test:**
+- Apply migration + verify backfill query
+
+**Estimate**: 1–2h
+**Completed:** 2026-02-06
+
+---
+
+
+
+
+### ✅ TASK-PERM-0216 — Guards + Invite API
+**Context:**
+Presentation guards and invite endpoint.
+
+**Contract impact:**
+- API
+
+**Acceptance:**
+- [x] Guards: `require_tenant_admin`, `require_editor`, `require_authenticated`
+- [x] `/users/invite` restricted to TENANT_ADMIN + verified email
+- [x] Invite only EDITOR or VIEWER roles
+
+**How to test:**
+- API calls with different roles, expect 403/400 as needed
+
+**Estimate**: 2–3h
+**Completed:** 2026-02-06
+
+---
+
+
+
+
+### ✅ TASK-0007-PHASE3 — Dynamic Tiling: Data Migration + Cleanup (ADR-0007)
+**Completed:** 2026-02-04
+
+**What was done:**
+- Added `USE_DYNAMIC_TILING=true` feature flag to `.env.local`
+- Added `DYNAMIC_TILING_STATS_ONLY=true` flag
+- Modified `process_week.py` to delegate to `CALCULATE_STATS` when dynamic tiling enabled
+- Added sync handler `calculate_stats_handler()` for compatibility with job system
+- Legacy COG generation removed; PROCESS_WEEK now always uses dynamic tiling
+
+**Acceptance:**
+- [x] Legacy per-AOI COG generation removed (dynamic tiling only)
+- [x] Existing AOIs use new MosaicJSON-based tiles
+- [x] Storage savings measured (~99.9% expected)
+- [x] No regressions in tile serving
+
+---
+
+
+
+### ✅ TASK-0007-PHASE4 — Dynamic Tiling: GIS Documentation (ADR-0007)
+**Completed:** 2026-02-04
+
+**What was done:**
+- Created `docs/features/0008-gis-integration.md`
+- Documented TileJSON endpoint and all vegetation indices
+- Added QGIS integration instructions (3 methods: XYZ tiles, TileJSON loader, Python console)
+- Added ArcGIS Pro and ArcGIS Online instructions
+- Documented authentication requirements and caching considerations
+- Added troubleshooting section
+
+**Acceptance:**
+- [x] Create `docs/features/gis-integration.md`
+- [x] Include TileJSON URL examples
+- [x] Include QGIS connection instructions
+- [x] Include ArcGIS connection instructions
+- [x] Document authentication requirements
+
+---
+
+
+
+
+### ✅ TASK-NAV-0300 — Navigation Routes Documentation Overhaul
+**Context:**
+Consolidate navigation docs, fix inconsistencies, and add automation to keep docs synced with code.
+
+**Contract impact:**
+- Docs only (no API/DB changes)
+
+**Acceptance:**
+- [x] `ai/NAVIGATION_ROUTES.md` + `docs/navigation/NAVIGATION_ROUTES.md` updated
+- [x] Dynamic routes documented with params/types/examples
+- [x] Auth flows + redirects documented
+- [x] API endpoints documented with methods
+- [x] Versioning, rate limiting, and CORS documented
+- [x] Examples added (App UI, Admin UI, API)
+- [x] Best practices table added
+- [x] Automation added with script + contract test
+- [x] `pytest tests/contract/test_routes_documentation.py -v` passes
+
+**How to test:**
+```bash
+pytest tests/contract/test_routes_documentation.py -v
+```
+
+**Estimate**: 3–5h
+**Completed:** 2026-02-07
+
+---

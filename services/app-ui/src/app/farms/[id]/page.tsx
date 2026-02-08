@@ -5,7 +5,9 @@ import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { farmAPI, aoiAPI, jobAPI, signalAPI } from '@/lib/api'
 import { useAuthProtection, useAuthRole } from '@/lib/auth'
+import { trackGoal } from '@/lib/analytics'
 import MapComponent from '@/components/MapComponent'
+import MapLayout from '@/components/MapLayout'
 import { useErrorHandler } from '@/lib/errorHandler'
 import { Farm, AOI, Signal, SplitMode } from '@/lib/types'
 import { ErrorToast } from '@/components/Toast'
@@ -21,11 +23,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useUser } from '@/stores/useUserStore'
+import OnboardingTour from '@/components/OnboardingTour'
 
 // Skeleton for farm details loading
 function FarmDetailsSkeleton() {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-16 lg:pb-0">
+            <OnboardingTour />
             {/* Header Skeleton */}
             <header className="bg-white dark:bg-gray-800 shadow dark:shadow-gray-700/50">
                 <div className="px-4 py-4 sm:px-6">
@@ -73,6 +77,7 @@ export default function FarmDetailsPage() {
     const [panelSize, setPanelSize] = useState<'normal' | 'expanded' | 'collapsed'>('normal')
     const [focusMode, setFocusMode] = useState<'map' | 'data' | 'split'>('split')
     const [panelView, setPanelView] = useState<'LIST' | 'GRID'>('LIST')
+    const [overlayDetailsOpen, setOverlayDetailsOpen] = useState(false)
 
     // Drawing State
     const [isDrawing, setIsDrawing] = useState(false)
@@ -582,6 +587,11 @@ export default function FarmDetailsPage() {
             if (createdCount === 0) {
                 alert("A área é muito pequena para gerar grade com 25ha.")
             } else {
+                trackGoal('aoi_batch_created', {
+                    farm_id: farm!.id,
+                    count: createdCount,
+                    source: 'grid',
+                })
                 await loadData(false)
                 alert(`${createdCount} talhões gerados com sucesso!`)
             }
@@ -609,6 +619,12 @@ export default function FarmDetailsPage() {
                 name: newAOI.name,
                 use_type: newAOI.use_type as any,
                 geometry: wkt
+            })
+
+            trackGoal('aoi_created', {
+                farm_id: farm.id,
+                use_type: newAOI.use_type,
+                source: 'manual',
             })
 
             setShowSaveModal(false)
@@ -693,17 +709,28 @@ export default function FarmDetailsPage() {
         setIsDrawing(true)
         setDrawingPoints([])
         setSelectedAOI(null)
-        setShowSidebar(false) // Close sidebar on mobile when starting to draw
+        setShowSidebar(false) // Close menu when starting to draw
     }
 
     // Layout Helpers
     useEffect(() => {
         if (selectedAOI) {
             setViewMode('DETAIL')
+            if (panelSize === 'collapsed' || focusMode === 'map') {
+                setOverlayDetailsOpen(true)
+            }
         } else {
             setViewMode('LIST')
+            setOverlayDetailsOpen(false)
         }
     }, [selectedAOI])
+
+    useEffect(() => {
+        if (!selectedAOI) return
+        if (panelSize === 'collapsed' || focusMode === 'map') {
+            setOverlayDetailsOpen(true)
+        }
+    }, [panelSize, focusMode, selectedAOI])
 
     const handleBackToList = () => {
         setSelectedAOI(null)
@@ -750,7 +777,11 @@ export default function FarmDetailsPage() {
             {/* Top Bar */}
             <header className="h-14 bg-card border-b border-border flex items-center justify-between px-4 shrink-0 z-20">
                 <div className="flex items-center">
-                    <Link href="/farms" className="p-2 -ml-2 mr-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-colors" title="Voltar para lista">
+                    <Link
+                        href="/farms"
+                        className="inline-flex min-h-touch min-w-touch items-center justify-center p-2 -ml-2 mr-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-full transition-colors"
+                        title="Voltar para lista"
+                    >
                         <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                         </svg>
@@ -761,20 +792,20 @@ export default function FarmDetailsPage() {
                 </div>
 
                 <div className="flex items-center gap-1">
-                    {/* Panel Collapse Toggle (Desktop) */}
                     <TooltipProvider>
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => setPanelSize(panelSize === 'collapsed' ? 'normal' : 'collapsed')}
-                                    className="hidden lg:flex h-9 w-9 p-0"
+                                    onClick={() => setShowSidebar((prev) => !prev)}
+                                    className="min-h-touch min-w-touch p-0"
+                                    aria-label={showSidebar ? 'Fechar menu' : 'Abrir menu'}
                                 >
-                                    {panelSize === 'collapsed' ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+                                    {showSidebar ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeft className="h-4 w-4" />}
                                 </Button>
                             </TooltipTrigger>
-                            <TooltipContent>{panelSize === 'collapsed' ? 'Mostrar' : 'Ocultar'} Painel</TooltipContent>
+                            <TooltipContent>{showSidebar ? 'Fechar' : 'Abrir'} menu</TooltipContent>
                         </Tooltip>
                     </TooltipProvider>
 
@@ -784,7 +815,7 @@ export default function FarmDetailsPage() {
                         size="sm"
                         onClick={() => setShowDeleteModal(true)}
                         disabled={!canDeleteFarm}
-                        className={`h-9 w-9 p-0 ${canDeleteFarm
+                        className={`min-h-touch min-w-touch p-0 ${canDeleteFarm
                                 ? 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
                                 : 'text-muted-foreground/40 cursor-not-allowed'
                             }`}
@@ -794,30 +825,26 @@ export default function FarmDetailsPage() {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
                     </Button>
-                    {/* Expand Sidebar Toggle (mobile) */}
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowSidebar(!showSidebar)}
-                        className="lg:hidden h-9 w-9 p-0"
-                    >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                        </svg>
-                    </Button>
                 </div>
             </header>
 
             {/* Main Content - Split View */}
             <div className="flex-1 flex overflow-hidden relative">
 
+                {showSidebar && (
+                    <button
+                        type="button"
+                        className="fixed inset-0 z-20 bg-black/30 backdrop-blur-sm"
+                        aria-label="Fechar menu"
+                        onClick={() => setShowSidebar(false)}
+                    />
+                )}
+
                 {/* Data Panel - Expansível */}
                 <aside
                     className={`
-                        absolute z-30 top-0 bottom-0 left-0 bg-background border-r border-border transition-all duration-300 ease-in-out
+                        fixed z-30 top-14 bottom-0 left-0 bg-background border-r border-border transition-all duration-300 ease-in-out
                         ${showSidebar ? 'translate-x-0' : '-translate-x-full'}
-                        lg:relative lg:translate-x-0
-                        ${panelSize === 'collapsed' ? 'lg:w-0 lg:overflow-hidden lg:border-0' : ''}
                         ${panelSize === 'normal' ? 'w-full sm:w-[560px] 2xl:w-[600px]' : ''}
                         ${panelSize === 'expanded' ? 'w-full sm:w-[640px] lg:w-[50vw]' : ''}
                         ${focusMode === 'data' ? 'lg:!w-[70vw]' : ''}
@@ -826,7 +853,7 @@ export default function FarmDetailsPage() {
                     `}
                 >
                     {/* Panel Controls */}
-                    <div className="hidden lg:flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
+                    <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
                         <div className="flex items-center gap-1">
                             <TooltipProvider>
                                 <Tooltip>
@@ -835,7 +862,7 @@ export default function FarmDetailsPage() {
                                             variant={focusMode === 'data' ? 'default' : 'ghost'}
                                             size="sm"
                                             onClick={() => setFocusMode(focusMode === 'data' ? 'split' : 'data')}
-                                            className="h-8 w-8 p-0"
+                                            className="min-h-touch min-w-touch p-0"
                                         >
                                             <BarChart3 className="h-4 w-4" />
                                         </Button>
@@ -848,7 +875,7 @@ export default function FarmDetailsPage() {
                                             variant={focusMode === 'map' ? 'default' : 'ghost'}
                                             size="sm"
                                             onClick={() => setFocusMode(focusMode === 'map' ? 'split' : 'map')}
-                                            className="h-8 w-8 p-0"
+                                            className="min-h-touch min-w-touch p-0"
                                         >
                                             <Map className="h-4 w-4" />
                                         </Button>
@@ -863,7 +890,7 @@ export default function FarmDetailsPage() {
                                             variant={mergeModeActive ? 'default' : 'ghost'}
                                             size="sm"
                                             onClick={toggleMergeMode}
-                                            className="h-8 w-8 p-0"
+                                            className="min-h-touch min-w-touch p-0"
                                         >
                                             <Scissors className="h-4 w-4" />
                                         </Button>
@@ -879,7 +906,7 @@ export default function FarmDetailsPage() {
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => setPanelSize(panelSize === 'expanded' ? 'normal' : 'expanded')}
-                                        className="h-8 w-8 p-0"
+                                        className="min-h-touch min-w-touch p-0"
                                     >
                                         {panelSize === 'expanded' ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                                     </Button>
@@ -1015,7 +1042,7 @@ export default function FarmDetailsPage() {
                         ) : (
                             <div className="p-8 text-center text-gray-500">
                                 <p>Nenhum talhão selecionado.</p>
-                                <button onClick={handleBackToList} className="mt-4 text-green-600 font-bold hover:underline">
+                                <button onClick={handleBackToList} className="mt-4 inline-flex min-h-touch items-center text-green-600 font-bold hover:underline">
                                     Voltar para lista
                                 </button>
                             </div>
@@ -1025,37 +1052,131 @@ export default function FarmDetailsPage() {
 
                 {/* Map Area */}
                 <main className={`flex-1 relative bg-muted w-full overflow-hidden transition-all duration-300 ${focusMode === 'data' ? 'lg:w-[30vw]' : ''}`}>
+                    <MapLayout
+                        map={
+                            <MapComponent
+                                farmId={farm.id}
+                                aois={aois}
+                                selectedAOI={selectedAOI}
+                                timezone={farm.timezone}
+                                isDrawing={isDrawing}
+                                drawingPoints={drawingPoints}
+                                setDrawingPoints={setDrawingPoints}
+                                ndviTileUrl={ndviUrl}
+                                ndwiTileUrl={ndwiUrl}
+                                ndmiTileUrl={ndmiUrl}
+                                saviTileUrl={saviUrl}
+                                anomalyTileUrl={anomalyUrl}
+                                falseColorTileUrl={falseColorUrl}
+                                trueColorTileUrl={trueColorUrl}
 
-                    {/* Panel Toggle (Desktop - when collapsed) */}
-                    {panelSize === 'collapsed' && (
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        variant="secondary"
-                                        size="sm"
-                                        onClick={() => setPanelSize('normal')}
-                                        className="hidden lg:flex absolute top-4 left-4 z-[1000] shadow-lg"
-                                    >
-                                        <PanelLeft className="h-4 w-4 mr-2" />
-                                        Dados
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Abrir Painel de Dados</TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    )}
+                                ndreTileUrl={ndreUrl}
+                                reciTileUrl={reciUrl}
+                                gndviTileUrl={gndviUrl}
+                                eviTileUrl={eviUrl}
+                                msiTileUrl={msiUrl}
+                                nbrTileUrl={nbrUrl}
+                                bsiTileUrl={bsiUrl}
+                                ariTileUrl={ariUrl}
+                                criTileUrl={criUrl}
+                                rviTileUrl={rviUrl}
+                                ratioTileUrl={ratioUrl}
+                                showAOIs={showAOIs}
+                                processingAois={processingAois}
+                                signals={signals}
+                                splitPreviewPolygons={splitPreview}
+                                splitSelectedIds={splitSelectedIds}
+                                splitEditableId={splitSelectedIds.length === 1 ? splitSelectedIds[0] : null}
+                                splitMaxAreaHa={splitMaxAreaHa}
+                                onSplitPreviewUpdate={handleSplitPreviewUpdate}
+                                onSplitPreviewSelect={handleSplitPreviewSelect}
+                                mergeModeActive={mergeModeActive}
+                                mergeSelectedIds={mergeSelectedIds}
+                                onMergeSelect={handleMergeSelect}
+                                // Pass map ref handling or use Context?
+                                // Currently MapComponent manages its own ref, but exposing it for Editing would require ref forwarding.
+                                // For MVP v1, we might rely on global window map or just context if we set it up.
+                                // But wait, the edit logic above uses `mapRef.current`.
+                                // I need to provide `onMapReady` prop to MapComponent to capture the ref in Page!
+                                onMapReady={(mapInstance: any) => {
+                                    mapRef.current = mapInstance
+                                }}
+                            />
+                        }
+                    >
 
-                    {/* Map Interaction Overlay (Mobile Toggle) */}
-                    {!showSidebar && !isDrawing && (
-                        <Button
-                            onClick={() => setShowSidebar(true)}
-                            variant="secondary"
-                            className="lg:hidden absolute top-4 left-4 z-[1000] shadow-lg"
-                        >
-                            <PanelLeft className="h-4 w-4 mr-2" />
-                            Talhões ({aois.length})
-                        </Button>
+                    {selectedAOI && (
+                        <div className="pointer-events-none absolute right-4 top-16 z-[var(--z-overlay)] flex flex-col items-end gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setOverlayDetailsOpen((prev) => !prev)}
+                                className="pointer-events-auto rounded-full border border-border/60 bg-background/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground shadow"
+                            >
+                                {overlayDetailsOpen ? 'Ocultar detalhes' : 'Ver detalhes'}
+                            </button>
+                            {overlayDetailsOpen && (
+                                <div className="pointer-events-auto w-[360px] max-w-[90vw] overflow-hidden rounded-2xl border border-border/50 bg-background/90 shadow-2xl">
+                                    <div className="flex items-center justify-between border-b border-border/50 px-4 py-2 text-sm font-semibold text-foreground">
+                                        <span>Detalhes do Talhão</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setOverlayDetailsOpen(false)
+                                                setSelectedAOI(null)
+                                            }}
+                                            className="rounded-full p-1 text-muted-foreground transition-colors hover:text-foreground"
+                                            aria-label="Fechar detalhes"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                    <div className="max-h-[60vh] overflow-y-auto p-4">
+                                        <AOIDetailsPanel
+                                            aoi={selectedAOI}
+                                            onClose={() => {
+                                                setOverlayDetailsOpen(false)
+                                                setSelectedAOI(null)
+                                            }}
+                                            onDelete={() => setShowDeleteAOIModal(true)}
+                                            onSplit={() => {
+                                                setSplitModeActive(true)
+                                                setFocusMode('map')
+                                                setIsDrawing(false)
+                                                setDrawingPoints([])
+                                            }}
+                                            onEdit={() => {
+                                                if (mapRef.current) {
+                                                    const layer = mapRef.current.getLayers().find((l: any) => l.feature?.properties?.id === selectedAOI.id);
+                                                    if (layer && (layer as any).pm) {
+                                                        (layer as any).pm.enable({ allowSelfIntersection: false });
+                                                        setEditingAOIId(selectedAOI.id);
+                                                    }
+                                                }
+                                            }}
+                                            isEditing={editingAOIId === selectedAOI.id}
+                                            onSave={() => {
+                                                if (mapRef.current) {
+                                                    const layer = mapRef.current.getLayers().find((l: any) => l.feature?.properties?.id === selectedAOI.id);
+                                                    if (layer && (layer as any).pm && (layer as any).pm.enabled()) {
+                                                        (layer as any).pm.disable();
+                                                    }
+                                                }
+                                                setEditingAOIId(null);
+                                            }}
+                                            onCancelEdit={() => {
+                                                if (mapRef.current) {
+                                                    const layer = mapRef.current.getLayers().find((l: any) => l.feature?.properties?.id === selectedAOI.id);
+                                                    if (layer && (layer as any).pm) {
+                                                        (layer as any).pm.disable();
+                                                    }
+                                                }
+                                                setEditingAOIId(null);
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     )}
 
                     {/* Split Controls */}
@@ -1111,6 +1232,8 @@ export default function FarmDetailsPage() {
                                             type="number"
                                             min={2}
                                             max={50}
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
                                             value={splitTargetCount}
                                             onChange={(e) => setSplitTargetCount(Number(e.target.value))}
                                         />
@@ -1121,6 +1244,8 @@ export default function FarmDetailsPage() {
                                             type="number"
                                             min={100}
                                             max={10000}
+                                            inputMode="numeric"
+                                            pattern="[0-9]*"
                                             value={splitMaxAreaHa}
                                             onChange={(e) => setSplitMaxAreaHa(Number(e.target.value))}
                                         />
@@ -1243,7 +1368,7 @@ export default function FarmDetailsPage() {
                             <div className="flex gap-2">
                                 <button
                                     onClick={() => setDrawingPoints([])}
-                                    className="px-4 py-2 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                                    className="min-h-touch px-4 py-2 text-sm font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                                 >
                                     Limpar
                                 </button>
@@ -1251,9 +1376,8 @@ export default function FarmDetailsPage() {
                                     onClick={() => {
                                         setIsDrawing(false)
                                         setDrawingPoints([])
-                                        setShowSidebar(true) // Re-open sidebar
                                     }}
-                                    className="px-4 py-2 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
+                                    className="min-h-touch px-4 py-2 text-sm font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors"
                                 >
                                     Cancelar
                                 </button>
@@ -1265,7 +1389,7 @@ export default function FarmDetailsPage() {
                                         }
                                         setShowSaveModal(true)
                                     }}
-                                    className="px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors"
+                                    className="min-h-touch px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-lg shadow-sm transition-colors"
                                 >
                                     Salvar
                                 </button>
@@ -1273,7 +1397,7 @@ export default function FarmDetailsPage() {
                             <button
                                 onClick={handleGenerateGrid}
                                 disabled={processingGrid}
-                                className="w-full py-2 text-xs font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg flex items-center justify-center gap-2"
+                                className="min-h-touch w-full py-2 text-xs font-bold text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg flex items-center justify-center gap-2"
                             >
                                 {processingGrid ? "Gerando..." : "🪄 Gerar Auto-Grade"}
                             </button>
@@ -1291,56 +1415,7 @@ export default function FarmDetailsPage() {
                         </div>
                     )}
 
-                    <div className="absolute inset-0 w-full h-full">
-                        <MapComponent
-                            farmId={farm.id}
-                            aois={aois}
-                            selectedAOI={selectedAOI}
-                            timezone={farm.timezone}
-                            isDrawing={isDrawing}
-                            drawingPoints={drawingPoints}
-                            setDrawingPoints={setDrawingPoints}
-                            ndviTileUrl={ndviUrl}
-                            ndwiTileUrl={ndwiUrl}
-                            ndmiTileUrl={ndmiUrl}
-                            saviTileUrl={saviUrl}
-                            anomalyTileUrl={anomalyUrl}
-                            falseColorTileUrl={falseColorUrl}
-                            trueColorTileUrl={trueColorUrl}
-
-                            ndreTileUrl={ndreUrl}
-                            reciTileUrl={reciUrl}
-                            gndviTileUrl={gndviUrl}
-                            eviTileUrl={eviUrl}
-                            msiTileUrl={msiUrl}
-                            nbrTileUrl={nbrUrl}
-                            bsiTileUrl={bsiUrl}
-                            ariTileUrl={ariUrl}
-                            criTileUrl={criUrl}
-                            rviTileUrl={rviUrl}
-                            ratioTileUrl={ratioUrl}
-                            showAOIs={showAOIs}
-                            processingAois={processingAois}
-                            signals={signals}
-                            splitPreviewPolygons={splitPreview}
-                            splitSelectedIds={splitSelectedIds}
-                            splitEditableId={splitSelectedIds.length === 1 ? splitSelectedIds[0] : null}
-                            splitMaxAreaHa={splitMaxAreaHa}
-                            onSplitPreviewUpdate={handleSplitPreviewUpdate}
-                            onSplitPreviewSelect={handleSplitPreviewSelect}
-                            mergeModeActive={mergeModeActive}
-                            mergeSelectedIds={mergeSelectedIds}
-                            onMergeSelect={handleMergeSelect}
-                            // Pass map ref handling or use Context?
-                            // Currently MapComponent manages its own ref, but exposing it for Editing would require ref forwarding.
-                            // For MVP v1, we might rely on global window map or just context if we set it up.
-                            // But wait, the edit logic above uses `mapRef.current`.
-                            // I need to provide `onMapReady` prop to MapComponent to capture the ref in Page!
-                            onMapReady={(mapInstance: any) => {
-                                mapRef.current = mapInstance
-                            }}
-                        />
-                    </div>
+                    </MapLayout>
                 </main>
             </div>
 
@@ -1356,6 +1431,7 @@ export default function FarmDetailsPage() {
                                     <input
                                         required
                                         value={newAOI.name}
+                                        autoComplete="off"
                                         onChange={e => setNewAOI({ ...newAOI, name: e.target.value })}
                                         className="w-full rounded-lg border-gray-300 p-2.5 text-sm ring-1 ring-gray-200 focus:ring-green-500"
                                         placeholder="Ex: Talhão 1"
@@ -1374,8 +1450,8 @@ export default function FarmDetailsPage() {
                                     </select>
                                 </div>
                                 <div className="flex gap-3 pt-4">
-                                    <button type="button" onClick={() => setShowSaveModal(false)} className="flex-1 py-2.5 font-bold text-gray-600 bg-gray-100 rounded-lg">Cancelar</button>
-                                    <button type="submit" className="flex-1 py-2.5 font-bold text-white bg-green-600 rounded-lg hover:bg-green-700">Salvar</button>
+                                    <button type="button" onClick={() => setShowSaveModal(false)} className="min-h-touch flex-1 py-2.5 font-bold text-gray-600 bg-gray-100 rounded-lg">Cancelar</button>
+                                    <button type="submit" className="min-h-touch flex-1 py-2.5 font-bold text-white bg-green-600 rounded-lg hover:bg-green-700">Salvar</button>
                                 </div>
                             </div>
                         </form>
@@ -1389,8 +1465,8 @@ export default function FarmDetailsPage() {
                         <h3 className="text-xl font-bold text-gray-900 mb-2">Excluir Fazenda?</h3>
                         <p className="text-gray-500 text-sm mb-6">Esta ação apagará todos os dados definitivamente.</p>
                         <div className="flex gap-3">
-                            <button onClick={() => setShowDeleteModal(false)} className="flex-1 py-2.5 font-bold text-gray-600 bg-gray-100 rounded-lg">Cancelar</button>
-                            <button onClick={handleDeleteFarm} className="flex-1 py-2.5 font-bold text-white bg-red-600 rounded-lg">Excluir</button>
+                            <button onClick={() => setShowDeleteModal(false)} className="min-h-touch flex-1 py-2.5 font-bold text-gray-600 bg-gray-100 rounded-lg">Cancelar</button>
+                            <button onClick={handleDeleteFarm} className="min-h-touch flex-1 py-2.5 font-bold text-white bg-red-600 rounded-lg">Excluir</button>
                         </div>
                     </div>
                 </div>
@@ -1402,8 +1478,8 @@ export default function FarmDetailsPage() {
                         <h3 className="text-xl font-bold text-gray-900 mb-2">Excluir Talhão?</h3>
                         <p className="text-gray-500 text-sm mb-6">Confirma a exclusão de <strong>{selectedAOI?.name}</strong>?</p>
                         <div className="flex gap-3">
-                            <button onClick={() => setShowDeleteAOIModal(false)} className="flex-1 py-2.5 font-bold text-gray-600 bg-gray-100 rounded-lg">Cancelar</button>
-                            <button onClick={handleDeleteAOI} className="flex-1 py-2.5 font-bold text-white bg-red-600 rounded-lg">Excluir</button>
+                            <button onClick={() => setShowDeleteAOIModal(false)} className="min-h-touch flex-1 py-2.5 font-bold text-gray-600 bg-gray-100 rounded-lg">Cancelar</button>
+                            <button onClick={handleDeleteAOI} className="min-h-touch flex-1 py-2.5 font-bold text-white bg-red-600 rounded-lg">Excluir</button>
                         </div>
                     </div>
                 </div>

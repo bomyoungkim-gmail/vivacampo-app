@@ -78,3 +78,4 @@ tests/.tmp/
 # Hypothesis
 .hypothesis/
 .tmp/
+.docs/

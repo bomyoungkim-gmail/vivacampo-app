@@ -6,8 +6,10 @@ import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import useUserStore from '@/stores/useUserStore'
 import { setAuthCookie } from '@/app/actions/auth'
-import { routes } from '@/lib/navigation'
+import { getLandingRoute, routes } from '@/lib/navigation'
 import { APP_CONFIG } from '@/lib/config'
+import { trackGoal } from '@/lib/analytics'
+import { getLandingPreference } from '@/lib/landingPreference'
 
 export default function SignupPage() {
     const router = useRouter()
@@ -38,7 +40,9 @@ export default function SignupPage() {
 
             useUserStore.getState().actions.login(response.data.identity, token)
             await setAuthCookie(token)
-            router.push(routes.dashboard)
+            trackGoal('Signup Completed')
+            const preference = getLandingPreference(response.data.identity?.id)
+            router.push(getLandingRoute(preference))
         } catch (err: any) {
             const apiMessage =
                 err.response?.data?.error?.message ||
@@ -52,7 +56,7 @@ export default function SignupPage() {
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-green-50 to-blue-50">
-            <div className="w-full max-w-md">
+            <main className="w-full max-w-md">
                 <div className="rounded-2xl bg-white p-8 shadow-xl">
                     <div className="mb-8 text-center">
                         <div className="mb-2 inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-blue-600">
@@ -61,7 +65,7 @@ export default function SignupPage() {
                             </svg>
                         </div>
                         <h1 className="text-3xl font-bold text-gray-900">Criar conta</h1>
-                        <p className="mt-2 text-sm text-gray-600">Comece a monitorar suas lavouras</p>
+                        <p className="mt-2 text-sm text-gray-700">Comece a monitorar suas lavouras</p>
                     </div>
 
                     <form onSubmit={handleSignup} className="space-y-6">
@@ -72,6 +76,7 @@ export default function SignupPage() {
                             <input
                                 id="fullName"
                                 type="text"
+                                autoComplete="name"
                                 required
                                 value={fullName}
                                 onChange={(e) => setFullName(e.target.value)}
@@ -87,6 +92,7 @@ export default function SignupPage() {
                             <input
                                 id="companyName"
                                 type="text"
+                                autoComplete="organization"
                                 value={companyName}
                                 onChange={(e) => setCompanyName(e.target.value)}
                                 className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-green-500 focus:outline-none focus:ring-green-500"
@@ -101,6 +107,8 @@ export default function SignupPage() {
                             <input
                                 id="email"
                                 type="email"
+                                inputMode="email"
+                                autoComplete="email"
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -116,6 +124,7 @@ export default function SignupPage() {
                             <input
                                 id="password"
                                 type="password"
+                                autoComplete="new-password"
                                 required
                                 minLength={8}
                                 value={password}
@@ -140,29 +149,29 @@ export default function SignupPage() {
                         </button>
                     </form>
 
-                    <div className="mt-6 text-xs text-gray-500">
+                    <div className="mt-6 text-xs text-gray-700">
                         Ao criar uma conta, você concorda com nossos{' '}
-                        <Link href="/terms" className="text-green-600 hover:text-green-700">
+                        <Link href="/terms" className="inline-flex min-h-touch items-center text-green-700 hover:text-green-800 underline underline-offset-2">
                             Termos de Uso
                         </Link>{' '}
                         e{' '}
-                        <Link href="/privacy" className="text-green-600 hover:text-green-700">
+                        <Link href="/privacy" className="inline-flex min-h-touch items-center text-green-700 hover:text-green-800 underline underline-offset-2">
                             Política de Privacidade
                         </Link>.
                     </div>
 
-                    <div className="mt-6 text-center text-sm text-gray-600">
+                    <div className="mt-6 text-center text-sm text-gray-700">
                         Já tem uma conta?{' '}
-                        <Link href="/login" className="font-semibold text-green-600 hover:text-green-700">
+                        <Link href="/login" className="inline-flex min-h-touch items-center font-semibold text-green-700 hover:text-green-800 underline underline-offset-2">
                             Fazer login
                         </Link>
                     </div>
                 </div>
 
-                <p className="mt-8 text-center text-sm text-gray-600">
+                <footer className="mt-8 text-center text-sm text-gray-700">
                     © 2026 VivaCampo. Todos os direitos reservados.
-                </p>
-            </div>
+                </footer>
+            </main>
         </div>
     )
 }

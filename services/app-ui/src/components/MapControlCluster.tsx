@@ -206,6 +206,8 @@ export function MapControlCluster({
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     placeholder="Buscar cidade..."
+                                    inputMode="search"
+                                    autoComplete="off"
                                     className="flex-1 px-3 py-2 text-sm outline-none text-gray-700 placeholder-gray-400"
                                 />
                                 <button type="submit" disabled={isSearching} className="p-2 text-blue-600 font-medium hover:bg-blue-50 rounded-md">
@@ -233,7 +235,7 @@ export function MapControlCluster({
                     {/* Section: Base Map */}
                     <div className="mb-4">
                         <label className="text-xs font-semibold text-gray-500 uppercase mb-2 block">Mapa Base</label>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-4 gap-2">
                             <button
                                 onClick={() => setActiveBaseLayer('satellite')}
                                 className={`px-3 py-2 rounded border text-center text-xs font-medium transition-all ${activeBaseLayer === 'satellite'
@@ -242,6 +244,15 @@ export function MapControlCluster({
                                     }`}
                             >
                                 🛰️ Satélite
+                            </button>
+                            <button
+                                onClick={() => setActiveBaseLayer('vector')}
+                                className={`px-3 py-2 rounded border text-center text-xs font-medium transition-all ${activeBaseLayer === 'vector'
+                                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                                    : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                                    }`}
+                            >
+                                🧭 Vector
                             </button>
                             <button
                                 onClick={() => setActiveBaseLayer('map')}
@@ -369,7 +380,7 @@ export function MapControlCluster({
 
                     {/* Section: Alerts & Toggles */}
                     <div className="border-t border-gray-100 pt-3 flex flex-col gap-3">
-                        <label className="flex items-center gap-3 cursor-pointer group">
+                        <label className="flex min-h-[44px] items-center gap-3 cursor-pointer group">
                             <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${showAOIs ? 'bg-indigo-500' : 'bg-gray-300'}`}>
                                 <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${showAOIs ? 'translate-x-4' : ''}`} />
                             </div>
@@ -385,7 +396,7 @@ export function MapControlCluster({
                             />
                         </label>
 
-                        <label className="flex items-center gap-3 cursor-pointer group">
+                        <label className="flex min-h-[44px] items-center gap-3 cursor-pointer group">
                             <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${showAlerts ? 'bg-red-500' : 'bg-gray-300'}`}>
                                 <div className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform ${showAlerts ? 'translate-x-4' : ''}`} />
                             </div>

@@ -1,0 +1,60 @@
+# Root Instructions for LLM Agents
+
+These instructions apply to ALL LLM tools used in this repository.
+
+## Mandatory Reading (in order)
+1) ai/UPDATE_POLICY.md
+2) ai/handoff.md
+3) ai/tasks.md
+4) ai/contracts.md
+5) ai/structure.md
+6) ai/context.md
+
+## Decision Policy (anti-stall)
+- Low-risk ambiguity: proceed with explicit assumptions and record in ai/handoff.md
+- High-risk ambiguity: STOP and ask before changing anything
+
+High-risk includes:
+- auth/security changes
+- secrets/keys handling
+- irreversible migrations
+- major refactor touching many modules
+- production deploy workflows that change infra/cost
+
+## Human-owned docs (do not overwrite)
+- ai/context.md
+- docs/CONTEXT.md
+- ai/roadmap.md
+Only propose changes via patch/diff unless explicitly instructed.
+
+## Authority Order (conflict resolution)
+1) ai/handoff.md
+2) ai/contracts.md
+3) ai/acceptance.md
+4) ai/structure.md
+5) ai/context.md
+
+## Working Rules
+- Keep PRs small (prefer <= 500 lines)
+- Every behavior change requires tests
+- If behavior changes externally, update contracts
+- Update ai/handoff.md at the end of any work
+- Documentation mechanics:
+  - Always treat docs/CHANGELOG_INTERNAL.md as append-only
+  - Never rewrite an Accepted ADR; create a new ADR to supersede
+      
+## Anti-chaos constraints
+- No renaming folders/modules without an explicit task ID.
+- No sweeping refactors without an ADR or a dedicated task.
+- No dependency changes without updating docs/CHANGELOG_INTERNAL.md.
+- No schema/migration changes without a migration plan in docs/runbooks/migrations.md.
+
+## Documentation Update Policy
+All agents MUST follow: ai/UPDATE_POLICY.md
+If any instruction conflicts, UPDATE_POLICY takes precedence for doc editing behavior.
+
++## Minimum end-of-task update (mandatory)
+- MUST update ai/handoff.md with:
+  - what changed
+  - what remains
+  - next explicit action

@@ -61,7 +61,7 @@ export default function AOIList({
                     <h2 className="font-bold text-gray-800 dark:text-gray-200 text-lg">Meus Talhões</h2>
                     <button
                         onClick={onAddAOI}
-                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors shadow-sm"
+                        className="min-h-touch bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors shadow-sm"
                     >
                         + Novo
                     </button>
@@ -75,6 +75,8 @@ export default function AOIList({
                         placeholder="Buscar por nome..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
+                        inputMode="search"
+                        autoComplete="off"
                         className="w-full pl-9 pr-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all placeholder-gray-400"
                     />
                 </div>
@@ -83,25 +85,25 @@ export default function AOIList({
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                     <button
                         onClick={() => setFilterType('ALL')}
-                        className={`px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${filterType === 'ALL' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
+                        className={`min-h-touch px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${filterType === 'ALL' ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}
                     >
                         Todos ({aois.length})
                     </button>
                     <button
                         onClick={() => setFilterType('PASTURE')}
-                        className={`px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${filterType === 'PASTURE' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
+                        className={`min-h-touch px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${filterType === 'PASTURE' ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
                     >
                         Pastagem
                     </button>
                     <button
                         onClick={() => setFilterType('CROP')}
-                        className={`px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${filterType === 'CROP' ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-700 hover:bg-orange-200'}`}
+                        className={`min-h-touch px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${filterType === 'CROP' ? 'bg-orange-500 text-white' : 'bg-orange-100 text-orange-700 hover:bg-orange-200'}`}
                     >
                         Lavoura
                     </button>
                     <button
                         onClick={() => setFilterType('TIMBER')}
-                        className={`px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${filterType === 'TIMBER' ? 'bg-[#8B4513] text-white' : 'bg-[#f4e4bc] text-[#5c2e0e] hover:bg-[#e3d0a3]'}`}
+                        className={`min-h-touch px-3 py-1 text-xs font-medium rounded-full transition-colors whitespace-nowrap ${filterType === 'TIMBER' ? 'bg-[#8B4513] text-white' : 'bg-[#f4e4bc] text-[#5c2e0e] hover:bg-[#e3d0a3]'}`}
                     >
                         Madeira
                     </button>
@@ -114,7 +116,14 @@ export default function AOIList({
                 {filteredAOIs.length === 0 ? (
                     <div className="text-center py-10 px-4">
                         <p className="text-gray-400 text-sm">Nenhum talhão encontrado.</p>
-                        {searchTerm && <button onClick={() => setSearchTerm('')} className="text-green-600 text-xs font-bold mt-2 hover:underline">Limpar busca</button>}
+                        {searchTerm && (
+                            <button
+                                onClick={() => setSearchTerm('')}
+                                className="min-h-touch inline-flex items-center text-green-600 text-xs font-bold mt-2 hover:underline"
+                            >
+                                Limpar busca
+                            </button>
+                        )}
                     </div>
                 ) : (
                     filteredAOIs.map(aoi => {
@@ -193,28 +202,30 @@ export default function AOIList({
                                 {/* Action Buttons (Hover Only) */}
                                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white dark:bg-gray-800 rounded-md shadow-sm border border-gray-200 dark:border-gray-700 p-0.5">
                                     {onEdit && (
-                                        <div
+                                        <button
+                                            type="button"
                                             onClick={(e) => {
                                                 e.stopPropagation()
                                                 onEdit(aoi)
                                             }}
-                                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                            title="Editar geometria"
+                                            className="min-h-[44px] min-w-[44px] p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                            aria-label="Editar geometria"
                                         >
                                             <Pencil size={14} />
-                                        </div>
+                                        </button>
                                     )}
                                     {onDelete && (
-                                        <div
+                                        <button
+                                            type="button"
                                             onClick={(e) => {
                                                 e.stopPropagation()
                                                 onDelete(aoi)
                                             }}
-                                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                                            title="Excluir talhão"
+                                            className="min-h-[44px] min-w-[44px] p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                            aria-label="Excluir talhão"
                                         >
                                             <Trash2 size={14} />
-                                        </div>
+                                        </button>
                                     )}
                                 </div>
                             </button>

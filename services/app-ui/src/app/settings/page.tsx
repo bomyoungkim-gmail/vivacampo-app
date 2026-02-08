@@ -7,6 +7,8 @@ import { tenantAdminAPI } from '@/lib/api'
 import { useErrorHandler } from '@/lib/errorHandler'
 import { ErrorToast } from '@/components/Toast'
 import type { InviteMemberRequest, Membership } from '@/lib/types'
+import { getLandingPreference, setLandingPreference } from '@/lib/landingPreference'
+import useUserStore from '@/stores/useUserStore'
 
 export default function SettingsPage() {
     const { isAuthenticated, isLoading: authLoading } = useAuthProtection()
@@ -23,12 +25,20 @@ export default function SettingsPage() {
     })
     const [inviteLoading, setInviteLoading] = useState(false)
     const [inviteSuccess, setInviteSuccess] = useState<string | null>(null)
+    const [landingPreference, setLandingPreferenceState] = useState<'dashboard' | 'map'>('dashboard')
 
     useEffect(() => {
         if (isAuthenticated) {
             loadMembers()
         }
     }, [isAuthenticated])
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+        const userId = useUserStore.getState().user?.id
+        if (!userId) return
+        setLandingPreferenceState(getLandingPreference(userId))
+    }, [])
 
     const loadMembers = async () => {
         setLoading(true)
@@ -103,6 +113,42 @@ export default function SettingsPage() {
                 </div>
             )}
 
+            <div className="mb-6 rounded-lg bg-white shadow">
+                <div className="border-b border-gray-200 px-4 py-3">
+                    <h3 className="text-sm font-semibold text-gray-900">Preferências</h3>
+                </div>
+                <div className="p-4 flex items-center justify-between gap-4">
+                    <div>
+                        <p className="text-sm font-semibold text-gray-900">Landing no mapa</p>
+                        <p className="text-xs text-gray-600">
+                            Ao entrar, abrir direto o mapa em vez do dashboard.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={landingPreference === 'map'}
+                        onClick={() => {
+                            const userId = useUserStore.getState().user?.id
+                            if (!userId) return
+                            const next = landingPreference === 'map' ? 'dashboard' : 'map'
+                            setLandingPreference(userId, next)
+                            setLandingPreferenceState(next)
+                        }}
+                        className={`relative inline-flex min-h-touch min-w-touch h-7 w-12 items-center rounded-full transition-colors ${
+                            landingPreference === 'map' ? 'bg-green-600' : 'bg-gray-300'
+                        }`}
+                        title={landingPreference === 'map' ? 'Abrir mapa ao entrar' : 'Abrir dashboard ao entrar'}
+                    >
+                        <span
+                            className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                                landingPreference === 'map' ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                        />
+                    </button>
+                </div>
+            </div>
+
             <div className="rounded-lg bg-white shadow">
                 <div className="border-b border-gray-200 px-4 py-3">
                     <h3 className="text-sm font-semibold text-gray-900">Membros</h3>
@@ -156,6 +202,7 @@ export default function SettingsPage() {
                                 <label className="block text-sm font-medium text-gray-700">Nome</label>
                                 <input
                                     type="text"
+                                    autoComplete="name"
                                     required
                                     value={inviteData.name}
                                     onChange={(e) => setInviteData({ ...inviteData, name: e.target.value })}
@@ -167,6 +214,8 @@ export default function SettingsPage() {
                                 <label className="block text-sm font-medium text-gray-700">Email</label>
                                 <input
                                     type="email"
+                                    inputMode="email"
+                                    autoComplete="email"
                                     required
                                     value={inviteData.email}
                                     onChange={(e) => setInviteData({ ...inviteData, email: e.target.value })}

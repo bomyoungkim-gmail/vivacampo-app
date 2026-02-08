@@ -6,8 +6,9 @@ import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import useUserStore from '@/stores/useUserStore'
 import { setAuthCookie } from '@/app/actions/auth'
-import { routes } from '@/lib/navigation'
+import { getLandingRoute, routes } from '@/lib/navigation'
 import { APP_CONFIG } from '@/lib/config'
+import { getLandingPreference } from '@/lib/landingPreference'
 
 export default function LoginPage() {
     const router = useRouter()
@@ -34,7 +35,8 @@ export default function LoginPage() {
 
             useUserStore.getState().actions.login(response.data.identity, token)
             await setAuthCookie(token)
-            router.push(routes.dashboard)
+            const preference = getLandingPreference(response.data.identity?.id)
+            router.push(getLandingRoute(preference))
         } catch (err: any) {
             const apiMessage =
                 err.response?.data?.error?.message ||
@@ -48,7 +50,7 @@ export default function LoginPage() {
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-green-50 to-blue-50">
-            <div className="w-full max-w-md">
+            <main className="w-full max-w-md">
                 <div className="rounded-2xl bg-white p-8 shadow-xl">
                     <div className="mb-8 text-center">
                         <div className="mb-2 inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-green-500 to-blue-600">
@@ -57,7 +59,7 @@ export default function LoginPage() {
                             </svg>
                         </div>
                         <h1 className="text-3xl font-bold text-gray-900">VivaCampo</h1>
-                        <p className="mt-2 text-sm text-gray-600">Monitoramento Agrícola via Satélite</p>
+                        <p className="mt-2 text-sm text-gray-700">Monitoramento Agrícola via Satélite</p>
                     </div>
 
                     <form onSubmit={handleLogin} className="space-y-6">
@@ -68,6 +70,8 @@ export default function LoginPage() {
                             <input
                                 id="email"
                                 type="email"
+                                inputMode="email"
+                                autoComplete="email"
                                 required
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
@@ -83,6 +87,7 @@ export default function LoginPage() {
                             <input
                                 id="password"
                                 type="password"
+                                autoComplete="current-password"
                                 required
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
@@ -106,20 +111,20 @@ export default function LoginPage() {
                         </button>
                     </form>
 
-                    <div className="mt-6 flex items-center justify-between text-sm text-gray-600">
-                        <Link href="/forgot-password" className="hover:text-gray-900">
+                    <div className="mt-6 flex items-center justify-between text-sm text-gray-700">
+                        <Link href="/forgot-password" className="inline-flex min-h-touch items-center hover:text-gray-900 underline underline-offset-2">
                             Esqueceu a senha?
                         </Link>
-                        <Link href="/signup" className="font-semibold text-green-600 hover:text-green-700">
+                        <Link href="/signup" className="inline-flex min-h-touch items-center font-semibold text-green-700 hover:text-green-800 underline underline-offset-2">
                             Criar conta
                         </Link>
                     </div>
                 </div>
 
-                <p className="mt-8 text-center text-sm text-gray-600">
+                <footer className="mt-8 text-center text-sm text-gray-700">
                     © 2026 VivaCampo. Todos os direitos reservados.
-                </p>
-            </div>
+                </footer>
+            </main>
         </div>
     )
 }

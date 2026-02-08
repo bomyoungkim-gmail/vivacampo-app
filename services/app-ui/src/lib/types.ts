@@ -170,6 +170,28 @@ export interface PredictionResponse {
     source: string
 }
 
+export interface AnalyticsEventRequest {
+    event_name: string
+    metadata?: Record<string, string | number | boolean>
+    phase?: 'F1' | 'F2' | 'F3'
+}
+
+export interface AdoptionEventMetric {
+    event_name: string
+    count: number
+    last_seen: string
+}
+
+export interface AdoptionPhaseMetric {
+    phase: 'F1' | 'F2' | 'F3'
+    count: number
+}
+
+export interface AdoptionMetricsResponse {
+    events: AdoptionEventMetric[]
+    phases: AdoptionPhaseMetric[]
+}
+
 // =============================================================================
 // Signal Types
 // =============================================================================
